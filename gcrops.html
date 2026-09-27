@@ -24,9 +24,10 @@
 <div id="tip" role="tooltip"></div>
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
 <script src="assets/page.js"></script>
 <script>
-const S = { topic: 'overview', sub: {}, cropTier: 'all', layGhost: true, layPipes: true, layLabels: true };
+const S = { topic: 'overview', sub: {}, cropTier: 'all', farmLv: 1, layGhost: true, layPipes: true, layLabels: true };
 Object.assign(TIER, {
   LVc: { c: 'var(--s3)', name: 'LV 기계' }, HVc: { c: 'var(--s2)', name: 'HV 기계' },
   G: { c: 'var(--s5)', name: 'gCrop 기계' }, GOAL: { c: 'var(--s8)', name: '결과물' },
@@ -70,6 +71,7 @@ const TOPICS = [
   { id: 'mutate', name: '돌연변이 · 교배' },
   { id: 'harvest', name: '수확 · 가공' },
   { id: 'plan', name: '지금 할 것' },
+  { id: 'build', name: '3D · 전력', subs: [['lab', '연구소 3D'], ['farm', '농장 3D'], ['power', '전력 · 64A']] },
 ];
 
 function viewOverview() {
@@ -213,12 +215,170 @@ function viewPlan() {
     <p class="sub" style="margin:10px 0 0">나중에: Tungstate(티어 5 · IV) · Ilmenite(5) · Pitchblende(5) · Naquadah(6 · LuV) — 각 티어 페이지의 자원 탭에서 광석 라인과 비교합니다.</p></div>`;
 }
 
-const VIEWS = { overview: viewOverview, crops: viewCrops, mutate: viewMutate, harvest: viewHarvest, plan: viewPlan };
+
+/* ---------- 3D · 전력 ----------
+   멀티블럭 크기 (StarTGCropMachines 패턴, 폭 × 높이 × 깊이):
+   gCrop Harvester 7 × 5 × 5, gCrop Mutator 5 × 6 × 5, gCrop Breeder 9 × 5 × 9, Void Mesh 9 × 5 × 1(세로 판).
+   Void Mesh: mystical_essence_harvesting 200t · VA[LV]. Mixer mystical_air_mixing: Essence 1 + Air 10,000 → Mystical Air 10,000 · 200t · VA[LV].
+   Harvester 레시피 전압 = 작물 티어 전압(VA), 시간 160t × 티어. 열매 1~4개(평균 2.5). 열매 1개당 자원 수율은 EMI 확인 → 1로 가정. */
+const FRUIT = 2.5, YIELD = 1;
+const HV_EUT = [0, 30, 120, 480, 1920, 7680];
+const FARM = [
+  { k: 'diamond', t: 1, col: '--s5' },
+  { k: 'glowstone', t: 1, col: '--s4' },
+  { k: 'sulfur', t: 1, col: '--s2' },
+  { k: 'rare_earth', t: 3, col: '--s7' },
+];
+const FARM_H = { diamond: [700, 1400, 2800], glowstone: [200, 400, 800], sulfur: [300, 600, 1200], rare_earth: [60, 120, 240] };
+const farmRows = () => FARM.map(c => {
+  const perH = FARM_H[c.k][S.farmLv], harv = perH / (FRUIT * YIELD), u = harv * 160 * c.t / 72000;
+  return { ...c, perH, harv, u, n: Math.max(1, Math.ceil(u / 0.85)) };
+});
+const SLOTS = [];
+[0, 5, 10].forEach(y => [0, 5, 10].forEach(z => [0, 8].forEach(x => SLOTS.push({ x, y, z }))));
+const farmLabel = (r, k) => `${nice(r.k)} ${k + 1}`;
+
+function layCard(aria, legend, cables) {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `<div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="ghost" ${pressed('layGhost')}>빈 자리</button><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="${aria}" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${legend.map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${cables}</div>
+  </div>`;
+}
+function viewLab() {
+  return `
+  <h2>3D · 전력</h2>${subnav()}
+  <p class="lead"><b>지금(HV) 짓는 gCrop 연구소</b>입니다. 단일 블록 Mutator · Breeder · Harvester를 티어별로 한 대씩 두고, 북쪽에 <b>Void Mesh</b>(9 × 5 세로 판) → Mixer로 Mystical Air를 만듭니다. Mesh 한 대가 10초에 Essence 1개 = Mystical Air 10B라서 Mutator 수십 대분 — 한 대면 충분합니다.</p>
+  ${layCard('gCrop 연구소 3D 배치도', [['--s3', 'LV'], ['--s1', 'MV'], ['--s2', 'HV'], ['--muted', '돌연변이원 · 탱크'], ['--good', '씨앗 · ME']], pwLegend(LABM(), 3))}
+  <div class="grid2">
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li><b>북쪽: Void Mesh 줄.</b> 세로 판이라 청크 가장자리 벽처럼 세우고 옆에 Gas Collector(공기) · Mixer.</li>
+      <li><b>가운데: 티어별 Mutator</b> — 돌연변이원 dust는 바로 앞 칸, 유체(Arsenic · Fluorine)는 뒤 탱크. 레시피는 400t · <b>V[티어]</b>(VA가 아닌 풀 전압)라 그 티어 기계가 꼭 필요합니다.</li>
+      <li><b>남쪽: Breeder · 시험 Harvester · 가공(Extractor → Centrifuge).</b> 원하는 형질이 나오면 Breeder로 불려 농장(다음 탭)으로.</li>
+      <li>씨앗은 게놈이 NBT라 ME로 이름 · 형질을 보며 관리합니다.</li>
+    </ul></div>
+    <div class="card"><h3>지금 할 순서</h3><ol class="steps">
+      <li>Void Mesh(Steel 판 · String Mesh · MV 회로) + LV Gas Collector + Mixer.</li>
+      <li>LV Mutator + Ender Pearl dust → <b>Crystalline</b>. Vibrant는 티어 0이라 돌연변이원 없이.</li>
+      <li>MV · HV Mutator(Thorium/Arsenic · Caesium/Fluorine)로 좋은 Production 형질(Quickened · Speedy · Fast).</li>
+      <li>HV Harvester로 Diamond 수율을 확인해 농장 탭의 가정(열매 1 = 자원 1)을 실제 값으로.</li>
+    </ol></div>
+  </div>`;
+}
+function viewFarm() {
+  const rows = farmRows(), used = rows.reduce((a, r) => a + r.n, 0);
+  const lvBtn = (i, t) => `<button data-flv="${i}" aria-pressed="${S.farmLv === i}">${t}</button>`;
+  return `
+  <h2>3D · 전력</h2>${subnav()}
+  <p class="lead"><b>멀티블럭 gCrop Harvester 농장</b>(EV 단일 블록 + IV 회로로 만드는 단계)입니다. Harvester가 7 × 5 × 5라 한 청크 바닥에 2 × 3 = 6대, <b>5칸씩 3층으로 쌓아 18대</b>까지 들어갑니다. 윗면(가운데 5칸)과 바닥(7칸 전체)의 모양이 달라 층끼리 벽을 공유하지 않는 것으로 잡았습니다 ${EMI}.</p>
+  <div class="seg" id="flv" role="group" aria-label="생산 목표" style="margin-bottom:12px">${lvBtn(0, '목표 작게')}${lvBtn(1, '보통')}${lvBtn(2, '크게')}</div>
+  <div class="card"><h3>작물별 대수 (목표 · 시간당)</h3><div class="tscroll"><table>
+    <thead><tr><th>작물</th><th class="n">티어</th><th class="n">목표 / h</th><th class="n">수확 / h</th><th class="n">기계-시간</th><th class="n">Harvester</th><th>레시피</th></tr></thead>
+    <tbody>${rows.map(r => `<tr><td><span class="chip"><i style="background:var(${r.col})"></i></span> <b>${nice(r.k)}</b></td><td class="n">${r.t}</td><td class="n">${fmt(r.perH, 0)}</td><td class="n">${fmt(r.harv, 0)}</td><td class="n">${fmt(r.u, 2)}</td><td class="n"><b>${r.n}</b></td><td>${TN[TV[r.t]]} ${fmt(HV_EUT[r.t], 0)} EU/t · ${160 * r.t}t</td></tr>`).join('')}
+      <tr><td><b>합계</b></td><td></td><td></td><td></td><td></td><td class="n"><b>${used} / 18</b></td><td></td></tr></tbody></table></div>
+    <p class="sub" style="margin:8px 0 0">열매 평균 ${FRUIT}개 · 열매 1개 = 자원 ${YIELD}개로 가정(${EMI}). Production 형질(Quickened · Speedy · Fast = 시간 ×0.73, Sprawling 열매 ×8)이 붙으면 대수가 그만큼 줄어듭니다.</p></div>
+  ${layCard('gCrop 농장 3D 배치도', FARM.map(c => [c.col, nice(c.k)]).concat([['--muted', '세로 통로']]), pwLegend(FARMM(), 5))}
+  <div class="grid2">
+    <div class="card"><h3>적절 전압</h3><ul class="pts">
+      <li>Harvester 레시피는 <b>작물 티어 전압</b>(티어 1 = LV 30 EU/t, 티어 3 = HV 480)이라 전력은 거의 들지 않습니다. 해치 2개 멀티블럭이라 한 단계 아래 해치 2개로도 됩니다.</li>
+      <li>대수를 줄이고 싶으면 OC — IV 해치 2개(LuV)면 LV 레시피를 5단계 OC(32배 빠름 · 작업당 에너지 ×32). 칸이 모자랄 때만 (전력 탭의 "1대로 줄이면").</li>
+      <li><b>Climate Hatch</b>(LuV)는 층마다 한 종류 — Climate 형질이 같은 작물을 같은 층에 몰아 넣습니다.</li>
+    </ul></div>
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li>x = 7 한 줄은 <b>세로 통로</b>: ME · 전선 · 비료 유체가 여기로 올라갑니다. 해치 · 버스는 통로 쪽 면에.</li>
+      <li>Breeder(9 × 5 × 9) · Mutator(5 × 6 × 5) 멀티블럭은 연구소 청크로 — 한 대씩이면 충분합니다.</li>
+      <li>열매 가공은 옆 청크(티어 1: Extractor → Centrifuge, 부산물 Chemical Reactor).</li>
+    </ul></div>
+  </div>`;
+}
+function viewGPower() {
+  return `
+  <h2>3D · 전력</h2>${subnav()}
+  <h3 style="margin:8px 0">연구소 · HV 64A</h3>
+  ${pwCard(LABM(), 3, '<li>Mutator 레시피는 V[티어](풀 전압)라 LV Mutator 32 EU/t, HV 512 EU/t. 연구소 가동률은 가정값입니다.</li>')}
+  <h3 style="margin:18px 0 8px">농장 · IV 64A</h3>
+  ${pwCard(FARMM(), 5, '<li>농장은 IV 64A 중 극히 일부만 씁니다 — 한계는 전력이 아니라 비료 · 유체 공급입니다.</li>')}`;
+}
+const LABM = () => [
+  { name: 'Void Mesh', eut: 30, u: 0.3, n: 1, labels: ['Void Mesh'] },
+  { name: 'Gas Collector (공기)', eut: 16, u: 0.3, n: 1, labels: ['Gas Col'] },
+  { name: 'Mixer (Mystical Air)', eut: 30, u: 0.05, n: 1, labels: ['Mix-Air'] },
+  { name: 'Mutator LV', eut: 32, u: 0.6, n: 1, labels: ['Mut-LV'] },
+  { name: 'Mutator MV', eut: 128, u: 0.6, n: 1, labels: ['Mut-MV'] },
+  { name: 'Mutator HV', eut: 512, u: 0.6, n: 1, labels: ['Mut-HV'] },
+  { name: 'Breeder (전압 EMI 확인)', eut: 120, u: 0.4, n: 2, labels: ['Br-1', 'Br-2'] },
+  { name: 'Harvester LV', eut: 30, u: 0.8, n: 1, labels: ['Hv-LV'] },
+  { name: 'Harvester MV', eut: 120, u: 0.5, n: 1, labels: ['Hv-MV'] },
+  { name: 'Harvester HV', eut: 480, u: 0.5, n: 1, labels: ['Hv-HV'] },
+  { name: 'Extractor (열매 가공)', eut: 30, u: 0.3, n: 1, labels: ['Extr'] },
+  { name: 'Centrifuge (extract)', eut: 30, u: 0.3, n: 1, labels: ['Cent'] },
+];
+const FARMM = () => farmRows().map(r => {
+  const labels = [];
+  for (let k = 0; k < r.n; k++) labels.push(farmLabel(r, k));
+  return { name: `Harvester · ${nice(r.k)}`, eut: HV_EUT[r.t], u: r.u, n: r.n, hatch2: true, labels };
+});
+const PIPE = { me: { c: '--s7', n: 'ME · 유체', w: 0.09 }, beam: { c: '--s8', n: 'LaserIO', w: 0.05 } };
+Object.assign(PIPE, PW_PIPES);
+function buildLab() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, z, col, label, tip) => box({ x, y: 0, z, w: 1, h: 1, d: 1, col, label, tip });
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  box({ x: 1, y: 0, z: 1, w: 9, h: 5, d: 1, col: '--s3', label: 'Void Mesh', tip: 'Void Mesh · 9 × 5 × 1 세로 판|mystical_essence_harvesting · 200t · LV' });
+  unit(11, 1, '--s3', 'Gas Col', 'LV Gas Collector|공기 (Mixer용)');
+  unit(12, 1, '--s3', 'Mix-Air', 'LV Mixer · mystical_air_mixing|Essence 1 + Air 10,000 → Mystical Air 10,000');
+  unit(13, 1, '--muted', 'M-Air', 'Super Tank · Mystical Air|Mutator 특수 변이');
+  [['Mut-LV', '--s3', 'Ender Pearl', 2], ['Mut-MV', '--s1', 'Thorium', 5], ['Mut-HV', '--s2', 'Caesium', 8]].forEach(([l, c, d, x]) => {
+    unit(x, 4, c, l, `${l.slice(4)} gCrop Mutator|400t · V[${l.slice(4)}] · 돌연변이원 ${d}`);
+    unit(x, 6, '--muted', d.slice(0, 5), `${d} dust|돌연변이원 (아이템)`);
+  });
+  unit(5, 7, '--muted', 'Arsenic', 'Super Tank · Arsenic|티어 2 유체 돌연변이원');
+  unit(8, 7, '--muted', 'Fluorine', 'Super Tank · Fluorine|티어 3 유체 돌연변이원');
+  unit(11, 4, '--good', 'Seeds', 'ME Drive · 씨앗|게놈 NBT로 관리');
+  unit(12, 4, '--good', 'ME', 'ME Controller|');
+  unit(2, 10, '--s1', 'Br-1', 'gCrop Breeder|교배 · 자가수분');
+  unit(4, 10, '--s2', 'Br-2', 'gCrop Breeder|교배 · 자가수분');
+  [['Hv-LV', '--s3', 2], ['Hv-MV', '--s1', 4], ['Hv-HV', '--s2', 6]].forEach(([l, c, x]) => unit(x, 13, c, l, `${l.slice(3)} gCrop Harvester|시험 수확 — 열매 수 · 형질 확인`));
+  unit(8, 13, '--muted', 'Fert', 'Super Tank · 비료 유체|NPK Solution 등 (EMI 확인)');
+  unit(11, 13, '--s3', 'Extr', 'Extractor|열매 → extract 4000mB (티어 1 라인)');
+  unit(12, 13, '--s3', 'Cent', 'Centrifuge|extract → 자원 + Poor Mineral-Rich Bio Waste');
+  unit(14, 15, '--s2', 'HV Tr', '전원|HV 64A 배정 · 트랜스포머');
+  const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
+  [[[12, 1], [13, 1]], [[13, 1], [8, 4]], [[5, 7], [5, 4]], [[8, 7], [8, 4]], [[11, 4], [2, 10]], [[4, 10], [6, 13]], [[6, 13], [11, 13]], [[8, 13], [2, 13]]]
+    .forEach(([a, b]) => pipes.push({ type: 'me', pts: [c(...a), c(...b)] }));
+  return { boxes, pipes };
+}
+function buildFarm() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  const list = [];
+  farmRows().forEach(r => { for (let k = 0; k < r.n; k++) list.push({ r, k }); });
+  SLOTS.forEach((s, i) => {
+    const it = list[i];
+    if (it) box({ x: s.x, y: s.y, z: s.z, w: 7, h: 5, d: 5, col: it.r.col, label: farmLabel(it.r, it.k), tip: `gCrop Harvester · ${nice(it.r.k)}|7 × 5 × 5 · ${s.y / 5 + 1}층 · 작물 티어 ${it.r.t}` });
+    else box({ x: s.x, y: s.y, z: s.z, w: 7, h: 5, d: 5, ghost: true, tip: `빈 자리|${s.y / 5 + 1}층` });
+  });
+  box({ x: 7, y: 0, z: 0, w: 1, h: 15, d: 1, col: '--muted', label: '통로', tip: '세로 통로|ME · 전선 · 비료 유체' });
+  box({ x: 15, y: 0, z: 15, w: 1, h: 1, d: 1, col: '--s7', label: 'IV Tr', tip: '전원|IV 64A 배정' });
+  [0, 5, 10].forEach(y => pipes.push({ type: 'me', pts: [[7.5, y + 2.5, 0.5], [7.5, y + 2.5, 14.5]] }));
+  pipes.push({ type: 'me', pts: [[7.5, 0.5, 0.5], [7.5, 14.5, 0.5]] });
+  return { boxes, pipes };
+}
+
+const VIEWS = { overview: viewOverview, crops: viewCrops, mutate: viewMutate, harvest: viewHarvest, plan: viewPlan, build: { lab: viewLab, farm: viewFarm, power: viewGPower } };
 startPage({
   key: 'gcrops-web',
-  save: () => ({ cropTier: S.cropTier }),
-  load: o => { if (typeof o.cropTier === 'string') S.cropTier = o.cropTier; },
+  save: () => ({ cropTier: S.cropTier, farmLv: S.farmLv }),
+  load: o => { if (typeof o.cropTier === 'string') S.cropTier = o.cropTier; if ([0, 1, 2].includes(o.farmLv)) S.farmLv = o.farmLv; },
+  layouts: [[viewLab, () => pwWire(buildLab(), LABM(), 3, 'HV Tr')], [viewFarm, () => pwWire(buildFarm(), FARMM(), 5, 'IV Tr')]],
   mainClick: e => {
+    const f = e.target.closest('#flv button'); if (f) { S.farmLv = +f.dataset.flv; render(); return true; }
     const b = e.target.closest('#ctf button'); if (!b) return false;
     S.cropTier = b.dataset.ct; render(); return true;
   },
