@@ -16,6 +16,13 @@
     { id: 'ZPM', href: 'zpm.html', name: 'Zero Point Module', color: '#1f9e8f' },
     { id: 'UV', href: 'uv.html', name: 'Ultimate Voltage', color: '#6a5acd' },
   ];
+  // UHV 이상: 접을 수 있는 그룹. 이 페이지들에 있거나 펼쳐 둔 적이 있으면 펼친 상태로 시작.
+  const LATE = [
+    { id: 'UHV', href: 'uhv.html', name: 'Highly Ultimate · Abydos', color: '#b8860b' },
+    { id: 'UEV', href: 'uev.html', name: 'Extremely Ultimate · Nether', color: '#c0392b' },
+    { id: 'UIV', href: 'uiv.html', name: 'Insanely Ultimate · End', color: '#7d3cbd' },
+    { id: 'UXV', href: 'uxv.html', name: 'Extremely Extreme · Rift', color: '#1d8fb5' },
+  ];
 
   const root = document.documentElement;
   const read = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -70,6 +77,9 @@
         <span class="lbl"><span class="row">${esc(t.id)}</span><small>${esc(t.name)}</small></span>
       </a>`;
     const common = COMMON.map(link).join('');
+    const late = LATE.map(link).join('');
+    const inLate = LATE.some(t => t.id === current);
+    const lateOpen = inLate || read('st-late') === '1';
     const items = TIERS.map(t => `
       <a href="${t.href}" class="${t.soon ? 'soon' : ''}" ${t.id === current ? 'aria-current="page"' : ''} title="${esc(t.id + ' · ' + t.name)}">
         <span class="tier" style="--tc:${t.color}">${esc(t.id)}</span>
@@ -81,10 +91,14 @@
     side.setAttribute('aria-label', '전력 티어');
     side.innerHTML = `
       <div class="brand"><b>Star Technology</b><span>Theta 2 · 자동화 라인 정리</span><div class="mark" aria-hidden="true">ST</div></div>
-      <div class="group">공용</div>
-      <nav>${common}</nav>
-      <div class="group">전력 티어</div>
-      <nav>${items}</nav>
+      <div class="navs">
+        <div class="group">공용</div>
+        <nav>${common}</nav>
+        <div class="group">전력 티어</div>
+        <nav>${items}</nav>
+        <button type="button" class="group fold" aria-expanded="${lateOpen}" aria-controls="late-nav"><span class="caret" aria-hidden="true">▸</span>UHV 이상</button>
+        <nav id="late-nav"${lateOpen ? '' : ' hidden'}>${late}</nav>
+      </div>
       <div class="foot">
         <button type="button" class="theme"><span class="ico" aria-hidden="true"></span><span class="txt"></span></button>
         <button type="button" class="collapse"><span class="ico" aria-hidden="true"></span><span class="txt">사이드바 접기</span></button>
@@ -99,6 +113,13 @@
     document.body.prepend(side, scrim, open);
     side.querySelector('.theme').addEventListener('click', toggleTheme);
     side.querySelector('.collapse').addEventListener('click', toggleCollapse);
+    const fold = side.querySelector('.fold');
+    fold.addEventListener('click', () => {
+      const openNow = fold.getAttribute('aria-expanded') !== 'true';
+      fold.setAttribute('aria-expanded', openNow);
+      side.querySelector('#late-nav').hidden = !openNow;
+      write('st-late', openNow ? '1' : '0');
+    });
     open.addEventListener('click', () => setOpen(true));
     scrim.addEventListener('click', () => setOpen(false));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });

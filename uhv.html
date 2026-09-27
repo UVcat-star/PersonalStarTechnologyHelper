@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UHV 검토</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="UHV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · UHV 검토</h1>
+        <div class="meta">Theta 2 · 2026-09-27 · UHV = 2,097,152V(1,966,080 EU/t) · 무대: Abydos → Nether 준비</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
+<script src="assets/page.js"></script>
+<script src="assets/late.js"></script>
+<script>
+const S = { topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+
+/* 수치 출처: 팩 KubeJS — abydos_lines/akreyrium.js, abydos_multis.js, fusion_scaling.js(americium_plasma 반사판 4 ·
+   Pu-238 144 + H 3500 → 144 · 98,304 EU/t · 15.6초 · 760M), plasma_turbines.js(americium 1mB = 984t × 2,048),
+   circuits.js(runic_processor_* · wetware_processor_mainframe), coils.js(zalloy 1,966,080), objects/blocks/coils.js(Zalloy 13,499K).
+   Akreyrium 목표: Utopian Akreyrium 5B/시간 = 안정화 10회(500mB씩). Quantising 비율 1:1은 EMI 확인. */
+const UTOP = 5000, STAB = UTOP / 500, AM_NET = 144 * 984 * 2048 / 312 - 98304;
+
+lateStart({
+  key: 'uhv-web', T: 9,
+  lead: '"UHV"는 <b>2,097,152V(1,966,080 EU/t) 레시피까지</b>입니다. GTCEu 기본 레시피는 거의 없고, 팩이 UHV를 <b>Abydos</b>(UV 페이지에서 간 차원)의 라인과 Stargate 두 번째 문(<b>Ancient Stargate → Nether</b>) 준비에 걸어 두었습니다. 핵심은 <b>Akreyrium</b>(Abydos 유체 광맥) → <b>Utopian Akreyrium</b>, <b>UEV 회로(Runic Mainframe)</b>, <b>Americium 플라즈마(MK4)</b>입니다.',
+  tiles: [
+    ['UHV 회로', 'Runic', 'Computer', 'Assembly Line 240,000 (UV 전압) · 또는 Wetware Mainframe'],
+    ['UEV 회로', 'Runic', 'Mainframe', 'Assembly Line 600,000 · UHV Fusion 컨트롤러에 4개'],
+    ['이 단계의 코일', 'Zalloy', '13,499K', 'UHV Assembler · UHV 해치 2 = 14,299K'],
+    ['Americium 플라즈마', fmt(AM_NET / 1000, 0) + 'k', 'EU/t', 'UHV Fusion(MK4) 1대 · 반사판 4'],
+  ],
+  roadmap: {
+    stages: [
+      ['H0', 'UV에서 가져올 것', 'UV', 'Abydos 접근 · Zirconium · Tritanium · Americium · Wetware · 연구 96 CWU', '—'],
+      ['H1', 'UHV 해치 · 기계', 'UV', 'UHV 해치(Assembly Line) · Chemical Plant · Injection Mixer · Mega Blast Furnace', '1'],
+      ['H2', 'Akreyrium (패시브)', 'UHV', 'Abydos Gritty Akreyrium 광맥 → Cyclonic Sifter → Injection Mixer → Folding Stabiliser → Utopian', '3 · 4'],
+      ['H3', 'Runic 회로', 'UHV', 'Runic Processor(ZPM) · Assembly(UV) · Computer(UHV) · Mainframe(UEV)', '2'],
+      ['H4', 'UHV Fusion(MK4)', 'UHV', 'UEV 회로 4 · Gravi Star · Zircalloy-4 · UEPIC 96 → Americium 플라즈마', '3'],
+      ['H5', 'Ancient Stargate', 'UHV', 'ASG 부품 · Runic 케이싱 · Stargate Rod → Nether (A Portal of Lost Worlds)', '5'],
+    ],
+    flow: {
+      label: 'UHV 로드맵', h: 330,
+      nodes: [
+        { id: 'h0', x: 20, y: 30, w: 170, t: 'H0 UV에서', s: 'Abydos · Zr · Am', k: 'UV' },
+        { id: 'h1', x: 230, y: 30, w: 170, t: 'H1 해치 · 기계', s: 'Chemical Plant …', k: 'UV' },
+        { id: 'h2', x: 440, y: 30, w: 170, t: 'H2 Akreyrium', s: 'Utopian Akreyrium', k: 'UHV' },
+        { id: 'h3', x: 650, y: 30, w: 170, t: 'H3 Runic 회로', s: 'UHV · UEV 회로', k: 'UHV' },
+        { id: 'h4', x: 650, y: 170, w: 170, t: 'H4 Fusion MK4', s: 'Americium 플라즈마', k: 'UHV' },
+        { id: 'h5', x: 440, y: 170, w: 170, t: 'H5 Ancient Stargate', s: 'Nether로', k: 'UHV' },
+        { id: 'uev', x: 230, y: 176, w: 120, h: 44, t: 'UEV', k: 'GOAL' },
+      ],
+      edges: [{ a: 'h0', b: 'h1' }, { a: 'h1', b: 'h2' }, { a: 'h2', b: 'h3', l: 'Runic 케이싱' }, { a: 'h3', b: 'h4', fs: 'b', ts: 't', l: 'UEV 회로 4' }, { a: 'h4', b: 'h5' }, { a: 'h5', b: 'uev' }],
+    },
+  },
+  opens: [
+    '<b>기계</b>(팩 Assembly Line): <code>chemical_plant</code>(VHA[UHV] · 연구 64 CWU) · <code>advanced_synthesis_plant</code> · <code>bacteria_synthesizer</code> · <code>compact_assembly_line</code>(Assembly Line 4대 합체) · <code>mega_blast_furnace</code> · <code>injection_mixer</code> · <code>folding_akreyrium_stabiliser</code> · <code>genome_operator</code>(gCrops) · <code>supreme_plasma_turbine</code>.',
+    '<b>회로</b>: 팩 Runic 계열(Abydos 유적 부품) — Computer가 UHV, Mainframe이 UEV 회로. Wetware Mainframe(UV 페이지)도 UHV 회로.',
+    '<b>라인</b>: Akreyrium(lepton · tau · muon · electron 촉매), Naquadite · Zapolgium · SiC(Abydos), Draconic 준비(Stellar RAM · Draconic QMD).',
+    '<b>코일</b>: 팩 Zalloy(Neutronium Frame · Zalloy 2x wire 8 · Zirconium foil 8 · RTAN fine 32 · Neutronium SiC foil 16 · Tritanium 144).',
+  ],
+  order: [
+    '<b>Chemical Plant가 먼저</b> — HV 페이지부터 미뤄 온 Persulfate · Naquadah · Tungstate 스킵이 여기서 열립니다(팩 <code>chemical_plant.js</code>). 컨트롤러 유체에 PBI 4,000 · Gritty Akreyrium 280,000.',
+    'Abydos에서 <b>Gritty Akreyrium 광맥</b>(Fluid Drilling Rig, 가중치 19 · 360~640)을 잡고 Akreyrium 라인을 돌립니다 — Utopian Akreyrium이 Injection Mixer · Runic 케이싱 · 이후 Preon 플라즈마의 원료.',
+    'UEV 회로(Runic Mainframe)가 나오면 <b>UHV Fusion</b> → Americium 플라즈마로 발전을 한 단계 올립니다(Argon의 약 2.7배).',
+  ],
+  entry: {
+    lead: 'UHV 해치는 GTCEu Assembly Line(1,966,080 · 1000t): UHV Hull · Europium 케이블 4 · UHPIC 2 · UHV 회로 · RTAN 2x wire 2 · NaK 12,000 · Solder 5,760(팩 변경 여부 EMI 확인). UV 해치 2개 Assembly Line이면 UHV 전압이 나옵니다.',
+    cards: [
+      { h: 'UHV 기계 (팩)', table: { head: ['기계', '재료 요지', '여는 것'], rows: [
+        ['Chemical Plant', 'ZPM Hull · ZPM Motor 4 · UV 회로 4 · Naquadria 288', '스킵 레시피 (Persulfate · Naquadah · Tungstate …)'],
+        ['Injection Mixer', 'UHV Hull · UHV 회로 24 · UEPIC 64 · Utopian Akreyrium 1,250', 'Akreyrium · 촉매 · 이후 UEV 재료'],
+        ['Compact Assembly Line', 'Assembly Line 4 · UHV 회로 8 · UHPIC 96 · ITLC Solder 14,688', 'Assembly Line 병렬'],
+        ['Mega Blast Furnace', 'Tungsten Carbide Frame · UHV 회로 2 · Naquadah Alloy dense plate 4', '대형 EBF (병렬)'],
+        ['Folding Akreyrium Stabiliser', 'UHV Hull · UHV 회로 12 · UEPIC 48 · 렌즈 3종', 'Utopian Akreyrium'],
+      ] } },
+      { h: '연구 · 부품', li: [
+        '<b>UEPIC</b>(팩): UHV 이후 칩 — 기계마다 48~128개. 퀘스트 <code>UEPIC Chips</code>(Abydos 챕터).',
+        '<b>Data DNA Disk</b>(Circuit Assembler 2,097,152): Living SMD · Genome 연구 저장.',
+        'HPCA <b>Nanofluidic Heat Sink</b>(UV Assembly Line) — UHV 이후 연구 CWU 128 이상.',
+      ] },
+    ],
+  },
+  circuit: {
+    lead: '팩은 UHV 이후 회로를 <b>Runic → Draconic → Abyssal</b> 세 계열로 나눴습니다(<code>utils/tags.js</code>). UHV에서 쓰는 것은 Runic(Abydos 유적 부품)입니다. Draconic은 UIV의 Draco Circuit Assembler가 있어야 합니다.',
+    rows: [
+      { n: 'Runic Processor', t: 'ZPM', id: 'runic_processor', eut: 120000, dur: 200, out: 3, where: 'Circuit Assembler · 클린룸', in: 'Runic Convergence Processing Unit · Crystal SoC · Advanced SoC · Living SMD Capacitor 8 · Transistor 8 · Europium fine 8' },
+      { n: 'Runic Assembly', t: 'UV', id: 'runic_processor_assembly', eut: 240000, out: 2, where: 'Assembly Line · 연구', in: 'Runic Processor 등 (EMI 확인)' },
+      { n: 'Runic Computer', t: 'UHV', id: 'runic_processor_computer', eut: 240000, out: 1, where: 'Assembly Line · 연구', in: 'UV 전압으로 UHV 회로' },
+      { n: 'Wetware Mainframe', t: 'UHV', id: 'wetware_processor_mainframe', eut: 300000, dur: 1400, out: 1, where: 'Assembly Line · 96 CWU', in: 'UV 페이지 2 탭' },
+      { n: 'Runic Mainframe', t: 'UEV', id: 'runic_processor_mainframe', eut: 600000, dur: 1800, out: 1, where: 'Assembly Line · 연구', in: 'UHV Fusion 컨트롤러 4개' },
+    ],
+    cards: [
+      { h: 'Runic 부품', li: [
+        '<b>Runic Convergence Processing Unit</b>: UV Circuit Assembler 491,520 (팩 <code>runic_convergence.js</code> · Primordial Nitrosilicate).',
+        '<b>Runic Circuit Board</b>(ZPM 122,880) · 퀘스트 Runic Processor ~ Mainframe(Adventures in Abydos).',
+        'Living SMD(ZPM) · Europium fine wire.',
+      ] },
+      { h: '계열 비교 (팩 tags)', table: { head: ['계열', 'ZPM', 'UV', 'UHV', 'UEV', 'UIV', 'UXV'], rows: [
+        ['Runic', 'Processor', 'Assembly', 'Computer', 'Mainframe', '—', '—'],
+        ['Draconic', 'Microchip', 'Processor', 'Assembly', 'Computer', 'Mainframe', '—'],
+        ['Abyssal', '—', '—', 'Processor', 'Assembly', 'Computer', 'Mainframe'],
+      ] } },
+    ],
+  },
+  resource: {
+    lead: 'Abydos에서 UHV에 쓰는 자원: <b>Gritty Akreyrium</b>(유체 광맥) → Akreyrium 계열, <b>Naquadite Dense Magma</b>(광맥) → Naquadah, Titanite → Zirconium(UV 페이지). 발전은 <b>Americium 플라즈마</b>(원료 Pu-238은 Nuclear Fission 챕터).',
+    flow: {
+      label: 'UHV 자원', h: 320,
+      nodes: [
+        { id: 'gv', x: 20, y: 30, w: 180, t: 'Gritty Akreyrium 광맥', s: 'Abydos · Fluid Drilling Rig', k: 'src' },
+        { id: 'ak', x: 240, y: 30, w: 170, t: 'Akreyrium 라인', s: '4 탭', k: 'UHV' },
+        { id: 'ut', x: 450, y: 30, w: 170, t: 'Utopian Akreyrium', s: 'Injection Mixer · Runic 케이싱', k: 'GOAL' },
+        { id: 'pu', x: 20, y: 180, w: 180, t: 'Pu-238', s: 'Nuclear Fission (EMI 확인)', k: 'src' },
+        { id: 'f4', x: 240, y: 180, w: 170, t: 'UHV Fusion (MK4)', s: '98,304 EU/t · 15.6초 · 760M', k: 'UHV' },
+        { id: 'am', x: 450, y: 180, w: 170, t: 'Americium 플라즈마 144', s: '1mB = 984t × 2,048', k: 'UHV' },
+        { id: 'st', x: 660, y: 180, w: 190, t: `Supreme Plasma Turbine`, s: `순 ~${fmt(AM_NET / 1000, 0)}k EU/t / 융합로`, k: 'GOAL' },
+      ],
+      edges: [{ a: 'gv', b: 'ak' }, { a: 'ak', b: 'ut' }, { a: 'pu', b: 'f4', l: '+ H 3500' }, { a: 'f4', b: 'am' }, { a: 'am', b: 'st' }],
+    },
+    cards: [
+      { h: '발전: Americium 플라즈마', li: [
+        `팩 <code>americium_plasma</code>: 반사판 4(Reinforced — Zirconium Selenide Diiodide · Tritanium) · 시동 760M → <b>MK4(UHV Fusion)</b>.`,
+        `1회 144mB × 984t × 2,048 EU/t ÷ 312t = ${fmt(AM_NET + 98304, 0)} EU/t − 98,304 = <b>${fmt(AM_NET, 0)} EU/t</b> (UHV 0.42A).`,
+        '<b>Supreme Plasma Turbine</b>(UHV Assembly Line · 연구 128 CWU)으로 태웁니다.',
+      ] },
+      { h: 'UHV Fusion 컨트롤러 (팩)', li: [
+        'Auxiliary Fusion Coil MK1 · <b>UEV 회로 4</b> · Gravi Star · Zircalloy-4 double plate · UV Field Generator 2 · <b>UEPIC 96</b> · RTAN wire 32 · ITLC Solder 1152 · Europium 1152.',
+        'UEV 회로 = Runic Mainframe(2 탭).',
+      ] },
+    ],
+  },
+  passive: {
+    name: 'Akreyrium',
+    lead: `Utopian Akreyrium 시간당 ${UTOP / 1000}B 목표. Gritty Akreyrium 100B → <b>Cyclonic Sifter</b>(1,572,864 · 1200t) → Crystalline 1 · Amorphous 1 · Lepton Sparse 1B → <b>Manifold Centrifuge</b> 양자화 → Sparse e · μ · τ → <b>Injection Mixer</b>(촉매) → Dense → <b>Folding Stabiliser</b>(Crystalline + 렌즈) → Utopian 500mB. 촉매는 씻어서 재사용(Neutronium 80).`,
+    lead3d: '멀티블럭 4대(Cyclonic Sifter · Manifold Centrifuge · Injection Mixer · Folding Stabiliser)를 네 귀퉁이에, 가운데 탱크 줄, 남쪽에 촉매 준비 줄을 둔 배치입니다. 팩 멀티블럭 크기는 EMI 확인 — 5 × 5 × 5 자리로 잡았습니다.',
+    flow: {
+      label: 'Akreyrium', h: 440,
+      nodes: [
+        { id: 'g', x: 20, y: 30, w: 170, t: `Gritty ${fmt(STAB * 100, 0)}B/h`, s: 'Abydos 광맥', k: 'src' },
+        { id: 'cs', x: 230, y: 30, w: 180, t: 'Cyclonic Sifter', s: '100B → Crystalline · Sparse 1B', k: 'UHV' },
+        { id: 'mc', x: 450, y: 30, w: 180, t: 'Manifold Centrifuge', s: 'Lepton Sparse 양자화 (EMI 확인)', k: 'UHV' },
+        { id: 'im', x: 670, y: 30, w: 180, t: 'Injection Mixer ×3종', s: '촉매 + Sparse 1000 → Dense', k: 'UHV' },
+        { id: 'fs', x: 670, y: 190, w: 180, t: 'Folding Stabiliser', s: 'Dense 1000 + Crystalline → 500', k: 'UHV' },
+        { id: 'ut', x: 670, y: 340, w: 180, t: `Utopian ${UTOP / 1000}B/h`, s: `${STAB}회/시간`, k: 'GOAL' },
+        { id: 'cat', x: 450, y: 190, w: 180, t: '촉매 3종', s: 'Blank + Tau · Muon · Electron 유체 125', k: 'UV' },
+        { id: 'fl', x: 230, y: 190, w: 180, t: 'Lepton 유체 체인', s: 'Mixer · Distillation · CR · Polarizer', k: 'UV' },
+        { id: 'wa', x: 450, y: 340, w: 180, t: '촉매 세척', s: 'Damaged → Blank · Neutronium 80', k: 'UV' },
+      ],
+      edges: [{ a: 'g', b: 'cs' }, { a: 'cs', b: 'mc' }, { a: 'mc', b: 'im' }, { a: 'im', b: 'fs', fs: 'b', ts: 't' }, { a: 'fs', b: 'ut', fs: 'b', ts: 't' },
+        { a: 'fl', b: 'cat' }, { a: 'cat', b: 'im', fs: 'r', ts: 'b' }, { a: 'wa', b: 'cat', fs: 't', ts: 'b' }, { a: 'cs', b: 'fs', dash: true, fs: 'b', ts: 'l', l: 'Crystalline', k: 100 }],
+    },
+    cards: [
+      { h: '수치 (목표 기준)', table: { head: ['단계', '회 / 시간', '레시피'], num: [1], rows: [
+        ['Cyclonic Sifter', STAB, 'akreyrium_sieving · VA[UHV]×0.8 · 1200t'],
+        ['Manifold Centrifuge', STAB, 'akreyrium_quantising · VA[UHV] · 1200t'],
+        ['Injection Mixer', STAB, '<code>${akreyType}_${amount}_${catalyst}</code> · VHA[UHV] · 200t'],
+        ['Folding Stabiliser', STAB, '*_stabilisation · VHA[UHV] · 200t → 500mB'],
+        ['촉매 Canner · 세척', STAB, 'LuV · UV'],
+      ] }, note: 'Lepton Flux 경로(lepton_flux_stabilisation)는 1회 10mB라 비효율 — Dense 경로를 씁니다.' },
+      { h: '왜 Akreyrium인가', li: ['Utopian Akreyrium은 Injection Mixer(1,250) · Runic High Power Casing(245) · UIV의 Preon 플라즈마(500)에 들어갑니다.', 'Lepton Coalescing Superalloy(LuV Mixer: Thallium Tungstate · Ni · Graphene · Nb · Bi)가 체인 곳곳에서 돌고 되돌아옵니다.'] },
+    ],
+    cards3d: [
+      { h: '배치 원칙', li: ['멀티블럭 4대는 공정 순서대로 시계 방향.', '가운데 x = 7 줄에 Gritty · Sparse · Dense · Utopian 탱크.', '남쪽 줄: 촉매 Canner 3 · 세척 Assembler · Blank 촉매 Assembler.'] },
+      { h: '연결', li: ['Gritty Akreyrium: Abydos 광맥 → Stargate 너머에서 유체 전송(EMI 확인).', 'Lepton 유체 체인(Mixer · Distillation · CR)은 옆 청크 — 촉매 유체만 ME로.'] },
+    ],
+    legend: [['--s8', 'UHV 멀티블럭'], ['--s1', 'UV · LuV 기계'], ['--muted', '탱크']],
+    src: 'UHV Tr',
+    build: () => {
+      const boxes = [], pipes = [];
+      const box = o => (boxes.push(o), o);
+      const unit = (x, z, col, label, tip) => box({ x, y: 0, z, w: 1, h: 1, d: 1, col, label, tip });
+      box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+      [['Sifter', 1, 1, 'Cyclonic Sifter|Gritty 100B → Crystalline · Amorphous · Sparse (크기 EMI 확인)'], ['Centrifuge', 9, 1, 'Manifold Centrifuge|Lepton Sparse 양자화'],
+        ['Inj Mixer', 9, 8, 'Injection Mixer|촉매 + Sparse → Dense'], ['Stabiliser', 1, 8, 'Folding Akreyrium Stabiliser|Dense + Crystalline → Utopian 500']]
+        .forEach(([l, x, z, t]) => box({ x, y: 0, z, w: 5, h: 5, d: 5, col: '--s8', label: l, tip: t }));
+      ['Gritty', 'Sparse', 'Dense-e', 'Dense-μ', 'Dense-τ', 'Utopian'].forEach((t, i) => unit(7, 1 + i * 2, t === 'Utopian' ? '--good' : '--muted', t, `Super Tank · ${t}|`));
+      ['Can-τ', 'Can-μ', 'Can-e'].forEach((t, i) => unit(2 + i, 14, '--s6', t, `LuV Canner · ${t}|Blank 촉매 + 유체 125`));
+      unit(6, 14, '--s1', 'Wash', 'UV Assembler · 촉매 세척|Damaged + Neutronium 80 → Blank');
+      unit(8, 14, '--s8', 'Blank', 'UHV Assembler · Blank Injection Catalyst|새 촉매');
+      unit(14, 15, '--s8', 'UHV Tr', '전원|UHV 64A 배정');
+      const c = (x, z) => [x + 0.5, 5.3, z + 0.5];
+      [[[3, 3], [11, 3]], [[11, 3], [11, 10]], [[11, 10], [3, 10]], [[4, 14], [11, 12]], [[6, 14], [4, 14]]].forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+      return { boxes, pipes };
+    },
+    pw: () => [
+      { name: 'Cyclonic Sifter', eut: 1572864, u: STAB * 1200 / 72000, n: 1, labels: ['Sifter'] },
+      { name: 'Manifold Centrifuge', eut: 1966080, u: STAB * 1200 / 72000, n: 1, labels: ['Centrifuge'] },
+      { name: 'Injection Mixer', eut: 983040, u: STAB * 200 / 72000, n: 1, labels: ['Inj Mixer'] },
+      { name: 'Folding Akreyrium Stabiliser', eut: 983040, u: STAB * 200 / 72000, n: 1, labels: ['Stabiliser'] },
+      { name: 'Canner (촉매 3종)', eut: 30720, u: STAB * 200 / 72000, n: 3, labels: ['Can-τ', 'Can-μ', 'Can-e'] },
+      { name: 'Assembler (촉매 세척)', eut: 491520, u: STAB * 360 / 72000, n: 1, labels: ['Wash'] },
+      { name: 'Assembler (Blank 촉매)', eut: 1966080, u: 0.02, n: 1, labels: ['Blank'] },
+    ],
+    pwNote: '<li>Sifter · Centrifuge가 UHV 풀 전압급이라 이 청크부터는 간선이 진짜 UHV입니다.</li>',
+  },
+  next: {
+    lead: 'UEV의 무대는 <b>Nether</b>입니다(Ancient Stargate · Milky Way DHD). 퀘스트 <b>A Portal of Lost Worlds</b> → <b>Draconic Empires</b>.',
+    cards: [
+      { h: 'Ancient Stargate (A Portal of Lost Worlds)', li: [
+        'ASG 부품: Field Stabiliser · Energy Modulator · Stellar Dialer · DPU · Enscription Plate(<code>vacuum_chemical_reaction_chamber</code> 983,040) · Computational Matrix · Chevron · Plating.',
+        '<b>Runic Tablet</b> 조각 → Runic Inscribe Manipulate → Runic 케이싱 · Plating.',
+        'Stargate Rod: Abyssally · Infernally Reforged → Awakened(Pressure Heat Chamber) — Void · Echo 재료.',
+        '<b>Nether Coordinate Crystal</b>(Dimensional Finder 3,932,160 = UEV) · Milky Way DHD.',
+      ] },
+      { h: 'UEV 준비물', table: { head: ['재료', '어디에', '공급'], rows: [
+        ['Utopian Akreyrium', 'Injection Mixer · 이후 Preon 플라즈마', '4 탭'],
+        ['UEPIC', 'UEV 해치 · Fusion · 멀티블럭', 'Abydos 라인'],
+        ['Americium · Neutronium', 'UEV 부품 · Magmada 코일 Frame 주변', 'MK4 Fusion'],
+        ['Void · Echo-R', 'Stargate Rod · Voidic 재료', 'A Portal of Lost Worlds'],
+        ['Pure Netherite', 'Magmada 코일 foil · Ancient Netherite', 'Nether (EMI 확인)'],
+      ] } },
+    ],
+  },
+});
+</script>
+</body>
+</html>
