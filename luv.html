@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LuV 할 일</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="LuV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · LuV 할 일</h1>
+        <div class="meta">Theta 2 (GTCEu 1.7.1b) · 2026-09-27 · LuV = 회로 조립기와 레시피가 32,768V까지 열리는 단계</div>
+      </div>
+      <div class="controls">
+        <span class="ctl-label">Nether Star · 개/시간</span>
+        <div class="seg" id="nsn">
+          <button data-ns="2">2</button>
+          <button data-ns="4">4</button>
+          <button data-ns="8">8</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
+<script>
+
+/* ---------- state ---------- */
+const S = { nsN: 4, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+Object.assign(TIER, {
+  EV: { c: 'var(--s5)', name: 'EV 기계' }, IV: { c: 'var(--s7)', name: 'IV 기계 · IV 레시피' },
+  LuV: { c: 'var(--s8)', name: 'LuV 기계 · LuV 레시피' }, GOAL: { c: 'var(--good)', name: '목표' },
+});
+
+/* ---------- constants ----------
+   Nether Star 루프 (팩 additions/progression/lines/nether_stars.js):
+   Nether Star → Forge Hammer → Shard 5 → Polarizer(EV) → Energized Shard.
+   Energized Shard + 원소 가루 유체 720 → Autoclave(IV 3,840) → Infused Shard 50% + 45% = 기대값 0.95.
+   (Energized 가루 경로 1.85개는 Heat Chamber가 ZPM Assembly Line이라 ZPM부터.)
+   Infused 4종(Fire · Ice · Lightning · Earth) → Forming Press(IV) → Impure Nether Star → Implosion(EV) → Nether Star.
+   Shard 1 + PCB Coolant 8000 → Dimensional Destabiliser(4,096 · 1200t) → Raw Naquadah 20. */
+const INF_PER_SHARD = 0.95;
+const SHARD_PER_STAR = 4 / INF_PER_SHARD;          // 4.21
+const SURPLUS = 5 - SHARD_PER_STAR;                // 0.79
+const POWDER_PER_TRY = 720 / 144;                  // 가루 5개 = 유체 720
+const ELEM = [
+  { e: 'Fire', p: 'Blaze', src: 'Blaze Rod (Blaze 농장 · gCrops blaze)', dust: null },
+  { e: 'Ice', p: 'Blizz', src: 'Cobalt dust + Fluorine 1000 → 16 (CR 7,680)', dust: 'Cobalt' },
+  { e: 'Lightning', p: 'Blitz', src: 'Platinum dust + Deuterium 1000 → 16 (CR 7,680)', dust: 'Platinum' },
+  { e: 'Earth', p: 'Basalz', src: 'Rhodium dust + Helium 1000 → 16 (CR 7,680)', dust: 'Rhodium' },
+];
+const CRYSTAL = [
+  { n: 'Crystal Processor', t: 'IV', id: 'crystal_processor_iv', eut: 9600, dur: 200, out: 1, in: 'Elite Circuit Board · Crystal CPU · Nano CPU 2 · ASMD Capacitor 6 · Transistor 6 · NbTi fine 8' },
+  { n: 'Crystal Assembly', t: 'LuV', id: 'crystal_assembly_luv', eut: 9600, dur: 400, out: 2, in: 'Elite Circuit Board · Crystal Processor 2 · ASMD Inductor 4 · Capacitor 8 · RAM 24 · NbTi fine 16' },
+  { n: 'Crystal Computer (팩)', t: 'ZPM', id: 'crystal_processor_computer', eut: 30720, dur: 400, out: 1, in: 'Assembly Line: Multilayer Fiber Board · Crystal Assembly 2 · ASMD Diode 4 · RAM 24 · NOR 16 · NAND 32 · NbTi fine 24 · Solder 576 (Scanner 연구)' },
+  { n: 'Quantum Mainframe (팩)', t: 'ZPM', id: 'quantum_processor_mainframe', eut: 30720, dur: 600, out: 1, in: 'Assembly Line: HSS-G Frame 2 · Quantum Computer 2 · RAM 24 · HPIC 2 · ASMD Inductor 8 · Capacitor 16 · Diode 8 · Pt wire 8 · Solder 576' },
+];
+
+/* ---------- topics ---------- */
+const TOPICS = [
+  { id: 'overview', name: '로드맵' },
+  { id: 'entry', name: '1 · LuV 진입 · 해치' },
+  { id: 'circuit', name: '2 · 회로' },
+  { id: 'resource', name: '3 · Naquadah · Fusion' },
+  { id: 'passive', name: '4 · 패시브 (Nether Star)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'next', name: '5 · ZPM 준비' },
+];
+
+/* ---------- 로드맵 ---------- */
+function viewOverview() {
+  const n = S.nsN;
+  const stages = [
+    ['L0', 'IV에서 가져올 것', 'IV', 'HPIC · Quantum Computer(LuV 회로) · HSS-S · Ruridit · NbTi · Assembly Line · LuV 부품 · PBI'],
+    ['L1', 'LuV 전력 · 해치', 'IV', 'IV 트랜스포머 · LuV 해치(Assembly Line · NbTi 케이블 4 · HPIC 2 · LuV Coil 2) · 발전 Extreme Combustion 여러 대'],
+    ['L2', 'LuV 기계', 'LuV', 'LuV Circuit Assembler(Crystal 9,600) · LuV Assembler(Naquadah 코일 · Superconducting Coil) · LuV Cutter(UHPIC)'],
+    ['L3', 'Crystal 회로', 'LuV', 'Europium → Raw Crystal Chip → Engraved → Crystal CPU(Laser 10,000) → Crystal Processor · Assembly'],
+    ['L4', 'Nether Star · Naquadah (패시브)', 'LuV', `Nether Star 루프 → 남는 Shard → Dimensional Destabiliser → Raw Naquadah ${fmt(n * SURPLUS * 20, 0)}/시간`],
+    ['L5', 'Fusion MK1', 'LuV', 'Superconducting Coil(ITBTC · NbTi · Trinium) · Pu-241 · Osmiridium · UHPIC 64 → Helium 플라즈마 · Europium'],
+    ['L6', 'ZPM 준비', 'ZPM', 'ZPM 부품(Assembly Line 24,000) · Naquadah 코일 7,700K · Osmiridium · Europium · Trinium'],
+  ];
+  return `
+  <h2>LuV 로드맵</h2>
+  <p class="lead">"LuV"는 <b>32,768V(30,720 EU/t) 레시피까지</b>입니다. GTCEu jar에서 8,192 &lt; EU/t ≤ 32,768인 레시피 58개, 팩 75개를 걸렀습니다. 이 단계의 핵심은 <b>Naquadah</b>와 <b>Fusion</b>이고, 팩은 Naquadah를 광석이 아니라 <b>Nether Star Shard → Dimensional Destabiliser</b>로 캐게 만들었습니다.</p>
+  <div class="tiles">
+    ${tile('LuV에 열리는 GTCEu 레시피', '58', '개', '조립 18 · Assembly Line 14 · Fusion 13 …')}
+    ${tile('LuV 회로 조립기로 새로', 'Crystal ×2', '', 'IV · LuV 회로 (9,600 EU/t)')}
+    ${tile('이 단계의 코일', 'Naquadah', '7,200K', 'LuV Assembler · LuV 해치 2 = 7,700K')}
+    ${tile('Raw Naquadah', fmt(n * SURPLUS * 20, 0), '/시간', `Nether Star ${n}개/시간 · 남는 Shard ${fmt(n * SURPLUS, 1)}`)}
+  </div>
+  <div class="card">
+    <h3>단계</h3>
+    ${flow({
+      label: 'LuV 로드맵', h: 400,
+      nodes: [
+        { id: 'l0', x: 20, y: 30, w: 170, t: 'L0 IV에서', s: 'HPIC · Quantum · AL', k: 'IV' },
+        { id: 'l1', x: 230, y: 30, w: 170, t: 'L1 LuV 전력 · 해치', s: 'Assembly Line', k: 'IV' },
+        { id: 'l2', x: 440, y: 30, w: 170, t: 'L2 LuV 기계', s: 'Circuit Assembler …', k: 'LuV' },
+        { id: 'l3', x: 650, y: 30, w: 170, t: 'L3 Crystal 회로', s: 'Europium · Crystal CPU', k: 'LuV' },
+        { id: 'l4', x: 230, y: 170, w: 170, t: 'L4 Nether Star', s: '→ Naquadah', k: 'LuV' },
+        { id: 'l5', x: 440, y: 170, w: 170, t: 'L5 Fusion MK1', s: 'He 플라즈마 · Eu', k: 'LuV' },
+        { id: 'l6', x: 650, y: 170, w: 170, t: 'L6 ZPM 준비', s: 'ZPM 부품 · Naq 코일', k: 'LuV' },
+        { id: 'zpm', x: 860, y: 176, w: 120, h: 44, t: 'ZPM', k: 'GOAL' },
+        { id: 'pw', x: 20, y: 300, w: 380, t: '전력: Extreme Combustion → Fusion + Plasma', s: '공용 › 발전 — LuV 동안 병행', k: 'src' },
+      ],
+      edges: [
+        { a: 'l0', b: 'l1' }, { a: 'l1', b: 'l2' }, { a: 'l2', b: 'l3' }, { a: 'l0', b: 'l4', fs: 'b', ts: 't', l: 'IV 기계', lt: 0.5 },
+        { a: 'l4', b: 'l5', l: 'Trinium' }, { a: 'l3', b: 'l5', fs: 'b', ts: 't', l: 'ZPM 회로 4' },
+        { a: 'l5', b: 'l6' }, { a: 'l6', b: 'zpm' }, { a: 'pw', b: 'l5', dash: true, fs: 'r', ts: 'b' },
+      ],
+    })}
+    ${tierLegend(['IV', 'LuV', 'GOAL', 'src'])}
+    <div class="tscroll" style="margin-top:12px"><table>
+      <thead><tr><th>단계</th><th>무엇</th><th>전압</th><th>핵심</th><th>탭</th></tr></thead>
+      <tbody>${stages.map(([id, t, v, d], i) => `<tr><td><b>${id}</b></td><td>${esc(t)}</td><td>${v}</td><td>${esc(d)}</td><td>${['—', '1', '1', '2', '3 · 4', '3', '5'][i]}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>LuV에 새로 열리는 것</h3><ul class="pts">
+      <li><b>회로</b>: <code>crystal_processor_iv</code> · <code>crystal_assembly_luv</code>(9,600), <code>crystal_cpu</code> 각인(10,000). 팩 Assembly Line <code>crystal_processor_computer</code> · <code>quantum_processor_mainframe</code>(ZPM 회로 · 30,720).</li>
+      <li><b>칩</b>: <code>uhpic_wafer</code> · <code>cut_uhpic</code>, 팩 <code>qram_chip</code> · <code>hyper_nand/nor_memory_wafer</code>.</li>
+      <li><b>기계</b>: 팩 <code>luv_fusion_reactor</code> · <code>active_transformer</code>(Dreamlink 시작) · <code>coil_naquadah</code> · <code>superconducting_coil_luv</code> · ZPM 부품 8종(Assembly Line 24,000) · 팩 <code>super_abs</code> · <code>super_gas_collector</code> · <code>modular_combustion_frame</code> · <code>luv_rotor_holder</code>.</li>
+      <li><b>화학 · 자원</b>: <code>naquadah_separation</code>(LCR 30,720) · <code>trinium_sulfide_separation</code>(EBF) · <code>osmiridium</code> · <code>indium_tin_barium_titanium_cuprate</code>, 팩 Xenotime · Naquadite · Molten Destabiliser 라인.</li>
+    </ul></div>
+    <div class="card"><h3>보는 순서</h3><ul class="pts">
+      <li><b>Fusion MK1이 LuV의 목표</b>입니다. 컨트롤러가 ZPM 회로 4 · UHPIC 64 · Superconducting Coil(Trinium 3,456)이라 <b>Naquadah 라인 → Trinium</b>이 먼저입니다.</li>
+      <li>Naquadah는 <b>Nether Star 루프</b>가 공급합니다 — IV에서 Blizz · Blitz · Basalz 가루(IV CR)를 준비해 두면 바로 돌아갑니다.</li>
+      <li>발전은 LuV 동안 Extreme Combustion 여러 대, Fusion MK1 + Plasma Turbine은 기당 ~7만 EU/t로 보조 — <a href="common.html#power">공용 › 발전</a>.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 1 LuV 진입 · 해치 ---------- */
+function viewEntry() {
+  return `
+  <h2>1 · LuV 진입 · 해치</h2>
+  <p class="lead">LuV부터 <b>에너지 해치가 Assembly Line 레시피</b>입니다(<code>energy_hatch_luv</code> 30,720 · 400t). Assembly Line에 IV 해치 2개를 달아 LuV 전압을 만들거나(${EMI}) IV 트랜스포머로 LuV 전력을 끌어옵니다.</p>
+  ${flow({
+    label: 'LuV 해치', h: 300,
+    nodes: [
+      { id: 'hp', x: 20, y: 30, w: 170, t: 'HPIC ×2', s: 'IV 페이지 1 탭', k: 'IV' },
+      { id: 'lc', x: 20, y: 170, w: 170, t: 'LuV 회로 1', s: 'Quantum Computer · Crystal Assembly', k: 'IV' },
+      { id: 'vc', x: 230, y: 170, w: 180, t: 'LuV Voltage Coil ×2', s: 'Samarium Magnetic rod · Osmiridium fine 16', k: 'LuV', tip: 'voltage_coil_luv: LuV Assembler 30720 · Osmiridium = Mixer LuV Os 1 + Ir 3' },
+      { id: 'nb', x: 230, y: 30, w: 180, t: 'NbTi 케이블 4', s: 'IV 페이지 5 탭', k: 'IV' },
+      { id: 'al', x: 470, y: 100, w: 180, t: 'Assembly Line', s: 'NaK 6000 · Solder 720 · 400t', k: 'LuV' },
+      { id: 'hat', x: 700, y: 100, w: 240, t: 'LuV Energy Hatch', s: '+ LuV Hull', k: 'GOAL' },
+    ],
+    edges: [{ a: 'hp', b: 'al' }, { a: 'nb', b: 'al' }, { a: 'lc', b: 'al' }, { a: 'vc', b: 'al' }, { a: 'al', b: 'hat' }],
+  })}
+  ${tierLegend(['IV', 'LuV', 'GOAL'])}
+  <div class="grid2">
+    <div class="card"><h3>LuV 기계</h3><div class="tscroll"><table>
+      <thead><tr><th>기계</th><th>여는 레시피</th><th>해치 2개 대안</th></tr></thead><tbody>
+        <tr><td><b>LuV Circuit Assembler</b></td><td>Crystal Processor · Assembly(9,600)</td><td>필수</td></tr>
+        <tr><td><b>LuV Laser Engraver</b></td><td><code>crystal_cpu</code>(10,000 · 클린룸)</td><td>팩 대형 각인기 ${EMI}</td></tr>
+        <tr><td><b>LuV Assembler</b></td><td>Naquadah 코일 · Superconducting Coil · Voltage Coil · Active Transformer</td><td>필수</td></tr>
+        <tr><td><b>LuV Cutter</b></td><td><code>cut_uhpic</code></td><td>Large Cutter + IV 해치 2</td></tr>
+        <tr><td><b>LuV Mixer</b></td><td>Osmiridium · ITBTC</td><td>Large Mixer + IV 해치 2</td></tr>
+        <tr><td><b>LCR (IV 해치 2)</b></td><td><code>naquadah_separation</code> · <code>uhpic_wafer</code></td><td>—</td></tr>
+      </tbody></table></div></div>
+    <div class="card"><h3>UHPIC</h3><ul class="pts">
+      <li><code>uhpic_wafer</code>(LuV CR · 클린룸 · 1200t): HPIC 웨이퍼 + <b>InGaP 8</b> + <b>Naquadah 576</b> → UHPIC 웨이퍼 → LuV Cutter → UHPIC 2.</li>
+      <li>UHPIC는 ZPM · UV 해치 2개씩, <b>Fusion MK1 컨트롤러 64개</b>, Active Transformer 2개. Naquadah 576mB = Naquadah 4 ingot — L4의 Naquadah가 여기로도.</li>
+      <li>클린룸: LuV부터는 Sterile Cleanroom이 필요한 레시피가 생깁니다(Wetware 등) ${EMI}.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 2 회로 ---------- */
+function viewCircuit() {
+  return `
+  <h2>2 · 회로</h2>
+  <p class="lead"><b>LuV Circuit Assembler</b>가 Crystal 계열을 엽니다. <b>ZPM 회로</b>는 팩이 두 가지 모두 <b>Assembly Line(30,720)</b>으로 옮겨서 LuV에서 만들 수 있습니다 — Fusion MK1 컨트롤러에 ZPM 회로 4개가 들어갑니다.</p>
+  <div class="card">
+    ${hbar(CRYSTAL.map(c => ({ label: `${c.n} (${c.t})`, sub: c.id, value: c.eut, color: c.eut > 9600 ? 'var(--s8)' : 'var(--s7)', text: `${fmt(c.eut, 0)} EU/t · ${c.dur}t · ${c.out}개` })), { max: 40000, ref: { v: 32768, l: 'LuV 한계 32,768V' }, cols: ['회로', 'EU/t'] })}
+    <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>회로</th><th>재료</th></tr></thead>
+      <tbody>${CRYSTAL.map(c => `<tr><td><b>${c.n}</b> <code>${c.id}</code></td><td>${esc(c.in)}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  ${flow({
+    label: 'Crystal CPU', h: 220,
+    nodes: [
+      { id: 'em', x: 20, y: 30, w: 160, t: 'Exquisite Emerald', s: '또는 Olivine', k: 'src' },
+      { id: 'eu', x: 20, y: 130, w: 160, t: 'Europium 16mB', s: 'Fusion MK1 (3 탭)', k: 'LuV' },
+      { id: 'rc', x: 220, y: 70, w: 170, t: 'Raw Crystal Chip', s: 'Autoclave · 클린룸 · 12000t · 10%+', k: 'EV', tip: 'raw_crystal_chip_emerald: 320 EU/t · 출력 10% (+20%/티어)' },
+      { id: 'pt', x: 420, y: 130, w: 170, t: 'Chip Part ×9 → 재성장', s: 'Forge Hammer → Autoclave Eu 16', k: 'EV', tip: 'raw_crystal_chip_from_part_europium: Part 1 + Eu 16 → Raw Chip 1 (12000t) — Mutagen · Bacterial Sludge면 80%' },
+      { id: 'en', x: 420, y: 20, w: 170, t: 'Engraved Crystal Chip', s: 'EBF 5,000K · Emerald plate · He 1000', k: 'IV' },
+      { id: 'cpu', x: 640, y: 20, w: 170, t: 'Crystal CPU', s: 'Laser Engraver · Lime 렌즈 · 10,000', k: 'LuV' },
+      { id: 'cp', x: 850, y: 20, w: 130, t: 'Crystal Processor', k: 'GOAL' },
+    ],
+    edges: [{ a: 'em', b: 'rc' }, { a: 'eu', b: 'rc' }, { a: 'rc', b: 'en' }, { a: 'rc', b: 'pt', l: '1개는 쪼개서' }, { a: 'pt', b: 'rc', dash: true, fs: 'l', ts: 'b' }, { a: 'en', b: 'cpu' }, { a: 'cpu', b: 'cp' }],
+  })}
+  <div class="grid2">
+    <div class="card"><h3>Crystal 쪽을 고르는 이유</h3><ul class="pts">
+      <li>Quantum 계열은 Qbit CPU · Nano CPU · SMD가 많이 들고, Crystal은 <b>Raw Chip을 9조각 → 재성장</b>으로 불릴 수 있습니다. Mutagen(250mB)을 쓰면 조각당 80%.</li>
+      <li>Crystal Processor(IV 회로)가 9,600 EU/t · 200t로 한 번에 1개 — IV 회로 대량 생산은 Quantum Assembly(2,400 · 2개)가 더 쌉니다.</li>
+      <li>ZPM 회로 두 경로의 차이는 ${EMI}(연구 · 재료 합계). 둘 다 Scanner 연구 1회.</li>
+    </ul></div>
+    <div class="card"><h3>새 재료</h3><ul class="pts">
+      <li><b>Elite Circuit Board</b> · <b>Multilayer Fiber-Reinforced Board</b>: PBI · Epoxy 계열 ${EMI}.</li>
+      <li><b>Niobium-Titanium fine wire</b>: IV 페이지 5 탭 NbTi.</li>
+      <li><b>Mutagen</b>: <code>distillery:mutagen</code>(IV 7,680) — 팩 원료 ${EMI}.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 3 Naquadah · Fusion ---------- */
+function viewResource() {
+  return `
+  <h2>3 · Naquadah · Fusion</h2>
+  <p class="lead">Naquadah는 <b>Dimensional Destabiliser</b>(LuV Hull · 팩)가 Nether Star Shard 1개 + PCB Coolant 8,000으로 <b>Raw Naquadah 20</b>을 캡니다(4,096 EU/t · 1200t). Raw Naquadah를 광석 라인으로 dust까지 내린 뒤 GTCEu 정제 체인으로 Enriched Naquadah · Trinium · Naquadria를 뽑습니다.</p>
+  ${flow({
+    label: 'Naquadah 정제', h: 420,
+    nodes: [
+      { id: 'sh', x: 20, y: 30, w: 170, t: 'Nether Star Shard', s: '4 탭 루프의 남는 몫', k: 'src' },
+      { id: 'dd', x: 230, y: 30, w: 180, t: 'Dimensional Destabiliser', s: 'PCB Coolant 8000 · 1200t', k: 'IV', tip: 'naquadah_mining: 4096 EU/t · Hot PCB Coolant 9600 회수 · Nether Star dust tiny 80%' },
+      { id: 'rn', x: 450, y: 30, w: 160, t: 'Raw Naquadah 20', s: '광석 라인 → dust', k: 'IV' },
+      { id: 'ns', x: 650, y: 30, w: 330, t: 'Naquadah Separation', s: 'LCR(IV 해치 2) · Naq 6 + Fluoroantimonic 1000', k: 'LuV', tip: 'naquadah_separation 30720 · 600t → Titanium Trifluoride 4 · Impure Enriched 2000 · Impure Naquadria 2000' },
+      { id: 'ie', x: 450, y: 170, w: 160, t: 'Impure Enriched', s: 'Centrifuge 1,920', k: 'EV' },
+      { id: 'ts', x: 230, y: 170, w: 180, t: 'Trinium Sulfide', s: '+ Zinc → EBF LuV', k: 'LuV', tip: 'trinium_sulfide_separation: TrS 2 + Zn → Hot Trinium · 30720 · 750t' },
+      { id: 'tr', x: 20, y: 170, w: 170, t: 'Trinium', s: 'Superconducting Coil', k: 'GOAL' },
+      { id: 'enq', x: 450, y: 300, w: 160, t: 'Enriched Naquadah', s: 'Sulfate → EBF 7,680', k: 'GOAL' },
+      { id: 'iq', x: 780, y: 170, w: 200, t: 'Impure Naquadria', s: 'Centrifuge → Indium Phosphide', k: 'EV' },
+      { id: 'nq', x: 780, y: 300, w: 200, t: 'Naquadria', s: 'Sulfate → EBF ZPM', k: 'LuV' },
+    ],
+    edges: [
+      { a: 'sh', b: 'dd' }, { a: 'dd', b: 'rn' }, { a: 'rn', b: 'ns' }, { a: 'ns', b: 'ie', fs: 'b', ts: 't', fo: -80 }, { a: 'ie', b: 'ts' }, { a: 'ts', b: 'tr' },
+      { a: 'ie', b: 'enq', fs: 'b', ts: 't' }, { a: 'ns', b: 'iq', fs: 'b', ts: 't', fo: 110 }, { a: 'iq', b: 'nq', fs: 'b', ts: 't' },
+    ],
+  })}
+  ${tierLegend(['EV', 'IV', 'LuV', 'GOAL', 'src'])}
+  <div class="grid2">
+    <div class="card"><h3>Fusion MK1 (팩 <code>luv_fusion_reactor</code>)</h3><ul class="pts">
+      <li>Assembly Line LuV · 1200t: <b>Superconducting Coil</b> · <b>ZPM 회로 4</b> · Plutonium-241 double plate · Osmiridium double plate · IV Field Generator 2 · <b>UHPIC 64</b> · ITBTC wire 32 · Solder 1152 · NbTi 1152. Scanner 연구(Superconducting Coil).</li>
+      <li><b>Superconducting Coil</b>(LuV Assembler): ITBTC 2x wire 32 + NbTi foil 32 + <b>Trinium 3,456mB</b>.</li>
+      <li><b>ITBTC</b>: Mixer LuV In 4 · Sn 2 · Ba 2 · Ti · Cu 7 + O₂ 14,000 → 16. Indium은 IV 페이지 3 탭.</li>
+      <li><b>Plutonium-241</b>: Pu-239 Centrifuge 부산물(20%) · Nuclear Fission 챕터 ${EMI}.</li>
+    </ul></div>
+    <div class="card"><h3>MK1로 하는 것 (팩 <code>fusion_scaling.js</code>, 반사판 티어 1)</h3><ul class="pts">
+      <li><b>Helium 플라즈마</b>: D 1000 + T 1000 → 1000 · 4,096 EU/t · 7.2초 · 시동 40M EU → Plasma Turbine 순 ~7만 EU/t.</li>
+      <li><b>Europium</b>: Neodymium 144 + Hydrogen 3000 → 144 · 24,576 · 28.8초 — Crystal Chip · ZPM Motor(Europium fine 96).</li>
+      <li><b>Lutetium</b>: La 144 + Si 144 → 144 · 7,680 · 7.2초. <b>Radon</b>: Au 144 + Hg 100 → 1000 · 30,720.</li>
+      <li>D · T는 IV 페이지 Liquid Ender Air 증류(한 번에 D 50,000 · T 10,000).</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 4 패시브 (Nether Star) ---------- */
+function starBalance(n) {
+  const tries = n * SHARD_PER_STAR;                  // 시간당 Autoclave 시도
+  return {
+    tries, surplus: n * SURPLUS, naq: n * SURPLUS * 20,
+    powder: POWDER_PER_TRY * tries / 4,              // 원소마다 가루 개수
+    dust: POWDER_PER_TRY * tries / 4 / 16,           // Cobalt · Pt · Rh dust
+    coolant: n * SURPLUS * 8000,
+    acHours: tries * 960 / 72000,                    // Autoclave 대-시간
+  };
+}
+function viewPassiveFlow() {
+  const n = S.nsN, b = starBalance(n);
+  return `
+  <h2>4 · 패시브 (Nether Star)</h2>${subnav()}
+  <p class="lead">Nether Star 하나를 부수면 Shard 5개, 다음 Star를 만드는 데 Infused Shard 4종(Energized Shard 약 ${fmt(SHARD_PER_STAR, 2)}개)이 들어서 <b>Star당 Shard ${fmt(SURPLUS, 2)}개가 남습니다</b>. 남는 Shard가 Naquadah가 됩니다. 처음 Star는 Charge(석탄 · 화약 · 가루)로 Infused Shard를 만들어 시작합니다(20%).</p>
+  ${flow({
+    label: 'Nether Star 루프', h: 420,
+    nodes: [
+      { id: 'st', x: 20, y: 30, w: 150, t: `Nether Star ${n}/h`, s: 'Implosion (EV)', k: 'GOAL' },
+      { id: 'fh', x: 210, y: 30, w: 160, t: 'Shard ×5', s: 'Forge Hammer · 300t', k: 'EV' },
+      { id: 'po', x: 410, y: 30, w: 170, t: 'Energized Shard', s: 'Polarizer · EV · 400t', k: 'EV', tip: '다음 Star에 쓸 몫만 Energize — 남는 Shard는 그대로 Destabiliser로' },
+      { id: 'ac', x: 620, y: 30, w: 180, t: 'Infused Shard ×4종', s: 'Autoclave IV · 가루 720 · 0.95개', k: 'IV', tip: '50% + 45% chanced · 960t · 3,840 EU/t · 원소마다 Autoclave 1대' },
+      { id: 'fp', x: 620, y: 170, w: 180, t: 'Impure Nether Star', s: 'Forming Press IV · Star Casting Mold', k: 'IV' },
+      { id: 'im', x: 410, y: 170, w: 170, t: 'Implosion', s: 'EV · → Nether Star', k: 'EV' },
+      { id: 'pw', x: 830, y: 30, w: 150, t: '원소 가루', s: 'Blaze · Blizz · Blitz · Basalz', k: 'src' },
+      { id: 'dd', x: 150, y: 300, w: 220, t: `Destabiliser ${fmt(b.surplus, 1)} Shard/h`, s: `PCB Coolant ${fmt(b.coolant / 1000, 1)}B/h`, k: 'IV' },
+      { id: 'rn', x: 420, y: 300, w: 180, t: `Raw Naquadah ${fmt(b.naq, 0)}/h`, s: '3 탭 정제로', k: 'GOAL' },
+    ],
+    edges: [
+      { a: 'st', b: 'fh' }, { a: 'fh', b: 'po', l: `${fmt(b.tries, 1)}/h` }, { a: 'po', b: 'ac', l: `${fmt(b.tries, 1)}/h` }, { a: 'pw', b: 'ac' }, { a: 'ac', b: 'fp', fs: 'b', ts: 't' },
+      { a: 'fp', b: 'im' }, { a: 'im', b: 'st', fs: 'l', ts: 'b', k: 60 }, { a: 'fh', b: 'dd', fs: 'b', ts: 't', l: '남는 Shard', lt: 0.6 }, { a: 'dd', b: 'rn' },
+    ],
+  })}
+  ${tierLegend(['EV', 'IV', 'GOAL', 'src'])}
+  <div class="grid2">
+    <div class="card"><h3>원소 가루 (Star ${n}개/시간)</h3><div class="tscroll"><table>
+      <thead><tr><th>원소</th><th>가루</th><th class="n">개/시간</th><th>만드는 법</th></tr></thead>
+      <tbody>${ELEM.map(e => `<tr><td>${e.e}</td><td><b>${e.p}</b></td><td class="n">${fmt(b.powder, 1)}</td><td>${esc(e.src)}${e.dust ? ` — ${e.dust} dust ${fmt(b.dust, 2)}/h` : ''}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">가루 → Extractor 144mB. Blizz · Blitz · Basalz는 dust 1개로 16개라 원료는 적고, Blitz의 Deuterium · Basalz의 Helium은 Liquid Ender Air 증류에서 같이 나옵니다.</p></div>
+    <div class="card"><h3>기계</h3><div class="tscroll"><table>
+      <thead><tr><th>기계</th><th class="n">대수</th><th class="n">가동률</th></tr></thead><tbody>
+        <tr><td>Autoclave IV (원소마다)</td><td class="n">4</td><td class="n">${fmt(b.acHours / 4 * 100, 0)}%</td></tr>
+        <tr><td>Polarizer EV</td><td class="n">1</td><td class="n">${fmt(b.tries * 400 / 72000 * 100, 0)}%</td></tr>
+        <tr><td>Forge Hammer · Forming Press · Implosion</td><td class="n">각 1</td><td class="n">&lt; 5%</td></tr>
+        <tr><td>Dimensional Destabiliser</td><td class="n">1</td><td class="n">${fmt(b.surplus * 1200 / 72000 * 100, 0)}%</td></tr>
+        <tr><td>CR IV (Blizz · Blitz · Basalz 가루)</td><td class="n">1</td><td class="n">${fmt(b.dust * 3 * 200 / 72000 * 100, 1)}%</td></tr>
+      </tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">ZPM에서 Heat Chamber가 생기면 Energized 가루 경로로 Infused 1.85개 — Star당 남는 Shard가 약 2개로 늘어납니다.</p></div>
+  </div>`;
+}
+function viewPassive3d() {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `
+  <h2>4 · 패시브 (Nether Star)</h2>${subnav()}
+  <p class="lead">Nether Star 루프와 Naquadah 채굴을 <b>16×16 청크 하나</b>에 넣은 배치입니다. 북쪽 줄이 원소별 Autoclave 4대와 가루 탱크, 가운데가 Shard 순환(Forge Hammer → Polarizer → Forming Press → Implosion), 남쪽이 Dimensional Destabiliser와 PCB Coolant입니다.</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="Nether Star 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li><b>Autoclave는 원소마다 1대</b> — 한 대에 가루 유체 4종이 섞이면 막힙니다(EV 페이지 molten Autoclave와 같은 이유).</li>
+      <li>Shard 순환은 아이템만 오가므로 한 줄로 붙여 LaserIO 노드 하나로 돌립니다.</li>
+      <li>Destabiliser 크기는 ${EMI} — 3×3 자리로 잡았습니다.</li>
+    </ul></div>
+    <div class="card"><h3>연결</h3><ul class="pts">
+      <li>Fluorine · Deuterium · Helium: IV 페이지 Liquid Ender Air 증류 · HV 화학 청크.</li>
+      <li>Cobalt · Platinum · Rhodium dust: EV 정제 청크(PGS 라인).</li>
+      <li>PCB Coolant: Mixer HV Polychlorinated Biphenyl 750 + Distilled Water 250 → 1000. Hot PCB Coolant는 식혀서 재사용 ${EMI}.</li>
+    </ul></div>
+  </div>`;
+}
+const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+function buildStarChunk() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  ELEM.forEach((e, i) => {
+    unit(2 + i * 3, 0, 1, { col: '--muted', label: e.p, tip: `Super Tank · ${e.p}|가루 유체 144mB/개` });
+    unit(2 + i * 3, 0, 2, { col: '--s7', label: 'AC-' + e.e.slice(0, 4), tip: `IV Autoclave · ${e.e} Infused Shard|Energized Shard + ${e.p} 720 → 0.95개 · 960t` });
+    unit(3 + i * 3, 0, 1, { col: '--s1', label: 'Ext', tip: `Extractor · ${e.p}|가루 → 144mB` });
+  });
+  unit(2, 0, 5, { col: '--s5', label: 'Hammer', tip: 'Forge Hammer|Nether Star → Shard 5' });
+  unit(3, 0, 5, { col: '--s5', label: 'Polar', tip: 'EV Polarizer|Shard → Energized Shard · 400t' });
+  unit(5, 0, 5, { col: '--s7', label: 'Press', tip: 'IV Forming Press|Infused 4종 → Impure Nether Star (Star Casting Mold)' });
+  multi(7, 5, 3, 3, 3, '--s5', 'Implosion', 'Implosion Compressor · 3×3×3|Impure Nether Star → Nether Star (EV)');
+  unit(11, 0, 5, { col: '--good', label: 'Star', tip: 'Nether Star 버퍼|ME' });
+  unit(12, 0, 5, { col: '--s7', label: 'CR-IV', tip: 'IV Chemical Reactor|Blizz · Blitz · Basalz 가루 (dust + 유체 → 16)' });
+  multi(2, 10, 3, 3, 3, '--s8', 'Destabiliser', `Dimensional Destabiliser (크기 EMI 확인)|Shard + PCB Coolant 8000 → Raw Naquadah 20 · 4,096 EU/t`);
+  unit(6, 0, 11, { col: '--muted', label: 'PCB', tip: 'Super Tank · PCB Coolant|Mixer HV로 보충' });
+  unit(7, 0, 11, { col: '--muted', label: 'HotPCB', tip: 'Super Tank · Hot PCB Coolant|냉각 후 재사용 (EMI 확인)' });
+  unit(6, 0, 12, { col: '--s2', label: 'Mix', tip: 'HV Mixer · pcb_coolant|PCB 750 + Distilled Water 250' });
+  unit(9, 0, 11, { col: '--good', label: 'RawNq', tip: 'Raw Naquadah 창고|→ 광석 라인 · Naquadah 정제' });
+  unit(13, 0, 14, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer|IV Autoclave 4 · Press · CR 전력' });
+  const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
+  [[[2, 5], [3, 5]], [[3, 5], [2, 3]], [[11, 3], [5, 5]], [[5, 5], [7, 6]], [[10, 6], [11, 5]], [[11, 5], [2, 5]], [[3, 6], [3, 10]], [[5, 11], [9, 11]], [[12, 5], [11, 1]]]
+    .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  return { boxes, pipes };
+}
+
+/* ---------- 5 ZPM 준비 ---------- */
+function viewNext() {
+  const temps = [
+    ['Naquadah · HSS-S', 5000, 'HSS-G · IV 해치 2', 5800], ['Samarium', 5400, 'HSS-G · IV 해치 2', 5800], ['Europium', 6000, 'Naquadah · LuV 해치 2', 7700],
+    ['Neutronium Boule', 6484, 'Naquadah · LuV 해치 2', 7700], ['Enriched Naquadah', 7000, 'Naquadah · LuV 해치 2', 7700],
+    ['Naquadah Alloy · Trinium', 7200, 'Naquadah · LuV 해치 2', 7700], ['Naquadria', 9000, 'Trinium · ZPM 해치 2', 9601],
+  ];
+  return `
+  <h2>5 · ZPM 준비</h2>
+  <p class="lead">ZPM 부품 8종은 Assembly Line <b>24,000 EU/t — LuV 전압</b>입니다. 재료는 <b>Osmiridium · Europium · Samarium Magnetic · Vanadium-Gallium</b>. ZPM 해치(Assembly Line 122,880)는 LuV 해치 2개 Assembly Line ${EMI} 또는 LuV 트랜스포머.</p>
+  <div class="card"><h3>코일과 blast 온도</h3>
+    <p class="sub">LuV에서 <b>Naquadah 코일</b>(LuV Assembler: HSS-G Frame · Naquadah 2x wire 8 · Osmium foil 8 · Niobium Nitride foil 8 · Tungstensteel 144)을 만들고 LuV 해치 2개로 7,700K. <a href="common.html#coil">공용 › 코일 사다리</a>.</p>
+    ${hbar(temps.map(([a, t, c, ct]) => ({ label: a, sub: `${c} = ${fmt(ct, 0)}K`, value: t, color: t > 7700 ? 'var(--s8)' : 'var(--s7)', text: `${fmt(t, 0)}K` })), { max: 10000, ref: { v: 7700, l: 'Naquadah + LuV 해치 2개 = 7,700K' }, cols: ['재료', 'K'] })}
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>ZPM 부품 재료</h3><ul class="pts">
+      <li><b>ZPM Motor</b>: Samarium Magnetic long rod · Osmiridium long rod 4 · ring 4 · round 8 · <b>Europium fine 96</b> · Vanadium-Gallium 케이블 2 · Solder 288 · Lubricant 500.</li>
+      <li><b>Osmiridium</b>: Mixer LuV Os 1 + Ir 3 → 4 (4,500K). Iridium이 많이 듭니다 — IV Rarest Metal 라인을 늘릴 것.</li>
+      <li><b>Europium</b>: Fusion MK1 (3 탭) — ZPM 부품 한 세트에 Europium이 수백 mB.</li>
+    </ul></div>
+    <div class="card"><h3>LuV 동안 모아 둘 것</h3><div class="tscroll"><table>
+      <thead><tr><th>재료</th><th>어디에</th><th>공급</th></tr></thead><tbody>
+        <tr><td>Naquadah · Enriched · Trinium</td><td>ZPM Fusion · Trinium 코일 · Naquadah Alloy</td><td>4 탭 루프 → 3 탭 정제</td></tr>
+        <tr><td>Europium</td><td>ZPM 부품 · Crystal Chip</td><td>Fusion MK1</td></tr>
+        <tr><td>UHPIC</td><td>ZPM · UV 해치 · Fusion MK2(96)</td><td>1 탭</td></tr>
+        <tr><td>Beryllium · Deuterium</td><td>ZPM Fusion Nitrogen 플라즈마(기당 ~30만 EU/t)</td><td>Beryllium 광석 · Ender Air 증류</td></tr>
+        <tr><td>Naquadria</td><td>ZPM Fusion 컨트롤러 double plate</td><td>3 탭 (EBF ZPM)</td></tr>
+      </tbody></table></div></div>
+  </div>`;
+}
+
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+
+/* ---------- page wiring ---------- */
+startPage({
+  key: 'luv-web',
+  save: () => ({ nsN: S.nsN }),
+  load: o => { if ([2, 4, 8].includes(o.nsN)) S.nsN = o.nsN; },
+  layouts: [[viewPassive3d, buildStarChunk]],
+  afterRender: () => document.querySelectorAll('#nsn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ns === S.nsN)),
+});
+document.getElementById('nsn').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ns]'); if (!b) return;
+  S.nsN = +b.dataset.ns; render();
+});
+</script>
+</body>
+</html>
