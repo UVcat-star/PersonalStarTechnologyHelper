@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UIV 검토</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="UIV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · UIV 검토</h1>
+        <div class="meta">Theta 2 · 2026-09-27 · UIV = 33,554,432V(31,457,280 EU/t) · 무대: End</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
+<script src="assets/page.js"></script>
+<script src="assets/late.js"></script>
+<script>
+const S = { topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+
+/* 수치 출처: 팩 KubeJS systems/resource_gen/abyss_harvesting.js —
+   Abyssal Harvester: Excression 10mB → 10B(비율은 종류마다) · 920t · VA[UIV]. Dragon Breath 10mB로 시작.
+   Cyclonic Sifter: Excression 50B → Voidic Slurry 18.5B · 300t · VHA[UIV].
+   Manifold Centrifuge: Slurry 1B → State Sludge 500 + 500 · 125t · V[UEV] (lethargic → alpha · delta, tempered → beta · epsilon, vibrant → gamma · zeta).
+   Centrifuge: Sludge 1B → Residue 750 + Voidic Waste 250 · 304~890t · VA[UHV].
+   Injection Mixer: α + β + γ 각 1B → Order-Centric Void 2.4B, δ + ε + ζ → Chaos-Centric Void 2.4B · 160t · VHA[UIV].
+   Draco Infusion: Void 1B + 합금 7종 → Voidic 금속 dust 7 · 9.45~11.35초 × 7 · VHA[UEV].
+   목표: Order · Chaos Void 각 PAIRS × 2.4B / 시간. */
+const PAIRS = 6;
+const SLURRY_B = PAIRS / 0.75 * 2 / 2;                     // 종류당 slurry B/h (sludge 2종이 반씩)
+const EXC_B = SLURRY_B / 18.5 * 50;                        // 종류당 excression B/h
+
+lateStart({
+  key: 'uiv-web', T: 11,
+  lead: '"UIV"는 <b>33,554,432V(31,457,280 EU/t)</b>. 무대는 <b>End</b>입니다 — Draconic Empires 후반(Abyssal Harvester · Draconic Stem Cells · Draco Infusion · Draco Circuit Assembler · UIV 합금). 이 단계에서 <b>Draco Circuit Assembler</b>가 생겨 Draconic · Abyssal 회로가 열리고, 미뤄 둔 <b>UEV Fusion</b>도 짓습니다.',
+  tiles: [
+    ['UIV 회로', 'Draconic', 'Mainframe', 'Draco CA · VA[UEV] — 또는 Abyssal Computer'],
+    ['UXV 회로', 'Abyssal', 'Mainframe', 'Draco CA · VA[UIV] — UIV Fusion 컨트롤러 4개'],
+    ['이 단계의 코일', 'Abyssal Alloy', '18,888K', 'UIV Assembler · UIV 해치 2 = 19,888K'],
+    ['Void 시간당', fmt(PAIRS * 2.4 * 2, 1), 'B', `Order · Chaos 각 ${fmt(PAIRS * 2.4, 1)}B → Voidic 금속`],
+  ],
+  roadmap: {
+    stages: [
+      ['I0', 'UEV에서 가져올 것', 'UEV', 'Hellforge · Magmatic 플라즈마 · Mystical Metals · Magmada 코일 · UEV 합금', '—'],
+      ['I1', 'End 진입 · UIV 해치', 'UEV', 'End Coordinate Crystal(Dimensional Finder 31,457,280) · UEV Hull · UIV 해치', '1'],
+      ['I2', 'Draco Circuit Assembler', 'UIV', 'Draconic · Abyssal 회로 — UIV · UXV 회로', '2'],
+      ['I3', 'Abyssal Harvesting (패시브)', 'UIV', 'Dragon Breath → Voidic Excression → Slurry → Sludge → Order · Chaos Void → Voidic 금속', '4'],
+      ['I4', 'Draconic 생명공학', 'UIV', 'Draconic Stem Cells · Brain Matter · Scale Cells · Pure Dragon Breath 루프', '3'],
+      ['I5', 'UEV · UIV Fusion', 'UIV', 'UIV 회로 4 → UEV Fusion(반사판 5 · 6) · UXV 회로 4 → UIV Fusion', '3 · 5'],
+    ],
+    flow: {
+      label: 'UIV 로드맵', h: 330,
+      nodes: [
+        { id: 'i0', x: 20, y: 30, w: 170, t: 'I0 UEV에서', s: 'Hellforge · Magmada', k: 'UEV' },
+        { id: 'i1', x: 230, y: 30, w: 170, t: 'I1 End 진입', s: 'Coordinate Crystal', k: 'UEV' },
+        { id: 'i2', x: 440, y: 30, w: 170, t: 'I2 Draco CA', s: 'UIV · UXV 회로', k: 'UIV' },
+        { id: 'i3', x: 650, y: 30, w: 170, t: 'I3 Abyssal Harvest', s: 'Void · Echo-R', k: 'UIV' },
+        { id: 'i4', x: 650, y: 170, w: 170, t: 'I4 Draconic Bio', s: 'Stem Cells · Dragon Breath', k: 'UIV' },
+        { id: 'i5', x: 440, y: 170, w: 170, t: 'I5 UEV · UIV Fusion', s: '반사판 5 · 6', k: 'UIV' },
+        { id: 'uxv', x: 230, y: 176, w: 120, h: 44, t: 'UXV', k: 'GOAL' },
+      ],
+      edges: [{ a: 'i0', b: 'i1' }, { a: 'i1', b: 'i2' }, { a: 'i2', b: 'i3' }, { a: 'i3', b: 'i4', fs: 'b', ts: 't', l: 'Dragon Breath' }, { a: 'i4', b: 'i5' }, { a: 'i2', b: 'i5', fs: 'b', ts: 't', l: '회로 4' }, { a: 'i5', b: 'uxv' }],
+    },
+  },
+  opens: [
+    '<b>기계</b>(팩 Assembly Line VHA[UIV] · VA[UIV]): <code>draco_circuit_assembler</code> · <code>draco_infusion</code> · <code>abyssal_harvester</code> · <code>incomprehensible_chemical_reactor</code> · <code>auroric_vacuum_isolation_reactor</code> · <code>component_part_hub</code> · <code>abyssal_akreyriadix_stabiliser</code> · <code>threading_controller</code> · <code>nyinsane_plasma_turbine</code> · <code>uiv_fusion_reactor</code> · <code>sterile_cleaning_maintenance_hatch</code>.',
+    '<b>회로</b>: Draconic Processor ~ Mainframe(UV ~ UIV 회로) · Abyssal Processor ~ Mainframe(UHV ~ UXV 회로) — 전부 Draco Circuit Assembler.',
+    '<b>라인</b>: Abyssal Harvesting(Void · Echo-R · Rhenium), Draconic Stem Cells · Brain Matter(Ordered Chemistry), Pure Dragon Breath, Faematter, Rimula Foundation.',
+    '<b>Stargate</b>: DSG(Dimensional Stargate) Enscription Plate(Supreme Chemistry) · 여러 Infused Stargate Rod(Riftic Enhancement) — UXV · Rift 준비.',
+  ],
+  order: [
+    '<b>Draco Circuit Assembler</b>가 최우선 — UIV · UXV 회로가 모두 여기서 나오고, UEV Fusion(UIV 회로 4)과 UIV Fusion(UXV 회로 4)이 이걸 기다립니다.',
+    'End에서 <b>Abyssal Harvester</b>(Draneko Casing · UEPIC 176 · Void foil 128)를 세워 Void 계열을 자급 — Voidic 금속(Rhexis · Xeproda · Chalyblux)이 UIV 합금 재료.',
+    'Dragon Breath 루프(Egg Separation · Embryo · Dragon Cell Growth)로 Harvester 시동 유체와 Draconic Bio를 같이 돌립니다.',
+  ],
+  entry: {
+    lead: 'UIV 해치 · Hull은 퀘스트 Draconic Empires(UIV Machine Hull · Energy Input Hatch 4A · 16A). UEV 해치 2개 멀티블럭이면 UIV 레시피. End 좌표는 Dimensional Finder(31,457,280)의 End Coordinate Crystal.',
+    cards: [
+      { h: 'End 진입 (퀘스트)', li: ['End 차원 · <b>End Talisman</b> · End City 구조물.', '<b>End Armor</b>(End Helmet ~ Boots) — End 환경 대비.', 'Draconic Stem Cells · Brain Matter · Scale Cells(퀘스트) → Draconic Processing Unit.'] },
+      { h: 'UIV 기계 (팩)', table: { head: ['기계', '역할'], rows: [
+        ['Draco Circuit Assembler', 'Draconic · Abyssal 회로 (Assembly Line VHA[UIV])'],
+        ['Draco Infusion', 'Voidic 금속 · Singularity · Ascension Core'],
+        ['Abyssal Harvester', 'Voidic Excression 자기 증식 · Desaturation → Echo-R 18B'],
+        ['Incomprehensible Chemical Reactor', 'Supreme Chemistry (DSG Enscription Plate 등)'],
+        ['Nyinsane Plasma Turbine', 'Supreme 다음 플라즈마 터빈 (VHA[UIV] · 연구 192 CWU)'],
+        ['Threading Controller', 'Threading 시스템 (Mechanics › Threading)'],
+      ] } },
+    ],
+  },
+  circuit: {
+    lead: '<b>Draco Circuit Assembler</b>가 나오면 Draconic · Abyssal 회로 레시피 자체는 UHV~UIV 전압입니다(팩 <code>draco_circuit_assembly.js</code>). 그래서 이 단계에서 UIV 회로와 UXV 회로가 한꺼번에 열립니다.',
+    rows: [
+      { n: 'Draconic Microchip', t: 'ZPM', id: 'draconic_microchip_processor', eut: 983040, where: 'Draco CA · VHA[UHV]', in: 'Draconic Processing Unit 계열' },
+      { n: 'Draconic Processor', t: 'UV', id: 'draconic_processor', eut: 983040, where: 'Draco CA · VHA[UHV]', in: '' },
+      { n: 'Draconic Assembly', t: 'UHV', id: 'draconic_processor_assembly', eut: 1966080, where: 'Draco CA · VA[UHV]', in: '' },
+      { n: 'Draconic Computer', t: 'UEV', id: 'draconic_processor_computer', eut: 1966080, where: 'Draco CA · VA[UHV]', in: '' },
+      { n: 'Draconic Mainframe', t: 'UIV', id: 'draconic_processor_mainframe', eut: 7864320, where: 'Draco CA · VA[UEV]', in: 'UEV Fusion 컨트롤러 4개' },
+      { n: 'Abyssal Processor ~ Computer', t: 'UHV ~ UIV', id: 'abyssal_processor_*', eut: 7864320, where: 'Draco CA · VA[UEV]', in: 'Abyssal Circuit Board · Processing Unit' },
+      { n: 'Abyssal Mainframe', t: 'UXV', id: 'abyssal_processor_mainframe', eut: 31457280, where: 'Draco CA · VA[UIV]', in: 'UIV Fusion 컨트롤러 4개' },
+    ],
+    cards: [
+      { h: '부품', li: ['Draconic Processing Unit(UHV Circuit Assembler) · Draconic Printed Circuit Board.', 'Abyssal Circuit Board · Abyssal Processing Unit(Circuit Assembler 3,932,160).', 'Draco Boule · Wafer · Draco Advanced SoC · UIPIC(퀘스트).'] },
+      { h: 'Fusion 컨트롤러', li: ['<b>UEV Fusion</b>: Advanced Fusion Coil · UIV 회로 4 · Decaying Star · Magmada double plate · UHV Field Gen 2 · UEPIC 128.', '<b>UIV Fusion</b>: Auxiliary Fusion Coil MK2 · UXV 회로 4 · Draconic Eye · Abyssal Alloy double plate · UEV Field Gen 2 · UIPIC 96.'] },
+    ],
+  },
+  resource: {
+    lead: 'End에서 쓰는 자원은 대부분 <b>Abyssal Harvester</b> 한 곳에서 나옵니다: Voidic Excression 3종 → Void 6상태 → Order · Chaos Void → Voidic 금속, 부산물 Voidic Waste → Rhenium · Echo Shard · Naquadria Waste · Molten Ore Mixture. Dragon Breath는 Draconic 생명공학 루프.',
+    flow: {
+      label: 'UIV 자원', h: 320,
+      nodes: [
+        { id: 'db', x: 20, y: 30, w: 170, t: 'Dragon Breath 10mB', s: '시동 (Undersaturated)', k: 'src' },
+        { id: 'ah', x: 230, y: 30, w: 180, t: 'Abyssal Harvester', s: 'Excression 10mB → 10B · 920t', k: 'UIV' },
+        { id: 'ex', x: 450, y: 30, w: 170, t: 'Excression 3종', s: 'Low · Moderate · High', k: 'UIV' },
+        { id: 'ds', x: 230, y: 180, w: 180, t: 'Desaturation', s: 'Void Saturation Sponge → Echo-R 18B', k: 'UIV' },
+        { id: 'vw', x: 450, y: 180, w: 170, t: 'Voidic Waste', s: 'Rhenium · Echo · Naquadria Waste', k: 'UIV' },
+        { id: 'vm', x: 660, y: 30, w: 190, t: 'Voidic 금속', s: 'Rhexis · Xeproda · Chalyblux', k: 'GOAL' },
+        { id: 'eg', x: 660, y: 180, w: 190, t: 'Dragon 루프', s: 'Egg Separation · Embryo · Cell Growth', k: 'UIV' },
+      ],
+      edges: [{ a: 'db', b: 'ah' }, { a: 'ah', b: 'ex' }, { a: 'ex', b: 'ah', dash: true, fs: 't', ts: 't', k: 50, l: '10mB 되먹임' }, { a: 'ex', b: 'vm', l: '4 탭' }, { a: 'ah', b: 'ds', fs: 'b', ts: 't' }, { a: 'ex', b: 'vw', fs: 'b', ts: 't' }, { a: 'eg', b: 'db', dash: true, fs: 't', ts: 'l', k: 160 }],
+    },
+    cards: [
+      { h: '발전', li: ['Magmatic 플라즈마(UEV 페이지)가 계속 주력 — UEV Fusion이 생기면 반사판 5 레시피를 더 넉넉한 한도로.', '<b>Nyinsane Plasma Turbine</b>(UIV)으로 같은 플라즈마에서 더 많이 — Rotor Holder 티어마다 출력 ×2 · 연료 ×1.8(Power 챕터).', '반사판 6 플라즈마(Paradox · Voidic · Preon)는 발전용이 아니라 재료(Riftion 등)입니다.'] },
+      { h: '반사판 6 레시피 (팩)', table: { head: ['플라즈마', '입력', 'EU/t', '시동'], rows: [
+        ['Paradox', 'Chaos-Centric Void 200 + Order-Centric Void 200', '294,912', '900M'],
+        ['Voidic', 'Echo-R 432 + Void 144', '344,064', '1,040M'],
+        ['Preon', 'Utopian Akreyrium 500 + Dragon Breath 50', '688,128', '1,160M'],
+      ] }, note: '반사판 6 = Draconic(UHV · Sterile: Rhenate-W · Mythrotight Carbide Steel). Voidic 플라즈마는 UXV의 Riftion 재료.' },
+    ],
+  },
+  passive: {
+    name: 'Abyssal Harvesting',
+    lead: `Order · Chaos Void를 각 ${fmt(PAIRS * 2.4, 1)}B/h. Excression 종류마다 약 ${fmt(EXC_B, 1)}B/h → Sifter(50B → Slurry 18.5B) → Manifold Centrifuge(1B → Sludge 2종 500씩) → Centrifuge(1B → Residue 750 + Voidic Waste 250) → Injection Mixer(3상태 1B씩 → Void 2.4B) → <b>Draco Infusion</b>(Void 1B + 합금 7종 → Voidic 금속 7).`,
+    lead3d: 'Abyssal Harvester · Cyclonic Sifter · Manifold Centrifuge · Injection Mixer · Draco Infusion(멀티블럭, 크기 EMI 확인)와 Sludge Centrifuge 6대(상태마다)를 한 청크에.',
+    flow: {
+      label: 'Abyssal Harvesting', h: 440,
+      nodes: [
+        { id: 'ah', x: 20, y: 30, w: 170, t: 'Abyssal Harvester', s: 'Excression 3종 · 920t', k: 'UIV' },
+        { id: 'cs', x: 230, y: 30, w: 170, t: 'Cyclonic Sifter', s: '50B → Slurry 18.5B · 300t', k: 'UIV' },
+        { id: 'mc', x: 440, y: 30, w: 180, t: 'Manifold Centrifuge', s: 'Slurry 1B → Sludge 500 + 500', k: 'UEV' },
+        { id: 'ce', x: 660, y: 30, w: 190, t: 'Centrifuge ×6 (상태별)', s: 'Sludge → Residue 750 · 304~890t', k: 'UHV' },
+        { id: 'or', x: 660, y: 190, w: 190, t: 'Order-Centric Void', s: 'α + β + γ → 2.4B · 160t', k: 'UIV' },
+        { id: 'ch', x: 440, y: 190, w: 180, t: 'Chaos-Centric Void', s: 'δ + ε + ζ → 2.4B · 160t', k: 'UIV' },
+        { id: 'di', x: 440, y: 340, w: 180, t: 'Draco Infusion', s: 'Void 1B + 합금 7종 → dust 7', k: 'UEV' },
+        { id: 'vm', x: 660, y: 340, w: 190, t: 'Voidic 금속', s: 'Rhexis · Xeproda (Chaos) · Chalyblux', k: 'GOAL' },
+        { id: 'vw', x: 20, y: 190, w: 170, t: 'Voidic Waste', s: 'Centrifuge 부산물 → Rhenium · Echo', k: 'UIV' },
+      ],
+      edges: [{ a: 'ah', b: 'cs' }, { a: 'cs', b: 'mc' }, { a: 'mc', b: 'ce' }, { a: 'ce', b: 'or', fs: 'b', ts: 't' }, { a: 'ce', b: 'ch', fs: 'b', ts: 't', fo: -60 }, { a: 'or', b: 'di', fs: 'b', ts: 'r', k: 60 }, { a: 'ch', b: 'di', fs: 'b', ts: 't' }, { a: 'di', b: 'vm' }],
+    },
+    cards: [
+      { h: '수치 (시간당)', table: { head: ['단계', '회 / 시간', '비고'], num: [1], rows: [
+        ['Abyssal Harvester', fmt(EXC_B * 3 / 10, 1), '10B 출력 · 종류 비율은 입력 종류로 조절'],
+        ['Cyclonic Sifter', fmt(EXC_B * 3 / 50, 1), '종류마다'],
+        ['Manifold Centrifuge', fmt(SLURRY_B * 3, 1), 'Slurry 1B씩'],
+        ['Centrifuge (6상태)', fmt(PAIRS / 0.75 * 6, 1), 'Sludge 1B씩'],
+        ['Injection Mixer', PAIRS * 2, 'Order · Chaos'],
+        ['Draco Infusion', fmt(PAIRS * 2.4 * 2, 1), 'Void 1B씩 → dust 7'],
+      ] } },
+      { h: '균형', li: ['Order에는 α · β · γ(Low · Moderate · High에서 하나씩), Chaos에는 δ · ε · ζ가 들어서 <b>Excression 3종을 같은 양</b> 유지해야 합니다.', 'Harvester의 Moderate 레시피가 20 : 60 : 20이라, 모자란 종류를 입력으로 넣어 비율을 맞춥니다.'] },
+    ],
+    cards3d: [
+      { h: '배치 원칙', li: ['북쪽: Harvester → Sifter → Manifold 순서.', '가운데: Sludge Centrifuge 6대 — 상태마다 한 대(유체 섞임 방지).', '남쪽: Injection Mixer · Draco Infusion · Voidic 금속 창고.'] },
+      { h: '연결', li: ['Voidic Waste → Manifold Centrifuge → Rhenium(UIV Rhenium Super-Composite 케이블) · Molten Ore Mixture.', 'Echo-R(Desaturation) → Voidic 플라즈마 · Stargate Rod.'] },
+    ],
+    legend: [['--s7', 'UIV 기계'], ['--s4', 'UEV 기계'], ['--s8', 'UHV 기계'], ['--muted', '탱크'], ['--good', 'Voidic 금속']],
+    src: 'UIV Tr',
+    build: () => {
+      const boxes = [], pipes = [];
+      const box = o => (boxes.push(o), o);
+      const unit = (x, z, col, label, tip) => box({ x, y: 0, z, w: 1, h: 1, d: 1, col, label, tip });
+      box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+      box({ x: 1, y: 0, z: 1, w: 5, h: 5, d: 5, col: '--s7', label: 'Harvester', tip: 'Abyssal Harvester|Excression 10mB → 10B · 920t (크기 EMI 확인)' });
+      box({ x: 7, y: 0, z: 1, w: 4, h: 4, d: 4, col: '--s7', label: 'Sifter', tip: 'Cyclonic Sifter|50B → Slurry 18.5B' });
+      box({ x: 12, y: 0, z: 1, w: 3, h: 3, d: 3, col: '--s4', label: 'Manifold', tip: 'Manifold Centrifuge|Slurry → Sludge 2종' });
+      ['α', 'β', 'γ', 'δ', 'ε', 'ζ'].forEach((g, i) => unit(3 + i * 2, 8, '--s8', 'Cent-' + g, `Centrifuge · ${g} Sludge|→ Residue 750 + Voidic Waste 250`));
+      ['Exc-L', 'Exc-M', 'Exc-H'].forEach((t, i) => unit(1 + i, 7, '--muted', t, 'Super Tank · Excression|'));
+      box({ x: 1, y: 0, z: 11, w: 3, h: 3, d: 3, col: '--s7', label: 'Inj-Order', tip: 'Injection Mixer · Order|α + β + γ → 2.4B' });
+      box({ x: 5, y: 0, z: 11, w: 3, h: 3, d: 3, col: '--s7', label: 'Inj-Chaos', tip: 'Injection Mixer · Chaos|δ + ε + ζ → 2.4B' });
+      box({ x: 9, y: 0, z: 11, w: 3, h: 3, d: 3, col: '--s4', label: 'Draco Inf', tip: 'Draco Infusion|Void 1B + 합금 7종 → Voidic 금속 7' });
+      unit(13, 12, '--good', 'Voidic', 'Voidic 금속 창고|Rhexis · Xeproda · Chalyblux');
+      unit(13, 8, '--s7', 'Waste-M', 'Manifold Centrifuge · Voidic Waste|Rhenium · Echo · Naquadria Waste');
+      unit(14, 15, '--s7', 'UIV Tr', '전원|UIV 64A 배정');
+      const c = (x, z) => [x + 0.5, 4.3, z + 0.5];
+      [[[3, 3], [9, 3]], [[9, 3], [13, 2]], [[13, 2], [8, 8]], [[8, 8], [2, 12]], [[6, 12], [10, 12]], [[10, 12], [13, 12]]].forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+      return { boxes, pipes };
+    },
+    pw: () => [
+      { name: 'Abyssal Harvester', eut: 31457280, u: EXC_B * 3 / 10 * 920 / 72000, n: 1, labels: ['Harvester'] },
+      { name: 'Cyclonic Sifter', eut: 15728640, u: EXC_B * 3 / 50 * 300 / 72000, n: 1, labels: ['Sifter'] },
+      { name: 'Manifold Centrifuge (Slurry)', eut: 8388608, u: SLURRY_B * 3 * 125 / 72000, n: 1, labels: ['Manifold'] },
+      { name: 'Centrifuge (Sludge 6상태)', eut: 1966080, u: PAIRS / 0.75 * 6 * 600 / 72000, n: 6, labels: ['Cent-α', 'Cent-β', 'Cent-γ', 'Cent-δ', 'Cent-ε', 'Cent-ζ'] },
+      { name: 'Injection Mixer (Order · Chaos)', eut: 15728640, u: PAIRS * 2 * 160 / 72000, n: 2, labels: ['Inj-Order', 'Inj-Chaos'] },
+      { name: 'Draco Infusion', eut: 3932160, u: PAIRS * 2.4 * 2 * 1400 / 72000, n: 1, labels: ['Draco Inf'] },
+      { name: 'Manifold Centrifuge (Voidic Waste)', eut: 15728640, u: 0.1, n: 1, labels: ['Waste-M'] },
+    ],
+    pwNote: '<li>Harvester(VA[UIV] 31,457,280)가 UIV 풀 전압이라 간선은 UIV. Harvester 한 대가 청크 64A 중 1A를 먹습니다.</li>',
+  },
+  next: {
+    lead: 'UXV의 무대는 <b>Rift</b>(Komaru · Riftion)입니다. 퀘스트 <b>The Stars Await Greatness</b> — Theta 버전의 끝.',
+    cards: [
+      { h: 'UIV 합금 · 코일', li: ['<b>UIV Alloys</b>: Ohmderblux · Abyssal · Chaotixic(퀘스트).', '<b>Abyssal Alloy 코일</b>(UIV Assembler 31,457,280): Draconyallium Frame · Abyssal 2x wire 8 · Nyanium foil 8 · RSCA fine 32 · Neutronium SiC foil 64 · Void 144 → 18,888K.', 'Rhenotax Coil(active) · Aurourium · Nyanium · Draconyallium(퀘스트).'] },
+      { h: 'UXV 준비물', table: { head: ['재료', '어디에', '공급'], rows: [
+        ['Voidic 플라즈마', 'Riftion 플라즈마', '반사판 6 Fusion'],
+        ['Kaleidoscope Agitation Serum', 'Rimula Extraction · Komaru 모듈', 'Ordered Chemistry'],
+        ['Faematter · Rimula Foundation', 'Rift · DSG', 'Pressure Heat Chamber'],
+        ['Abyssal Mainframe', 'UIV Fusion · UXV 기계', '2 탭'],
+      ] } },
+    ],
+  },
+});
+</script>
+</body>
+</html>
