@@ -5,127 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HV 할 일</title>
 <link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
 <script src="assets/shell.js"></script>
-<style>
-header {
-  position: sticky; top: 0; z-index: 5;
-  background: var(--page); border-bottom: 1px solid var(--border);
-}
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 0 10px; }
-.top h1 { font-size: 18px; margin: 0; font-weight: 650; }
-.top .meta { color: var(--muted); font-size: 13px; }
-.controls { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.seg button, .btn {
-  font: inherit; font-size: 13px; border: 0; background: var(--surface); color: var(--ink-2);
-  padding: 5px 12px; cursor: pointer;
-}
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
-.btn { border: 1px solid var(--border); border-radius: 8px; }
-.ctl-label { font-size: 13px; color: var(--ink-2); }
-nav.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-nav.tabs button {
-  font: inherit; font-size: 14px; background: none; border: 0; color: var(--ink-2);
-  padding: 10px 14px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap;
-}
-nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
-main { padding: 20px 0 60px; }
-section.tab { display: none; }
-section.tab.on { display: block; }
-h2 { font-size: 20px; margin: 4px 0 6px; }
-h3 { font-size: 15px; margin: 0 0 4px; }
-p.lead { color: var(--ink-2); margin: 0 0 18px; max-width: 820px; }
-.card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  padding: 16px; margin-bottom: 16px; min-width: 0;
-}
-.card .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
-.grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
-.grid2 > .card { margin-bottom: 0; }
-.stack > * + * { margin-top: 16px; }
-.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); margin-bottom: 16px; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
-.tile .l { font-size: 13px; color: var(--ink-2); }
-.tile .v { font-size: 28px; font-weight: 650; line-height: 1.2; margin-top: 4px; }
-.tile .v small { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 4px; }
-.tile .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-.diagram { overflow-x: auto; }
-.diagram svg { display: block; width: 100%; min-width: 720px; height: auto; }
-svg text { font-family: inherit; }
-.node rect.box { fill: var(--surface-2); stroke: var(--border); }
-.node.src rect.box { fill: var(--surface); stroke: var(--axis); stroke-dasharray: 4 3; }
-.node .t { font-size: 13px; font-weight: 600; fill: var(--ink); }
-.node .s { font-size: 11.5px; fill: var(--ink-2); }
-.node:hover rect.box, .edge:hover path.line { filter: brightness(1.08); }
-.edge path.line { fill: none; stroke: var(--edge); stroke-linecap: round; }
-.edge path.hit { fill: none; stroke: transparent; stroke-width: 16; }
-.edge:hover path.line { stroke: var(--ink-2); }
-.elabel { font-size: 11.5px; fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--ink-2); margin: 10px 0 0; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.legend i.dash { background: none !important; border: 1.5px dashed var(--axis); }
-/* bar charts */
-.bars { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 6px 12px; align-items: center; }
-.bars .lab { font-size: 13px; color: var(--ink-2); text-align: right; line-height: 1.25; }
-.bars .lab b { color: var(--ink); font-weight: 600; }
-.track { position: relative; height: 28px; }
-.track .bar {
-  position: absolute; top: 4px; height: 20px; border-radius: 0 4px 4px 0; cursor: default;
-  transition: filter .1s;
-}
-.track .bar.negb { border-radius: 4px 0 0 4px; }
-.track .bar:hover, .track .seg-b:hover { filter: brightness(1.12); }
-.track .val { position: absolute; top: 4px; z-index: 1; background: var(--surface); padding: 0 3px; border-radius: 3px; font-size: 12.5px; line-height: 20px; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.track .zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--axis); }
-.refline { position: absolute; top: -6px; bottom: -6px; width: 0; border-left: 1.5px solid var(--ink-2); pointer-events: none; }
-.chart { position: relative; }
-.chart .refl { position: absolute; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; transform: translateX(-50%); }
-.axisrow { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 0 12px; margin-top: 4px; }
-.axis { position: relative; height: 18px; border-top: 1px solid var(--axis); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.axis span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
-.stackbar { display: flex; gap: 2px; height: 24px; }
-.stackbar .seg-b { height: 100%; }
-.stackbar .seg-b:first-child { border-radius: 0; }
-.stackbar .seg-b:last-child { border-radius: 0 4px 4px 0; }
-details.tbl { margin-top: 12px; font-size: 13px; }
-details.tbl summary { cursor: pointer; color: var(--ink-2); }
-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
-th { color: var(--ink-2); font-weight: 600; white-space: nowrap; }
-td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
-.tscroll { overflow-x: auto; }
-code { overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
-.callout { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; background: var(--surface); margin-bottom: 12px; font-size: 14px; }
-.callout .ic { flex: none; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; margin-top: 1px; }
-.callout.warn { border-left-color: var(--warning); } .callout.warn .ic { background: var(--warning); color: #0b0b0b; }
-.callout.crit { border-left-color: var(--critical); } .callout.crit .ic { background: var(--critical); }
-.callout.info { border-left-color: var(--s1); } .callout.info .ic { background: var(--s1); }
-.callout.ok { border-left-color: var(--good); } .callout.ok .ic { background: var(--good); }
-.callout b { font-weight: 650; }
-.emi { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 0 6px; border-radius: 4px; border: 1px solid var(--warning); color: var(--ink); background: color-mix(in srgb, var(--warning) 18%, transparent); }
-ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 6px; }
-.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); }
-.chip i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-#tip {
-  position: fixed; z-index: 20; pointer-events: none; display: none; max-width: 300px;
-  background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 8px 10px; font-size: 12.5px; line-height: 1.45;
-}
-#tip .tv { font-weight: 650; font-size: 14px; }
-#tip .tl { color: var(--ink-2); }
-@media (max-width: 600px) {
-  .top { padding-top: 10px; }
-  .controls { margin-left: 0; }
-  .tile .v { font-size: 24px; }
-}
-.subnav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
-.subnav button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); cursor: pointer; }
-.subnav button[aria-selected="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
-ol.steps { margin: 0; padding-left: 22px; } ol.steps li + li { margin-top: 8px; }
-.src { color: var(--muted); font-size: 12px; }
-</style>
 </head>
 <body data-tier="HV">
 <header>
@@ -150,35 +31,16 @@ ol.steps { margin: 0; padding-left: 22px; } ol.steps li + li { margin-top: 8px; 
 <main class="wrap" id="main"></main>
 <div id="tip" role="tooltip"></div>
 
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
 <script>
+
 /* ---------- state ---------- */
 // topic = 위쪽 탭, sub = 주제 안의 하위 탭. 주소는 #topic 또는 #topic/sub.
 const S = { veN: 4, peN: 1, lcrEv: false, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
-try {
-  const saved = JSON.parse(localStorage.getItem('hv-web') || '{}');
-  if ([2, 3, 4].includes(saved.veN)) S.veN = saved.veN;
-  if ([1, 2].includes(saved.peN)) S.peN = saved.peN;
-  if (typeof saved.lcrEv === 'boolean') S.lcrEv = saved.lcrEv;
-  if (saved.topic) S.topic = saved.topic;
-  if (saved.sub) S.sub = saved.sub;
-  if (saved.lay) Object.assign(S, saved.lay);
-} catch (e) {}
 // 예전 탭 주소(ev.html 등에서 링크)를 새 구조로 옮긴다
 const ALIAS = { void: 'resource/void', crushed: 'resource/crushed', persulfate: 'resource/persulfate', layout: 'resource/chunk', c2f4: 'ptfe/lcr' };
-function readHash() {
-  let h = decodeURIComponent(location.hash.slice(1));
-  if (ALIAS[h]) h = ALIAS[h];
-  const [t, s] = h.split('/');
-  if (t) S.topic = t;
-  if (t && s) S.sub[t] = s;
-}
-readHash();
-function persist() {
-  const sub = TOPICS.find(t => t.id === S.topic)?.subs ? '/' + curSub() : '';
-  const want = '#' + S.topic + sub;
-  if (location.hash !== want) history.replaceState(null, '', want);
-  try { localStorage.setItem('hv-web', JSON.stringify({ veN: S.veN, peN: S.peN, lcrEv: S.lcrEv, topic: S.topic, sub: S.sub, lay: { layGhost: S.layGhost, layPipes: S.layPipes, layLabels: S.layLabels } })); } catch (e) {}
-}
 
 /* ---------- constants (Theta 2에서 재확인한 값) ---------- */
 // Void Extractor: void_excavation/mining — LV 30 EU/t · 640t. MV 해치 = 1단계 OC → 120 EU/t · 320t.
@@ -265,151 +127,6 @@ const LCR_PTFE = [
   { n: 'Chemically Inert Casing ×16', s: 'casing_ptfe_inert: PTFE 216 + Solid Steel Casing', mb: 16 * 216 },
 ];
 const LCR_PTFE_MB = LCR_PTFE.reduce((a, b) => a + b.mb, 0);
-</script>
-<script>
-/* ---------- helpers ---------- */
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmt = (n, d = 1) => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: d });
-const TIER = {
-  LV: { c: 'var(--s3)', name: 'LV 기계' },
-  MV: { c: 'var(--s1)', name: 'MV 기계' },
-  HV: { c: 'var(--s2)', name: 'HV 기계' },
-  LCR: { c: 'var(--s7)', name: 'Large Chemical Reactor' },
-  OF: { c: 'var(--s4)', name: 'Electric Ore Factory' },
-  tank: { c: 'var(--muted)', name: '탱크 / 저장' },
-  src: { c: 'transparent', name: '원료 / 외부 공급' },
-};
-function tierLegend(keys) {
-  return `<div class="legend">${keys.map(k => `<span><i class="${k === 'src' ? 'dash' : ''}" style="background:${TIER[k].c}"></i>${esc(TIER[k].name)}</span>`).join('')}</div>`;
-}
-
-/* flow diagram: nodes {id,x,y,w,h,t,s,k,tip}, edges {a,b,l,amt,fs,ts,fo,to,k,lt,tip,dash} */
-function flow(spec) {
-  const W = spec.w || 1000, H = spec.h;
-  const N = {};
-  spec.nodes.forEach(n => { n.w = n.w || 150; n.h = n.h || 56; N[n.id] = n; });
-  const dir = { r: [1, 0], l: [-1, 0], t: [0, -1], b: [0, 1] };
-  const port = (n, side, off = 0) => ({
-    r: [n.x + n.w, n.y + n.h / 2 + off], l: [n.x, n.y + n.h / 2 + off],
-    t: [n.x + n.w / 2 + off, n.y], b: [n.x + n.w / 2 + off, n.y + n.h],
-  })[side];
-  let edges = '', labels = '';
-  spec.edges.forEach(e => {
-    const a = N[e.a], b = N[e.b];
-    const dx = (b.x + b.w / 2) - (a.x + a.w / 2), dy = (b.y + b.h / 2) - (a.y + a.h / 2);
-    let fs = e.fs, ts = e.ts;
-    if (!fs || !ts) {
-      if (Math.abs(dx) >= Math.abs(dy)) { fs = fs || (dx > 0 ? 'r' : 'l'); ts = ts || (dx > 0 ? 'l' : 'r'); }
-      else { fs = fs || (dy > 0 ? 'b' : 't'); ts = ts || (dy > 0 ? 't' : 'b'); }
-    }
-    const p0 = port(a, fs, e.fo), p3 = port(b, ts, e.to);
-    const dist = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]);
-    const k = e.k || Math.max(30, dist * 0.4);
-    // stop the stroke short of the arrowhead so thick flows don't bleed past it
-    const back = 7;
-    const p3s = [p3[0] + dir[ts][0] * back, p3[1] + dir[ts][1] * back];
-    const c1 = [p0[0] + dir[fs][0] * k, p0[1] + dir[fs][1] * k];
-    const c2 = [p3s[0] + dir[ts][0] * k, p3s[1] + dir[ts][1] * k];
-    const d = `M${p0} C${c1} ${c2} ${p3s}`;
-    const sw = e.amt ? Math.min(11, Math.max(2, 1.5 + Math.sqrt(e.amt) / 9)) : 2;
-    const tip = e.tip || e.l || '';
-    // arrowhead drawn as its own triangle so its size is independent of stroke width
-    const ang = Math.atan2(-dir[ts][1], -dir[ts][0]);
-    const aw = Math.max(7, sw * 0.9), al = 9;
-    const tipPt = p3, bx = p3[0] - Math.cos(ang) * al, by = p3[1] - Math.sin(ang) * al;
-    const px = -Math.sin(ang) * aw, py = Math.cos(ang) * aw;
-    const tri = `${tipPt} ${bx + px},${by + py} ${bx - px},${by - py}`;
-    edges += `<g class="edge" data-tip="${esc(tip)}" tabindex="0">
-      <path class="hit" d="${d}"/>
-      <path class="line" d="${d}" style="stroke-width:${sw}${e.dash ? ';stroke-dasharray:5 5' : ''}"/>
-      <polygon points="${tri}" fill="var(--edge)"/></g>`;
-    if (e.l) {
-      const t = e.lt ?? 0.5, u = 1 - t;
-      const x = u * u * u * p0[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p3s[0];
-      const y = u * u * u * p0[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p3s[1];
-      // keep labels off the stroke: above horizontal flows, beside vertical ones
-      const horiz = 'rl'.includes(fs) && 'rl'.includes(ts), vert = 'tb'.includes(fs) && 'tb'.includes(ts);
-      const lines = String(e.l).split('\n');
-      const defLy = horiz ? -(sw / 2 + 6 + (lines.length - 1) * 7) : 0;
-      const defLx = vert ? sw / 2 + 6 : 0;
-      const anchor = e.anchor || (vert && e.lx === undefined ? 'start' : 'middle');
-      const lx = x + (e.lx ?? defLx), ly = y + (e.ly ?? defLy);
-      labels += `<text class="elabel" x="${lx}" y="${ly - (lines.length - 1) * 7}" text-anchor="${anchor}">${lines.map((s, i) => `<tspan x="${lx}" dy="${i ? 14 : 4}">${esc(s)}</tspan>`).join('')}</text>`;
-    }
-  });
-  let nodes = '';
-  spec.nodes.forEach(n => {
-    const tc = TIER[n.k] ? TIER[n.k].c : 'var(--muted)';
-    const isSrc = n.k === 'src';
-    nodes += `<g class="node ${isSrc ? 'src' : ''}" data-tip="${esc(n.tip || (n.t + (n.s ? ' · ' + n.s : '')))}" tabindex="0">
-      <rect class="box" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"/>
-      ${isSrc ? '' : `<rect x="${n.x}" y="${n.y}" width="5" height="${n.h}" rx="2" fill="${tc}"/>`}
-      <text class="t" x="${n.x + 14}" y="${n.y + (n.s ? 23 : n.h / 2 + 5)}">${esc(n.t)}</text>
-      ${n.s ? `<text class="s" x="${n.x + 14}" y="${n.y + 41}">${esc(n.s)}</text>` : ''}
-    </g>`;
-  });
-  return `<div class="diagram"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(spec.label)}">${edges}${nodes}${labels}</svg></div>`;
-}
-
-function niceMax(v) {
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
-  return 10 * p;
-}
-function ticks(max) {
-  // pick a division count whose step is a round number (1, 2, 2.5, 5 × 10^k)
-  const nice = s => { const p = Math.pow(10, Math.floor(Math.log10(s))); return [1, 2, 2.5, 5, 10].some(m => Math.abs(s / p - m) < 1e-9); };
-  const n = [4, 5, 3, 2, 6].find(k => nice(max / k)) || 4;
-  return Array.from({ length: n + 1 }, (_, i) => max * i / n);
-}
-
-/* horizontal bars. rows {label, sub, value, color, text, tip}; opts {max, unit, ref:{v,l}, signed, cols} */
-function hbar(rows, o = {}) {
-  const unit = o.unit || '';
-  const absMax = Math.max(...rows.map(r => Math.abs(r.value)), o.ref ? o.ref.v : 0);
-  const max = o.max || niceMax(absMax * 1.08);
-  const room = 0.8; // bars use 80% of the track, the rest is for the value label
-  const pct = v => (Math.abs(v) / max) * room * (o.signed ? 50 : 100);
-  const zero = o.signed ? 50 : 0;
-  let html = `<div class="chart"><div class="bars">`;
-  rows.forEach(r => {
-    const w = pct(r.value), neg = r.value < 0;
-    const left = o.signed ? (neg ? zero - w : zero) : 0;
-    const text = r.text ?? `${fmt(r.value)}${unit}`;
-    const valPos = o.signed
-      ? (neg ? `right:${100 - left + 1}%` : `left:${left + w + 1}%`)
-      : `left:calc(${w}% + 6px)`;
-    html += `<div class="lab"><b>${esc(r.label)}</b>${r.sub ? `<br><span style="font-size:11.5px;color:var(--muted)">${esc(r.sub)}</span>` : ''}</div>
-      <div class="track">
-        ${o.signed ? `<div class="zero" style="left:${zero}%"></div>` : ''}
-        ${w > 0 ? `<div class="bar ${neg ? 'negb' : ''}" tabindex="0" data-tip="${esc(r.tip || `${text}|${r.label}`)}" style="left:${left}%;width:${w}%;background:${r.color}"></div>` : ''}
-        <div class="val" style="${valPos}">${esc(text)}</div>
-        ${o.ref ? `<div class="refline" style="left:${pct(o.ref.v)}%"></div>` : ''}
-      </div>`;
-  });
-  html += `</div>`;
-  if (!o.signed && !o.noAxis) {
-    html += `<div class="axisrow"><div></div><div class="axis">${ticks(max).map(t => `<span style="left:${(t / max) * room * 100}%">${fmt(t, 2)}</span>`).join('')}</div></div>`;
-  }
-  if (o.ref) html += `<div style="font-size:12px;color:var(--ink-2);margin-top:6px">│ 세로선 = ${esc(o.ref.l)}</div>`;
-  if (o.legend) html += `<div class="legend">${o.legend.map(l => `<span><i style="background:${l.c}"></i>${esc(l.n)}</span>`).join('')}</div>`;
-  const cols = o.cols || ['항목', '값'];
-  html += `<details class="tbl"><summary>표로 보기</summary><div class="tscroll"><table><thead><tr>${cols.map((c, i) => `<th class="${i ? 'n' : ''}">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.label)}${r.sub ? ' (' + esc(r.sub) + ')' : ''}</td><td class="n">${esc(r.text ?? fmt(r.value) + unit)}</td></tr>`).join('')}</tbody></table></div></details>`;
-  return html + `</div>`;
-}
-
-function stackbar(parts, unit) {
-  const total = parts.reduce((a, b) => a + b.v, 0);
-  return `<div class="stackbar">${parts.map(p => `<div class="seg-b" tabindex="0" data-tip="${esc(`${fmt(p.v, 0)}${unit} (${fmt(p.v / total * 100, 0)}%)|${p.n}`)}" style="width:${p.v / total * 100}%;background:${p.c}"></div>`).join('')}</div>
-    <div class="legend">${parts.map(p => `<span><i style="background:${p.c}"></i>${esc(p.n)} · ${fmt(p.v, 0)}${unit}</span>`).join('')}</div>
-    <details class="tbl"><summary>표로 보기</summary><table><thead><tr><th>원료</th><th class="n">Fluorine</th><th class="n">비율</th></tr></thead><tbody>
-    ${parts.map(p => `<tr><td>${esc(p.n)}</td><td class="n">${fmt(p.v, 0)}${unit}</td><td class="n">${fmt(p.v / total * 100, 0)}%</td></tr>`).join('')}</tbody></table></details>`;
-}
-
-const tile = (l, v, u, d) => `<div class="tile"><div class="l">${esc(l)}</div><div class="v">${v}${u ? `<small>${esc(u)}</small>` : ''}</div>${d ? `<div class="d">${esc(d)}</div>` : ''}</div>`;
-const callout = (kind, icon, html) => `<div class="callout ${kind}"><span class="ic" aria-hidden="true">${icon}</span><div>${html}</div></div>`;
-const EMI = '<span class="emi">EMI 확인</span>';
-
 
 /* ---------- topics ---------- */
 TIER.EV = { c: 'var(--s5)', name: 'EV 레시피 (HV 해치 2개)' };
@@ -424,16 +141,6 @@ const TOPICS = [
   { id: 'next', name: '5 · 다음 티어' },
   { id: 'misc', name: '6 · 기타', subs: [['multi', '멀티블럭'], ['epoxy', '에폭시']] },
 ];
-const curTopic = () => TOPICS.find(t => t.id === S.topic) || TOPICS[0];
-function curSub() {
-  const t = curTopic(); if (!t.subs) return null;
-  const s = S.sub[t.id];
-  return t.subs.some(x => x[0] === s) ? s : t.subs[0][0];
-}
-const subnav = () => {
-  const t = curTopic(); if (!t.subs) return '';
-  return `<div class="subnav" role="tablist" id="subnav">${t.subs.map(([id, n]) => `<button role="tab" data-sub="${id}" aria-selected="${id === curSub()}">${esc(n)}</button>`).join('')}</div>`;
-};
 const src = (s) => `<span class="src">${s}</span>`;
 
 /* ---------- 개요 ---------- */
@@ -1423,119 +1130,6 @@ const VIEWS = {
   misc: { multi: viewMulti, epoxy: viewEpoxy },
 };
 
-const L3 = { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, hit: [] };
-function drawLayout() {
-  const cv = document.getElementById('lay3d'); if (!cv) return;
-  const wrapW = cv.parentElement.clientWidth, H = wrapW < 600 ? 420 : 600;
-  const dpr = window.devicePixelRatio || 1;
-  cv.width = wrapW * dpr; cv.height = H * dpr; cv.style.height = H + 'px';
-  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const css = getComputedStyle(document.documentElement);
-  const colOf = v => css.getPropertyValue(v).trim() || v;
-  const rgb = hex => { const h = hex.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
-  const shade = (hex, f) => `rgb(${rgb(hex).map(c => Math.round(c * f)).join(',')})`;
-  ctx.fillStyle = colOf('--surface'); ctx.fillRect(0, 0, wrapW, H);
-
-  const { boxes, pipes } = curBuilder();
-  const vis = boxes.filter(b => !b.hide && (!b.ghost || S.layGhost || b.outline));
-  // 장면 중심과 배율
-  let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
-  boxes.forEach(b => { [[b.x, b.y, b.z], [b.x + b.w, b.y + b.h, b.z + b.d]].forEach(p => p.forEach((v, i) => { mn[i] = Math.min(mn[i], v); mx[i] = Math.max(mx[i], v); })); });
-  const c0 = mn.map((v, i) => (v + mx[i]) / 2);
-  const cy = Math.cos(L3.yaw), sy = Math.sin(L3.yaw), cp = Math.cos(L3.pitch), sp = Math.sin(L3.pitch);
-  // 배율은 시점을 초기화할 때만 맞춘다. 회전할 때마다 맞추면 화면이 계속 커졌다 작아진다.
-  if (!L3.fit || L3.fitW !== wrapW) {
-    let ex = 0, ey = 0;
-    boxes.forEach(b => [b.x, b.x + b.w].forEach(x => [b.y, b.y + b.h].forEach(y => [b.z, b.z + b.d].forEach(z => {
-      const dx = x - c0[0], dy = y - c0[1], dz = z - c0[2], xr = cy * dx - sy * dz, zr = sy * dx + cy * dz;
-      ex = Math.max(ex, Math.abs(xr)); ey = Math.max(ey, Math.abs(zr * sp - dy * cp));
-    }))));
-    L3.fit = Math.min(wrapW / (2 * ex), H / (2 * ey)) * 0.94; L3.fitW = wrapW;
-  }
-  const sc = L3.fit * L3.zoom;
-  const P = (x, y, z) => {
-    const dx = x - c0[0], dy = y - c0[1], dz = z - c0[2];
-    const xr = cy * dx - sy * dz, zr = sy * dx + cy * dz;
-    return [wrapW / 2 + L3.panX + xr * sc, H / 2 + L3.panY + (zr * sp - dy * cp) * sc, zr * cp + dy * sp];
-  };
-  const faceDepth = n => { const zr = sy * n[0] + cy * n[2]; return zr * cp + n[1] * sp; };
-  const LIGHT = { '0,1,0': 1, '0,-1,0': 0.5, '1,0,0': 0.8, '-1,0,0': 0.8, '0,0,1': 0.66, '0,0,-1': 0.66 };
-
-  // 바닥 격자
-  ctx.strokeStyle = colOf('--grid'); ctx.lineWidth = 1;
-  for (let x = Math.floor(mn[0]) - 1; x <= Math.ceil(mx[0]) + 1; x++) { const a = P(x, 0, mn[2] - 1), b = P(x, 0, mx[2] + 1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
-  for (let z = Math.floor(mn[2]) - 1; z <= Math.ceil(mx[2]) + 1; z++) { const a = P(mn[0] - 1, 0, z), b = P(mx[0] + 1, 0, z); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
-
-  const draw = [];
-  vis.forEach(b => draw.push({ k: 'box', b, d: P(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2)[2] }));
-  if (S.layPipes) pipes.forEach(p => {
-    for (let i = 0; i < p.pts.length - 1; i++) {
-      const a = p.pts[i], q = p.pts[i + 1], len = Math.hypot(q[0] - a[0], q[1] - a[1], q[2] - a[2]);
-      const n = Math.max(1, Math.ceil(len / 0.5));
-      for (let k = 0; k < n; k++) {
-        const s0 = a.map((v, j) => v + (q[j] - v) * k / n), s1 = a.map((v, j) => v + (q[j] - v) * (k + 1) / n);
-        const m = s0.map((v, j) => (v + s1[j]) / 2);
-        draw.push({ k: 'pipe', p, s0, s1, d: P(...m)[2] + 0.05 });
-      }
-    }
-  });
-  draw.sort((u, v) => u.d - v.d);
-
-  const hit = [];
-  const pw = Math.max(1.5, sc * 0.13);
-  draw.forEach(it => {
-    if (it.k === 'pipe') {
-      const a = P(...it.s0), q = P(...it.s1);
-      const T = PIPE[it.p.type];
-      ctx.strokeStyle = colOf(T.c); ctx.lineWidth = T.w ? Math.max(1, sc * T.w) : pw; ctx.lineCap = 'round';
-      if (it.p.long) ctx.setLineDash([5, 4]);
-      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.setLineDash([]);
-      hit.push({ seg: [a, q], tip: `${T.n}|${it.p.long ? '8칸 초과 — Laser Connector로 중계' : T.w ? '케이블 · 레이저' : '배관'}` });
-      return;
-    }
-    const b = it.b, X = [b.x, b.x + b.w], Y = [b.y, b.y + b.h], Zs = [b.z, b.z + b.d];
-    const faces = [
-      [[0, 1, 0], [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]]], [[0, -1, 0], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]],
-      [[1, 0, 0], [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]], [[-1, 0, 0], [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]]],
-      [[0, 0, 1], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]], [[0, 0, -1], [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]],
-    ];
-    const base = colOf(b.zone ? '--muted' : b.col);
-    faces.forEach(([n, cs]) => {
-      if (faceDepth(n) <= 0) return;
-      const poly = cs.map(c => P(X[c[0]], Y[c[1]], Zs[c[2]]));
-      ctx.beginPath(); poly.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
-      if (b.ghost) {
-        ctx.setLineDash([4, 3]); ctx.strokeStyle = colOf('--axis'); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-      } else {
-        ctx.fillStyle = shade(base, LIGHT[n.join(',')]); ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 0.8; ctx.stroke();
-      }
-      if (b.tip) hit.push({ poly, tip: b.tip });
-    });
-  });
-  // 라벨은 맨 위에
-  if (S.layLabels) {
-    ctx.font = `600 ${Math.max(9, Math.min(12, sc * 0.3))}px system-ui, "Malgun Gothic", sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    boxes.filter(b => b.label && (!b.ghost || S.layGhost || b.hide)).forEach(b => {
-      if (b.hide && b.g && !S.layGhost) return;
-      const p = P(b.x + b.w / 2, b.y + b.h + 0.15, b.z + b.d / 2);
-      const faint = b.hide ? b.g : b.ghost;
-      ctx.lineWidth = 3; ctx.strokeStyle = colOf('--surface'); ctx.strokeText(b.label, p[0], p[1]);
-      ctx.fillStyle = colOf(faint ? '--muted' : '--ink'); ctx.fillText(b.label, p[0], p[1]);
-    });
-  }
-  // 방위: 왼쪽 아래 고정 위치에 동(+x) · 남(+z) 방향
-  const o0 = P(c0[0], 0, c0[2]), ox = 44, oy = H - 34;
-  ctx.strokeStyle = colOf('--ink-2'); ctx.fillStyle = colOf('--ink-2'); ctx.lineWidth = 2; ctx.font = '600 12px system-ui, sans-serif';
-  [[P(c0[0] + 1, 0, c0[2]), '동'], [P(c0[0], 0, c0[2] + 1), '남']].forEach(([q, t]) => {
-    const vx = q[0] - o0[0], vy = q[1] - o0[1], l = Math.hypot(vx, vy) || 1, ex = ox + vx / l * 26, ey = oy + vy / l * 26;
-    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.fillText(t, ox + vx / l * 38, ey + vy / l * 12 + 5);
-  });
-  L3.hit = hit.reverse();
-}
-
-
 /* ---------- 패시브 화학 청크 (LCR 기준) ----------
    세 라인(황산 → Persulfate, Polyethylene, PTFE)이 산소 · 수소 · 염소 · HCl · 황산을 주고받아서 한 청크에 공용 탱크를 두고 묶는다.
    LCR을 먼저 지은 뒤의 설계: 황산은 LCR sulfuric_acid_from_sulfur(산소 없음)로 만들고, 나머지는 MV 단일 블록(C2F4만 HV).
@@ -1848,105 +1442,30 @@ function viewPassive3d() {
   </div>`;
 }
 
-function mountLayout() {
-  const cv = document.getElementById('lay3d'); if (!cv) return;
-  let drag = null;
-  cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 }; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointerup', () => { drag = null; });
-  cv.addEventListener('contextmenu', e => e.preventDefault());
-  cv.addEventListener('pointermove', e => {
-    if (drag) {
-      const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
-      if (drag.pan) { L3.panX += dx; L3.panY += dy; }
-      else { L3.yaw += dx * 0.008; L3.pitch = Math.min(1.55, Math.max(0.15, L3.pitch + dy * 0.006)); }
-      cv.removeAttribute('data-tip'); drawLayout(); return;
-    }
-    const r = cv.getBoundingClientRect(), pt = [e.clientX - r.left, e.clientY - r.top];
-    const inside = (poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
-    const near = ([a, b]) => { const vx = b[0] - a[0], vy = b[1] - a[1], l = vx * vx + vy * vy || 1; const t = Math.max(0, Math.min(1, ((pt[0] - a[0]) * vx + (pt[1] - a[1]) * vy) / l)); return Math.hypot(a[0] + vx * t - pt[0], a[1] + vy * t - pt[1]) < 5; };
-    const h = L3.hit.find(x => x.poly ? inside(x.poly) : near(x.seg));
-    if (h) cv.setAttribute('data-tip', h.tip); else cv.removeAttribute('data-tip');
-  });
-  cv.addEventListener('wheel', e => { e.preventDefault(); L3.zoom = Math.min(4, Math.max(0.4, L3.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); drawLayout(); }, { passive: false });
-  document.getElementById('layctl').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.n) { S.veN = +b.dataset.n; render(); return; }
-    if (b.dataset.pe) { S.peN = +b.dataset.pe; render(); return; }
-    if (b.dataset.ev) { S.lcrEv = b.dataset.ev === '1'; render(); return; }
-    const a = b.dataset.act;
-    if (a === 'reset') Object.assign(L3, { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, fit: 0 });
-    if (a === 'top') Object.assign(L3, { yaw: 0, pitch: 1.55, zoom: 1, panX: 0, panY: 0, fit: 0 });
-    if (a === 'in') L3.zoom = Math.min(4, L3.zoom * 1.25);
-    if (a === 'out') L3.zoom = Math.max(0.4, L3.zoom / 1.25);
-    if (a === 'ghost') S.layGhost = !S.layGhost;
-    if (a === 'pipes') S.layPipes = !S.layPipes;
-    if (a === 'labels') S.layLabels = !S.layLabels;
-    document.querySelectorAll('#layctl [data-act]').forEach(x => { if (['ghost', 'pipes', 'labels'].includes(x.dataset.act)) x.setAttribute('aria-pressed', S['lay' + x.dataset.act[0].toUpperCase() + x.dataset.act.slice(1)]); });
-    persist(); drawLayout();
-  });
-  new ResizeObserver(() => drawLayout()).observe(cv.parentElement);
-  drawLayout();
-}
-
-/* ---------- render ---------- */
-let curBuilder = () => buildChunk(S.veN);
-function render() {
-  if (!TOPICS.some(t => t.id === S.topic)) S.topic = 'overview';
-  const t = curTopic(), sub = curSub();
-  document.getElementById('tabs').innerHTML = TOPICS.map(x =>
-    `<button role="tab" data-tab="${x.id}" aria-selected="${x.id === S.topic}">${esc(x.name)}</button>`).join('');
-  document.querySelectorAll('#ven button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.n === S.veN));
-  const v = VIEWS[t.id], fn = typeof v === 'function' ? v : v[sub];
-  const y = window.scrollY;
-  document.getElementById('main').innerHTML = `<section class="tab on" role="tabpanel">${fn()}</section>`;
-  curBuilder = fn === viewPassive3d ? buildChem : () => buildChunk(S.veN);
-  if (fn === viewChunk || fn === viewPassive3d) mountLayout();
-  window.scrollTo(0, y);
-  persist();
-}
-document.getElementById('tabs').addEventListener('click', e => {
-  const b = e.target.closest('button[data-tab]'); if (!b) return;
-  S.topic = b.dataset.tab; render(); window.scrollTo(0, 0);
+/* ---------- page wiring ---------- */
+startPage({
+  key: 'hv-web',
+  save: () => ({ veN: S.veN, peN: S.peN, lcrEv: S.lcrEv }),
+  load: o => {
+    if ([2, 3, 4].includes(o.veN)) S.veN = o.veN;
+    if ([1, 2].includes(o.peN)) S.peN = o.peN;
+    if (typeof o.lcrEv === 'boolean') S.lcrEv = o.lcrEv;
+  },
+  alias: { void: 'resource/void', crushed: 'resource/crushed', persulfate: 'resource/persulfate', layout: 'resource/chunk', c2f4: 'ptfe/lcr' },
+  layouts: [[viewChunk, () => buildChunk(S.veN)], [viewPassive3d, buildChem]],
+  layoutButton: b => {
+    if (b.dataset.n) { S.veN = +b.dataset.n; render(); return true; }
+    if (b.dataset.pe) { S.peN = +b.dataset.pe; render(); return true; }
+    if (b.dataset.ev) { S.lcrEv = b.dataset.ev === '1'; render(); return true; }
+    return false;
+  },
+  mainClick: e => {
+    const t = e.target.closest('#lcrctl button'); if (!t) return false;
+    if (t.dataset.pe) S.peN = +t.dataset.pe;
+    if (t.dataset.ev) S.lcrEv = t.dataset.ev === '1';
+    render(); return true;
+  },
 });
-document.getElementById('main').addEventListener('click', e => {
-  const t = e.target.closest('#lcrctl button');
-  if (t) { if (t.dataset.pe) S.peN = +t.dataset.pe; if (t.dataset.ev) S.lcrEv = t.dataset.ev === '1'; render(); return; }
-  const b = e.target.closest('#subnav button[data-sub]'); if (!b) return;
-  S.sub[S.topic] = b.dataset.sub; L3.fit = 0; render();
-});
-document.getElementById('ven').addEventListener('click', e => {
-  const b = e.target.closest('button[data-n]'); if (!b) return;
-  S.veN = +b.dataset.n; render();
-});
-window.addEventListener('hashchange', () => { readHash(); render(); });
-window.addEventListener('themechange', () => drawLayout());
-
-/* ---------- tooltip: "value|label" or plain text ---------- */
-const tip = document.getElementById('tip');
-function showTip(el, x, y) {
-  const raw = el.getAttribute('data-tip'); if (!raw) return;
-  tip.replaceChildren();
-  const [v, l] = raw.split('|');
-  const a = document.createElement('div'); a.className = 'tv'; a.textContent = v;
-  tip.appendChild(a);
-  if (l) { const b = document.createElement('div'); b.className = 'tl'; b.textContent = l; tip.appendChild(b); }
-  tip.style.display = 'block';
-  const r = tip.getBoundingClientRect();
-  tip.style.left = Math.min(x + 14, innerWidth - r.width - 8) + 'px';
-  tip.style.top = Math.max(8, y - r.height - 12) + 'px';
-}
-document.addEventListener('pointermove', e => {
-  const el = e.target.closest && e.target.closest('[data-tip]');
-  if (el) showTip(el, e.clientX, e.clientY); else tip.style.display = 'none';
-});
-document.addEventListener('focusin', e => {
-  const el = e.target.closest && e.target.closest('[data-tip]');
-  if (el) { const r = el.getBoundingClientRect(); showTip(el, r.left + r.width / 2, r.top); }
-});
-document.addEventListener('focusout', () => { tip.style.display = 'none'; });
-
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawLayout());
-render();
 </script>
 </body>
 </html>
