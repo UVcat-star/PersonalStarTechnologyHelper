@@ -153,10 +153,11 @@ ol.steps { margin: 0; padding-left: 22px; } ol.steps li + li { margin-top: 8px; 
 <script>
 /* ---------- state ---------- */
 // topic = 위쪽 탭, sub = 주제 안의 하위 탭. 주소는 #topic 또는 #topic/sub.
-const S = { veN: 4, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+const S = { veN: 4, peN: 1, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
 try {
   const saved = JSON.parse(localStorage.getItem('hv-web') || '{}');
   if ([2, 3, 4].includes(saved.veN)) S.veN = saved.veN;
+  if ([1, 2].includes(saved.peN)) S.peN = saved.peN;
   if (saved.topic) S.topic = saved.topic;
   if (saved.sub) S.sub = saved.sub;
   if (saved.lay) Object.assign(S, saved.lay);
@@ -175,7 +176,7 @@ function persist() {
   const sub = TOPICS.find(t => t.id === S.topic)?.subs ? '/' + curSub() : '';
   const want = '#' + S.topic + sub;
   if (location.hash !== want) history.replaceState(null, '', want);
-  try { localStorage.setItem('hv-web', JSON.stringify({ veN: S.veN, topic: S.topic, sub: S.sub, lay: { layGhost: S.layGhost, layPipes: S.layPipes, layLabels: S.layLabels } })); } catch (e) {}
+  try { localStorage.setItem('hv-web', JSON.stringify({ veN: S.veN, peN: S.peN, topic: S.topic, sub: S.sub, lay: { layGhost: S.layGhost, layPipes: S.layPipes, layLabels: S.layLabels } })); } catch (e) {}
 }
 
 /* ---------- constants (Theta 2에서 재확인한 값) ---------- */
@@ -416,6 +417,7 @@ const TOPICS = [
   { id: 'overview', name: '개요' },
   { id: 'power', name: '1 · 전력' },
   { id: 'resource', name: '2 · 자원', subs: [['void', 'Void 체인'], ['chunk', '한 청크 배치 · 3D'], ['crushed', 'Crushed Ore'], ['persulfate', 'Sodium Persulfate']] },
+  { id: 'passive', name: '패시브', subs: [['flow', '수지 · 대수'], ['3d', '화학 청크 · 3D']] },
   { id: 'ptfe', name: '3 · PTFE → LCR', subs: [['boot', '첫 LCR 만들기'], ['lcr', 'LCR 이후 C2F4 양산']] },
   { id: 'circuit', name: '4 · 클린룸 · 회로' },
   { id: 'next', name: '5 · 다음 티어' },
@@ -1392,6 +1394,7 @@ const VIEWS = {
   overview: viewOverview, power: viewPower, circuit: viewCircuit, next: viewNext,
   resource: { void: viewVoid, chunk: viewChunk, crushed: viewCrushed, persulfate: viewPersulfate },
   ptfe: { boot: viewBoot, lcr: viewLcr },
+  passive: { flow: viewPassiveFlow, '3d': viewPassive3d },
   misc: { multi: viewMulti, epoxy: viewEpoxy },
 };
 
@@ -1408,7 +1411,7 @@ function drawLayout() {
   const shade = (hex, f) => `rgb(${rgb(hex).map(c => Math.round(c * f)).join(',')})`;
   ctx.fillStyle = colOf('--surface'); ctx.fillRect(0, 0, wrapW, H);
 
-  const { boxes, pipes } = buildChunk(S.veN);
+  const { boxes, pipes } = curBuilder();
   const vis = boxes.filter(b => !b.hide && (!b.ghost || S.layGhost || b.outline));
   // 장면 중심과 배율
   let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
@@ -1508,6 +1511,256 @@ function drawLayout() {
 }
 
 
+/* ---------- 패시브 화학 청크 ----------
+   세 라인(황산 → Persulfate, Polyethylene, PTFE)이 산소 · 수소 · 염소 · HCl · 황산을 주고받아서 한 청크에 공용 탱크를 두고 묶는다.
+   모든 값은 mB/t. 기계는 MV(C2F4만 HV). ULV · LV 레시피는 MV에서 오버클럭된 시간과 EU/t로 계산한다.
+   분해 레시피(DecompositionRecipeHandler): 시간 = 양성자 수 × 성분 수 × 2, EU/t = 성분 2개 이하 30 · 그 이상 60. */
+const DECOMP = {
+  lep: { n: 'Lepidolite', dust: 20, dur: 178 * 20 * 2, eut: 60, O: 10000, F: 2000 },   // K1 Li3 Al4 F2 O10
+  pyro: { n: 'Pyrochlore', dust: 11, dur: 179 * 11 * 2, eut: 60, O: 6000, F: 1000 },   // Ca2 Nb2 O6 F1
+  hcl: { dur: 18 * 2 * 2, eut: 30 },                                                     // H1 Cl1
+};
+const mvDur = (dur, eut) => { let d = dur, e = eut; while (e * 4 <= 128) { e *= 4; d /= 2; } return { dur: d, eut: e }; };
+function passiveFlows(n = S.veN, pe = S.peN) {
+  const f = {};
+  f.P = PER_CYCLE.persulfate * n / CYC;                     // Sodium Persulfate
+  f.saPs = f.P * 2;                                           // 황산 2000 → Persulfate 1000
+  f.eth = pe * 1000 / 1200;                                   // Ethylene CR pe대 (1200t / 1000)
+  f.saEth = f.eth / 3;                                        // 묽은 황산 3000 → 2000 회수, 순 손실 1/3
+  f.sa = f.saPs + f.saEth;
+  f.pe = f.eth * 1.5;                                         // polyethylene_from_oxygen: 144 → 216
+  f.dust = 0.7 * 1.5 * n / CYC;                               // Lepidolite · Pyrochlore dust 각각 (Ore Factory A 기대 1.5)
+  f.F = F_PER_CYCLE * n / CYC;
+  f.c2f4 = f.F / 4;
+  f.ptfe = f.c2f4 * 1.5;
+  f.hcl = f.c2f4 * 12 + f.saPs;                               // PTFE 루프 12000/C2F4 + Bisulfate 1000/황산
+  f.methane = f.c2f4 * 2;
+  f.oSa = f.sa * 3; f.oPe = f.eth / 144 * 1000; f.oPtfe = f.c2f4 / 144 * 1000;
+  f.oByp = f.dust / DECOMP.lep.dust * DECOMP.lep.O + f.dust / DECOMP.pyro.dust * DECOMP.pyro.O;
+  f.oNeed = Math.max(0, f.oSa + f.oPe + f.oPtfe - f.oByp);
+  f.air = f.oNeed * 10;
+  f.water = f.sa;                                             // ③ SO3 + Water → H2SO4
+  f.sulfur = f.sa / 1000;                                     // dust / t
+  f.salt = f.saPs / 1000 * 2;                                 // dust / t
+  f.hSurplus = f.hcl + f.P * 2 - f.F;                         // HCl 전해 H + ⑤ 전해 H − HF에 쓰는 H
+  return f;
+}
+// 기계 묶음: util = 필요한 기계 대수(소수). line: U 공용 · S 황산 · P PE · F PTFE
+const PGROUPS = [
+  { id: 'GC', line: 'U', m: 'Gas Collector', t: 'MV', eut: 64, r: 'air (circuit 1)', u: f => f.air * 100 / 10000, row: 1 },
+  { id: 'AS', line: 'U', m: 'Centrifuge', t: 'MV', eut: 112, r: 'air_separation: Air 10000 → Oxygen 1000 + Nitrogen 3900 (400t)', u: f => f.oNeed * 400 / 1000, row: 1 },
+  { id: 'S1', line: 'S', m: 'Chemical Reactor', t: 'MV', eut: 112, r: '① sulfur_dioxide_from_sulfur (c2) · 15t', u: f => f.sa * 15 / 1000, row: 4 },
+  { id: 'S2', line: 'S', m: 'Chemical Reactor', t: 'MV', eut: 112, r: '② sulfur_trioxide · 50t', u: f => f.sa * 50 / 1000, row: 4 },
+  { id: 'S3', line: 'S', m: 'Chemical Reactor', t: 'MV', eut: 112, r: '③ sulfuric_acid_from_trioxide · 40t', u: f => f.sa * 40 / 1000, row: 4 },
+  { id: 'S4', line: 'S', m: 'Chemical Reactor', t: 'MV', eut: 120, r: '④ sodium_bisulfate_from_salt (c1) · 30t', u: f => f.saPs * 30 / 1000, row: 4 },
+  { id: 'S5', line: 'S', m: 'Electrolyzer', t: 'MV', eut: 120, r: '⑤ sodium_bisulfate_electrolysis · 75t', u: f => f.P * 75 / 500, row: 4 },
+  { id: 'P1', line: 'P', m: 'Chemical Reactor', t: 'MV', eut: 120, r: 'ethylene_from_ethanol · 1200t', u: f => f.eth * 1200 / 1000, row: 7, fixed: true },
+  { id: 'P2', line: 'P', m: 'Chemical Reactor', t: 'MV', eut: 120, r: 'polyethylene_from_oxygen (c1) · 80t', u: f => f.eth / 144 * 80, row: 7 },
+  { id: 'P3', line: 'P', m: 'Distillery', t: 'MV', eut: 120, r: '묽은 황산 → 황산 (distill_dilute_sulfuric의 단일 블록판) · EMI 확인', u: f => f.eth / 3000 * 600, row: 7 },
+  { id: 'F3', line: 'F', m: 'Chemical Reactor', t: 'MV', eut: 112, r: 'hydrofluoric_acid_from_elements · 15t', u: f => f.F * 15 / 1000, row: 10 },
+  { id: 'F4', line: 'F', m: 'Chemical Reactor', t: 'MV', eut: 120, r: 'chloroform (c1) · 40t', u: f => f.c2f4 * 2 * 40 / 1000, row: 10 },
+  { id: 'F5', line: 'F', m: 'Chemical Reactor', t: 'HV', eut: 240, r: 'tetrafluoroethylene_from_chloroform · 480t (LCR이 생기면 LCR로)', u: f => f.c2f4 * 480 / 1000, row: 10 },
+  { id: 'F6', line: 'F', m: 'Chemical Reactor', t: 'MV', eut: 120, r: 'ptfe_from_oxygen (c1) · 80t', u: f => f.c2f4 / 144 * 80, row: 10 },
+  { id: 'F7', line: 'F', m: 'Electrolyzer', t: 'MV', eut: 120, r: `HCl 분해 · ${DECOMP.hcl.dur / 2}t (H + Cl)`, u: f => f.hcl * (DECOMP.hcl.dur / 2) / 1000, row: 10 },
+  { id: 'F1', line: 'F', m: 'Electrolyzer', t: 'MV', eut: 240, r: `Lepidolite 분해 · ${DECOMP.lep.dur / 2}t · 20 dust`, u: f => f.dust / 20 * DECOMP.lep.dur / 2, row: 13 },
+  { id: 'F2', line: 'F', m: 'Electrolyzer', t: 'MV', eut: 240, r: `Pyrochlore 분해 · ${DECOMP.pyro.dur / 2}t · 11 dust`, u: f => f.dust / 11 * DECOMP.pyro.dur / 2, row: 13 },
+  { id: 'F8', line: 'F', m: 'Chemical Reactor', t: 'MV', eut: 120, r: '(선택) methane_from_elements (c1) · 1750t — 오일 Methane이 없을 때', u: f => f.methane * 1750 / 1000, row: 13, opt: true },
+];
+const LINE = { U: { n: '공용 (산소)', c: 'var(--s4)' }, S: { n: '황산 → Persulfate', c: 'var(--s3)' }, P: { n: 'Polyethylene', c: 'var(--s1)' }, F: { n: 'PTFE 루프', c: 'var(--s7)' } };
+const pNeed = (g, f) => g.fixed ? Math.round(g.u(f)) : Math.max(1, Math.ceil(g.u(f) / LIMIT - 1e-9));
+function passiveTotals(f) {
+  let mvA = 0, hvA = 0, avg = 0;
+  PGROUPS.forEach(g => { if (g.opt) return; const k = pNeed(g, f); if (g.t === 'HV') hvA += k; else mvA += k; avg += g.u(f) * g.eut; });
+  const peakA = mvA + hvA * 4;
+  return { mvA, hvA, avg, peakA, conv: Math.ceil(peakA / 16) };
+}
+
+function buildChem() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const cable = (type, pts) => pipes.push({ type, pts: pts.map(([x, y, z]) => [x + 0.5, y + 0.5, z + 0.5]) });
+  const node = (x, y, z, ghost, what, cards) => box({ x: x + 0.15, y: y + 0.15, z: z + 0.15, w: 0.7, h: 0.7, d: 0.7, col: '--s8', ghost, node: true, tip: `LaserIO Node · ${what}|${cards.join(' · ')}` });
+  const plate = (x, y, z, what) => box({ x: x - 0.14, y: y + 0.2, z: z + 0.2, w: 0.14, h: 0.6, d: 0.6, col: '--s7', tip: `AE2 Storage Bus|${what} — ME에서 잔량 확인` });
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  const fNow = passiveFlows(), fMax = passiveFlows(4, 2);
+  // 공용 탱크 (x = 1)
+  [['O2', 'Oxygen', 1, 'AS · 분해 부산물 IN', '① ② PE PTFE로 OUT'], ['H2SO4', 'Sulfuric Acid', 4, '③ · P3 IN', '④ · P1로 OUT'], ['EtOH', 'Ethanol', 7, 'Casket · 농장에서 (레이저)', 'P1로 OUT'],
+   ['HCl', 'Hydrochloric Acid', 9, '④ · Chloroform · C2F4 IN', 'F7로 OUT'], ['Cl2', 'Chlorine', 11, 'F7 IN', 'Chloroform로 OUT · 남는 건 TiCl4'], ['H2', 'Hydrogen', 13, 'F7 · ⑤ IN', 'HF로 OUT · 남는 건 Methane']]
+    .forEach(([lab, n, z, a, b]) => { unit(1, 0, z, { col: '--muted', label: lab, tip: `Super Tank · ${n}|${a} / ${b}` }); node(1, 1, z, false, lab, [a, b]); plate(1, 0, z, n); });
+  // 기계 줄: 그룹마다 샌드위치 열
+  const cursor = {};
+  PGROUPS.forEach(g => {
+    const z = g.row, x0 = cursor[z] ?? 3, max = pNeed(g, fMax), live = g.opt ? 0 : pNeed(g, fNow), cols = Math.ceil(max / 2);
+    const col = g.t === 'HV' ? '--s2' : LINE[g.line].c.slice(4, -1);
+    for (let c = 0; c < cols; c++) {
+      [0, 1].forEach(k => {
+        const j = c * 2 + k; if (j >= max) return;
+        unit(x0 + c, k * 2, z, { col, ghost: j >= live, label: `${g.id}${max > 1 ? '·' + (j + 1) : ''}`, tip: `${g.id}${max > 1 ? '·' + (j + 1) : ''} · ${g.t} ${g.m}|${g.r}${j >= live ? (g.opt ? ' · 선택' : ' · VE 4대 · PE 2대일 때') : ''}` });
+      });
+      node(x0 + c, 1, z, c * 2 >= live, `${g.id} 열 ${c + 1}`, [LINE[g.line].n, g.r.split(' · ')[0]]);
+    }
+    cursor[z] = x0 + cols;
+  });
+  // 입출구 · 공급
+  unit(14, 0, 1, { col: '--s1', label: 'Water', tip: '무한 물|③ 황산 원료 (황산과 같은 양)' });
+  unit(13, 0, 4, { col: '--s7', label: 'ME IF', tip: 'ME Interface|Sulfur dust · Salt dust 유지. 레이저가 ①과 ④로' });
+  unit(14, 0, 4, { col: '--s4', label: 'Persulf.', tip: 'Super Tank · Sodium Persulfate|→ ME → Ore Factory B' }); node(14, 1, 4, false, 'Persulfate', ['⑤ OUT → 여기']);
+  unit(14, 0, 7, { col: '--s4', label: 'PE', tip: 'Super Tank · Polyethylene|→ ME (Fluid Solidifier로 plate · ingot)' }); node(14, 1, 7, false, 'PE', ['P2 OUT → 여기']);
+  unit(14, 0, 10, { col: '--s4', label: 'PTFE', tip: 'Super Tank · PTFE|→ ME' }); node(14, 1, 10, false, 'PTFE', ['F6 OUT → 여기']);
+  unit(12, 0, 13, { col: '--s4', label: 'dust', tip: 'Lepidolite · Pyrochlore dust 입구|처리 청크 → Ore Factory A에서' });
+  unit(0, 2, 7, { col: '--s4', label: '입구', tip: 'Laser Connector · Ethanol|Casket · Large Farm 쪽에서' }); cable('in', [[-5, 2, 7], [0, 2, 7]]);
+  // 전력: 컨버터(피크 ÷ 16A) + hv_transformer(승압, C2F4 HV CR)
+  const cNow = passiveTotals(fNow).conv, cMax = passiveTotals(fMax).conv;
+  [[14, 12], [14, 13], [14, 14], [14, 15], [13, 13]].slice(0, cMax).forEach(([x, z], i) => unit(x, 0, z, { col: '--s1', ghost: i >= cNow, label: `C${i + 1}`, tip: `mv_16a_energy_converter · C${i + 1}|MV 16A${i >= cNow ? ' · VE 4대 · PE 2대일 때' : ''}` }));
+  unit(13, 0, 15, { col: '--s2', label: 'HV', tip: 'hv_transformer (승압)|MV 4A → HV 1A. C2F4 HV CR 전용' });
+  node(14, 1, 14, false, '전력 네트워크', ['컨버터 에너지 IN']);
+  // MV 간선: x = 12, 각 줄 남쪽 면
+  cable('mv', [[13, 0, 13], [12, 0, 13], [12, 0, 2]]);
+  [2, 5, 8, 11, 14].forEach(z => { const end = z === 14 ? 12 : 12; cable('mv', [[end, 0, z], [3, 0, z]]); cable('mv', [[3, 0, z], [3, 2, z]]); });
+  cable('hv', [[13, 0, 15], [13, 1, 15], [13, 1, 11], [cursorX('F5'), 1, 11], [cursorX('F5'), 0, 11]]);
+  function cursorX(id) { const b = boxes.find(q => q.label && q.label.startsWith(id)); return b ? b.x : 5; }
+  // 레이저 (같은 네트워크 노드끼리 최소 신장 트리)
+  const lz = boxes.filter(q => q.node && !q.ghost && !/전력/.test(q.tip));
+  const cen = q => [q.x + q.w / 2, q.y + q.h / 2, q.z + q.d / 2];
+  const inT = new Set([0]);
+  while (lz.length && inT.size < lz.length) {
+    let best = null;
+    inT.forEach(i => lz.forEach((q, j) => { if (inT.has(j)) return; const d = Math.hypot(...cen(lz[i]).map((v, k) => v - cen(q)[k])); if (!best || d < best.d) best = { i, j, d }; }));
+    inT.add(best.j);
+    pipes.push({ type: 'beam', pts: [cen(lz[best.i]), cen(lz[best.j])], long: best.d > 8 });
+  }
+  return { boxes, pipes };
+}
+
+function viewPassiveFlow() {
+  const f = passiveFlows(), T = passiveTotals(f), h = 72000;
+  const oParts = [{ n: '황산 (① ②)', v: f.oSa * h / 1000, c: LINE.S.c }, { n: 'Polyethylene', v: f.oPe * h / 1000, c: LINE.P.c }, { n: 'PTFE', v: f.oPtfe * h / 1000, c: LINE.F.c }];
+  const rows = PGROUPS.map(g => ({ g, u: g.u(f), k: g.opt ? 0 : pNeed(g, f) }));
+  return `
+  <h2>패시브 라인</h2>${subnav()}
+  <p class="lead">퀘스트가 "passive로 돌려 두라"고 하는 것(<code>Sulfuric Acid</code>: <i>automating this on passive is a must</i>)과 HV→EV 계획에서 계속 소모되는 것을 <b>화학 청크 하나</b>에 묶었습니다.
+  세 라인이 산소 · 수소 · 염소 · HCl · 황산을 주고받아서 공용 탱크를 한 줄에 둡니다. 위쪽 VE 대수와 아래 PE 규모에 따라 수치가 바뀝니다.</p>
+  <div class="tiles">
+    ${tile('Sodium Persulfate', fmt(f.P * h / 1000, 0), 'B / 시간', `Ore Factory B · VE ${S.veN}대분`)}
+    ${tile('Polyethylene', fmt(f.pe * h / 144, 0), 'ingot / 시간', `Ethylene CR ${S.peN}대`)}
+    ${tile('PTFE', fmt(f.ptfe * h / 144, 0), 'ingot / 시간', 'Void 체인 Fluorine만으로')}
+    ${tile('청크 전력', fmt(T.avg / 128, 1), 'A 평균', `피크 ${T.peakA}A (MV 환산) → 컨버터 ${T.conv}대 = ${T.conv * 16}A`)}
+  </div>
+  <div class="card">
+    <h3>물질 흐름</h3>
+    <p class="sub">굵기는 대략의 유량. 점선은 되돌아가는 흐름(루프). 분해 전해의 산소 부산물(${fmt(f.oByp, 1)} mB/t)도 O2 탱크로 갑니다. 색 띠: 초록 = 황산, 파랑 = PE, 보라 = PTFE, 노랑 = 공용.</p>
+    ${flow({
+      label: '패시브 화학 청크', h: 540,
+      nodes: [
+        { id: 'air', x: 20, y: 20, w: 120, t: 'Air', s: `Gas Collector ×${pNeed(PGROUPS[0], f)}`, k: 'src' },
+        { id: 'as', x: 180, y: 20, w: 150, t: 'Air Separation', s: `MV Centrifuge ×${pNeed(PGROUPS[1], f)}`, k: 'OF', tip: 'air_separation: Air 10000 → Oxygen 1000 + Nitrogen 3900 · MV에서 400t' },
+        { id: 'o2', x: 380, y: 20, w: 120, t: 'O2 탱크', s: `${fmt(f.oSa + f.oPe + f.oPtfe, 1)} mB/t`, k: 'tank' },
+        { id: 'su', x: 20, y: 140, w: 120, t: 'Sulfur · Salt', s: 'ME Interface', k: 'src' },
+        { id: 's13', x: 180, y: 140, w: 150, t: '① ② ③ 황산', s: 'MV CR ×3', k: 'LV', tip: 'SO2 → SO3 → H2SO4 (각 1대로 충분)' },
+        { id: 'sa', x: 380, y: 140, w: 120, t: 'H2SO4 탱크', s: `${fmt(f.sa, 1)} mB/t`, k: 'tank' },
+        { id: 's45', x: 560, y: 140, w: 170, t: '④ Bisulfate ⑤ 전해', s: 'MV CR · Electrolyzer', k: 'LV' },
+        { id: 'ps', x: 800, y: 140, w: 180, t: 'Sodium Persulfate', s: '→ Ore Factory B', k: 'GOAL' },
+        { id: 'et', x: 20, y: 270, w: 120, t: 'Ethanol', s: `${fmt(f.eth * h / 1000, 0)}B/시간 · Casket`, k: 'src' },
+        { id: 'p1', x: 180, y: 270, w: 150, t: 'Ethylene', s: `MV CR ×${S.peN} · 1200t`, k: 'MV', tip: 'ethylene_from_ethanol: Sulfuric Acid 1000 + Ethanol 1000 → Ethylene 1000 + Diluted Sulfuric Acid 1000' },
+        { id: 'p2', x: 560, y: 270, w: 170, t: 'Polyethylene', s: 'MV CR · O2 1000 / 144', k: 'MV' },
+        { id: 'pe', x: 800, y: 270, w: 180, t: 'PE 탱크', s: `${fmt(f.pe * h / 144, 0)} ingot/시간`, k: 'GOAL' },
+        { id: 'du', x: 20, y: 400, w: 120, t: 'Lep · Pyro dust', s: `${fmt(f.dust * h * 2, 0)}/시간`, k: 'src', tip: '처리 청크 D → Ore Factory A에서 나오는 Lepidolite · Pyrochlore dust' },
+        { id: 'dc', x: 180, y: 400, w: 150, t: '분해 전해', s: `MV Electrolyzer ×${pNeed(PGROUPS[15], f) + pNeed(PGROUPS[16], f)}`, k: 'MV', tip: `Lepidolite 20 → F 2000 + O 10000 … (${DECOMP.lep.dur / 2}t) · Pyrochlore 11 → F 1000 + O 6000 … (${DECOMP.pyro.dur / 2}t) · EMI 확인` },
+        { id: 'ch', x: 560, y: 400, w: 170, t: 'HF · Chloroform · C2F4', s: 'MV CR ×2 · HV CR ×1', k: 'HV' },
+        { id: 'pt', x: 800, y: 400, w: 180, t: 'PTFE 탱크', s: `${fmt(f.ptfe * h / 144, 0)} ingot/시간`, k: 'GOAL' },
+        { id: 'hc', x: 380, y: 480, w: 120, h: 50, t: 'HCl 전해', s: `${fmt(f.hcl, 1)} mB/t`, k: 'MV', tip: `HCl 1000 → H 1000 + Cl 1000 · MV ${DECOMP.hcl.dur / 2}t` },
+      ],
+      edges: [
+        { a: 'air', b: 'as', amt: 400 }, { a: 'as', b: 'o2', amt: 400 },
+        { a: 'o2', b: 's13', fs: 'b', ts: 't', to: 30 },
+        { a: 'su', b: 's13' }, { a: 's13', b: 'sa', amt: 300 }, { a: 'sa', b: 's45', amt: 250 }, { a: 's45', b: 'ps', amt: 150 },
+        { a: 'sa', b: 'p1', fs: 'b', ts: 't', fo: -30, to: 40, lt: 0.4 },
+        { a: 'et', b: 'p1', amt: 80 }, { a: 'p1', b: 'sa', fs: 't', ts: 'b', fo: 40, to: 20, l: '묽은 황산 → P3 증류', lt: 0.5, anchor: 'start', lx: 8, dash: true },
+        { a: 'p1', b: 'p2', l: 'Ethylene', fs: 'r', ts: 'l', lt: 0.75 }, { a: 'o2', b: 'p2', fs: 'r', ts: 't', fo: -10, lt: 0.5 }, { a: 'p2', b: 'pe', amt: 120 },
+        { a: 'du', b: 'dc' }, { a: 'dc', b: 'ch', l: `Fluorine ${fmt(f.F, 1)} mB/t`, lt: 0.35 }, { a: 'ch', b: 'pt', amt: 100 },
+        { a: 'ch', b: 'hc', fs: 'b', ts: 'r', to: 12, l: 'HCl (④의 HCl도)', lt: 0.35, anchor: 'start', lx: 6 },
+        { a: 'hc', b: 'ch', fs: 't', ts: 'b', fo: 30, to: -60, l: 'Cl · H', lt: 0.7, dash: true },
+      ],
+    })}
+    <div class="legend">${Object.values(LINE).map(l => `<span><i style="background:${l.c}"></i>${l.n}</span>`).join('')}</div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>산소가 규모를 정합니다</h3>
+      <p class="sub">필요 ${fmt((f.oSa + f.oPe + f.oPtfe) * h / 1000, 0)}B/시간 중 분해 부산물 ${fmt(f.oByp * h / 1000, 0)}B ${EMI} → 공기 분리로 ${fmt(f.oNeed * h / 1000, 0)}B.</p>
+      ${stackbar(oParts, 'B').replace('<th class="n">Fluorine</th>', '<th class="n">Oxygen</th>')}
+      ${callout('info', 'i', `<b>LCR 이후에는 황산을 산소 없이.</b> <code>sulfuric_acid_from_sulfur</code>(LCR · c24): Sulfur 1 + Water 4000 → 황산 1000 (320t, HV). HV 해치 2개면 160t라 LCR 1대가 ${fmt(1000 / 160, 1)} mB/t. 지금 황산 ${fmt(f.sa, 1)} mB/t면 LCR ${Math.ceil(f.sa / 6.25)}대로 산소 ${fmt(f.oSa * h / 1000, 0)}B/시간이 통째로 빠지고 공기 분리 기계가 ${pNeed(PGROUPS[1], f) - Math.max(1, Math.ceil(Math.max(0, f.oPe + f.oPtfe - f.oByp) * 0.4 / LIMIT))}대 줄어듭니다.`)}
+    </div>
+    <div class="card">
+      <h3>밖에서 넣어야 하는 것</h3>
+      <div class="tscroll"><table>
+        <thead><tr><th>재료</th><th>어디에</th><th class="n">시간당</th></tr></thead>
+        <tbody>
+          <tr><td>Sulfur dust</td><td>① · 황산 1000당 1</td><td class="n">${fmt(f.sulfur * h, 0)}개</td></tr>
+          <tr><td>Salt dust</td><td>④ · 황산 1000당 2</td><td class="n">${fmt(f.salt * h, 0)}개</td></tr>
+          <tr><td>Ethanol</td><td>P1 · 1000 → Ethylene 1000</td><td class="n">${fmt(f.eth * h / 1000, 0)}B</td></tr>
+          <tr><td>Water</td><td>③</td><td class="n">${fmt(f.water * h / 1000, 0)}B</td></tr>
+          <tr><td>Methane</td><td>Chloroform · 오일 또는 F8</td><td class="n">${fmt(f.methane * h / 1000, 0)}B</td></tr>
+        </tbody></table></div>
+      <ul class="pts" style="margin-top:12px">
+        <li><b>Sulfur</b>: 팩의 Mechanical Sieve 출력 · Realgar · Pentlandite 부산물. 기지 Mechanical Sieve 4대 ${EMI} 양.</li>
+        <li><b>Ethanol</b>: 팩 Casket <code>fermenting</code> — 작물 8 → Ethanol 200 (600t, 무전력). Ethylene CR 1대에 Casket 약 ${fmt(1000 / 1200 / (200 / 600), 1)}대 · 작물 시간당 ${fmt(f.eth / S.peN * h / 200 * 8, 0)}개.</li>
+        <li><b>남는 것</b>: Hydrogen 약 ${fmt(Math.max(0, f.hSurplus) * h / 1000, 0)}B/시간(→ Methane), Chlorine(→ Titanium의 TiCl4), Nitrogen(공기 분리).</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h3>기계 대수</h3>
+    <p class="sub">VE ${S.veN}대 · Ethylene CR ${S.peN}대 기준. 가동률 ${fmt(LIMIT * 100, 0)}% 한계. ULV · LV 레시피는 MV에서 오버클럭된 값입니다.</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>ID</th><th>라인</th><th>기계</th><th>레시피</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+      <tbody>${rows.map(({ g, u, k }) => `<tr${g.opt ? ' style="color:var(--muted)"' : ''}><td><span class="chip"><i style="background:${LINE[g.line].c}"></i></span> ${g.id}</td><td>${esc(LINE[g.line].n)}</td><td>${g.t} ${esc(g.m)}</td><td>${esc(g.r)}</td><td class="n">${fmt(u * 100, 0)}%</td><td class="n"><b>${g.opt ? '선택' : k}</b></td></tr>`).join('')}
+        <tr><td colspan="4">합계 (선택 제외)</td><td class="n">${fmt(T.avg, 0)} EU/t</td><td class="n">MV ${T.mvA} · HV ${T.hvA}</td></tr></tbody></table></div>
+  </div>`;
+}
+
+function viewPassive3d() {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  const f = passiveFlows(), T = passiveTotals(f);
+  return `
+  <h2>패시브 라인</h2>${subnav()}
+  <p class="lead">세 라인을 <b>16×16 청크 하나</b>에 넣은 배치입니다. 서쪽 한 줄이 공용 탱크(O2 · H2SO4 · Ethanol · HCl · Cl2 · H2), 그 동쪽으로 줄마다 한 라인입니다.
+  점선 상자는 VE 4대 · Ethylene CR 2대까지 늘릴 때의 예약 자리입니다. 전력은 컨버터 <b>${T.conv}대(MV ${T.conv * 16}A)</b>입니다 — 평균 ${fmt(T.avg / 128, 1)}A지만 모든 기계가 한꺼번에 도는 피크가 ${T.peakA}A라서요. 공기 분리 기계가 대부분을 먹습니다.</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <span class="ctl-label">VE</span>
+      <div class="seg">${[2, 3, 4].map(n => `<button data-n="${n}" aria-pressed="${n === S.veN}">${n}대</button>`).join('')}</div>
+      <span class="ctl-label">Ethylene CR</span>
+      <div class="seg">${[1, 2].map(n => `<button data-pe="${n}" aria-pressed="${n === S.peN}">${n}대</button>`).join('')}</div>
+      <div class="seg"><button data-act="ghost" ${pressed('layGhost')}>예약 자리</button><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="패시브 화학 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${Object.values(LINE).map(l => `<span><i style="background:${l.c}"></i>${l.n}</span>`).join('')}${[['--s2', 'HV 기계 · 트랜스포머'], ['--muted', 'Super Tank'], ['--s8', 'LaserIO Node'], ['--s7', 'AE2 · ME']].map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join('')}</div>
+    <p class="sub" style="margin:10px 0 0">줄 순서(북 → 남): 공용 산소(Gas Collector · 공기 분리) · 황산 → Persulfate · Polyethylene · PTFE 반응 · Fluorine 분해. 출력 탱크는 동쪽 끝, 전력은 남동쪽 모서리.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>배치 원칙</h3>
+      <ul class="pts">
+        <li><b>공용 탱크를 서쪽 한 줄에.</b> 산소는 세 라인이 다 쓰고, HCl · Cl2 · H2는 PTFE 루프와 Persulfate가 주고받습니다. 한 줄에 모으면 ME에서 잔량으로 균형이 보입니다.</li>
+        <li><b>같은 CR에 H2와 Cl2를 같이 넣지 않기.</b> HF(F3)와 Chloroform(F4)은 다른 기계 · 다른 채널입니다.</li>
+        <li><b>C2F4만 HV</b>라 작은 트랜스포머 하나(MV 4A → HV 1A)로 따로 줍니다. LCR이 생기면 LCR로 옮기고 HV CR은 풀립니다.</li>
+        <li><b>공기 분리 줄이 가장 깁니다.</b> LCR 황산으로 바꾸면 이 줄 대부분이 비고, 그 자리에 LCR이 들어갑니다(3×3).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>처리 청크와의 연결</h3>
+      <ul class="pts">
+        <li><b>Persulfate → Ore Factory B</b>, <b>Lepidolite · Pyrochlore dust ← Ore Factory A</b>: 둘 다 ME로 주고받습니다.</li>
+        <li><b>Chlorine</b> 남는 양은 5 탭 Titanium의 TiCl4(Titanium 1개당 4000)로.</li>
+        <li><b>Hydrogen</b> 남는 양은 F8(Methane)이나 탱크에. Methane이 오일 라인에서 오면 F8은 필요 없습니다.</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
 function mountLayout() {
   const cv = document.getElementById('lay3d'); if (!cv) return;
   let drag = null;
@@ -1531,6 +1784,7 @@ function mountLayout() {
   document.getElementById('layctl').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.n) { S.veN = +b.dataset.n; render(); return; }
+    if (b.dataset.pe) { S.peN = +b.dataset.pe; render(); return; }
     const a = b.dataset.act;
     if (a === 'reset') Object.assign(L3, { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, fit: 0 });
     if (a === 'top') Object.assign(L3, { yaw: 0, pitch: 1.55, zoom: 1, panX: 0, panY: 0, fit: 0 });
@@ -1547,6 +1801,7 @@ function mountLayout() {
 }
 
 /* ---------- render ---------- */
+let curBuilder = () => buildChunk(S.veN);
 function render() {
   if (!TOPICS.some(t => t.id === S.topic)) S.topic = 'overview';
   const t = curTopic(), sub = curSub();
@@ -1556,7 +1811,8 @@ function render() {
   const v = VIEWS[t.id], fn = typeof v === 'function' ? v : v[sub];
   const y = window.scrollY;
   document.getElementById('main').innerHTML = `<section class="tab on" role="tabpanel">${fn()}</section>`;
-  if (fn === viewChunk) mountLayout();
+  curBuilder = fn === viewPassive3d ? buildChem : () => buildChunk(S.veN);
+  if (fn === viewChunk || fn === viewPassive3d) mountLayout();
   window.scrollTo(0, y);
   persist();
 }
