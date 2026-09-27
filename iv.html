@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IV 할 일</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="IV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · IV 할 일</h1>
+        <div class="meta">Theta 2 (GTCEu 1.7.1b) · 2026-09-27 · IV = 회로 조립기와 레시피가 8,192V까지 열리는 단계</div>
+      </div>
+      <div class="controls">
+        <span class="ctl-label">PBI 목표 · 회/시간</span>
+        <div class="seg" id="pbn">
+          <button data-pb="4">4</button>
+          <button data-pb="8">8</button>
+          <button data-pb="16">16</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
+<script>
+
+/* ---------- state ---------- */
+const S = { pbN: 8, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+Object.assign(TIER, {
+  EV: { c: 'var(--s5)', name: 'EV 기계' }, IV: { c: 'var(--s7)', name: 'IV 기계 · IV 레시피' },
+  LuV: { c: 'var(--s8)', name: 'LuV' }, GOAL: { c: 'var(--good)', name: '목표' },
+});
+
+/* ---------- constants ----------
+   PBI 한 회(polybenzimidazole, IV 100t) = Diaminobenzidine 1000 + Diphenyl Isophtalate 1000 → PBI 1008 + Phenol 1000.
+   아래 수치는 모두 GTCEu PolymerRecipes · MixerRecipes · DistillationRecipes (jar). */
+const PBI_RUN = 1008;
+const PER_RUN = [   // [원료, mB/회, 어디서]
+  ['Benzene', 2000, 'Chlorobenzene 2000 (LV CR · Cl 4000)'],
+  ['Chlorine', 4000, '→ HCl 2000 부산물'],
+  ['Nitric Acid', 2000, 'Nitration Mixture 4000 (Mixer · + H₂SO₄ 2000)'],
+  ['Sulfuric Acid', 3400, 'Nitration 2000 · DPIP 1000 · Phthalic 400'],
+  ['Hydrogen', 2000, 'Dichlorobenzidine (EV CR)'],
+  ['Ammonia', 2000, 'Diaminobenzidine (IV LCR) · Zinc 촉매'],
+  ['Phenol', 1000, '2000 중 1000은 PBI에서 되돌아옴'],
+  ['Naphthalene', 800, 'Phthalic Acid 1000 (LCR LV · Potassium 촉매)'],
+];
+const STEPS = [   // [기계, 레시피, EU/t, 틱, 회당 반복]
+  ['LV Chemical Reactor', 'chlorobenzene', 30, 240, 2],
+  ['Mixer', 'nitration_mixture', 2, 500, 2],
+  ['HV Chemical Reactor', 'nitrochlorobenzene', 480, 100, 2],
+  ['EV Chemical Reactor', 'dichlorobenzidine', 1920, 200, 1],
+  ['LCR (EV 해치 2)', 'diaminobenzidine', 7680, 100, 1],
+  ['LCR (MV 해치)', 'phthalic_acid_from_naphthalene', 30, 125, 0.4],
+  ['LCR (EV 해치 2)', 'diphenyl_isophtalate', 7680, 100, 1],
+  ['LCR (EV 해치 2)', 'polybenzimidazole', 7680, 100, 1],
+];
+// 양자 회로 (GTCEu CircuitRecipes). ZPM Mainframe은 팩이 LuV Assembly Line으로 옮김(circuits.js).
+const QUANT = [
+  { n: 'Quantum Processor', t: 'EV', id: 'quantum_processor_ev', eut: 2400, dur: 200, out: 1, in: 'Extreme Circuit Board · Qbit CPU · Nano CPU · SMD Capacitor 12 · SMD Transistor 12 · Platinum fine 12' },
+  { n: 'Quantum Assembly', t: 'IV', id: 'quantum_assembly_iv', eut: 2400, dur: 400, out: 2, in: 'Extreme Circuit Board · Quantum Processor 2 · SMD Inductor 8 · SMD Capacitor 16 · RAM 4 · Platinum fine 16' },
+  { n: 'Quantum Computer', t: 'LuV', id: 'quantum_computer_luv', eut: 2400, dur: 400, out: 1, in: 'Extreme Circuit Board · Quantum Assembly 2 · SMD Diode 8 · NOR 4 · RAM 16 · Platinum fine 32' },
+  { n: 'Quantum Mainframe (팩)', t: 'ZPM', id: 'quantum_processor_mainframe', eut: 30720, dur: 600, out: 1, in: 'Assembly Line: HSS-G Frame 2 · Quantum Computer 2 · RAM 24 · HPIC 2 · ASMD Inductor 8 · Capacitor 16 · Diode 8 · Platinum wire 8 · Solder 576' },
+];
+const ASMD = [
+  ['Resistor ×16', 'Graphene dust · Platinum fine 4 · PBI 288', 160],
+  ['Diode ×64', 'InGaP dust · Niobium-Titanium fine 16 · PBI 288', 640],
+  ['Transistor ×16', 'Vanadium-Gallium foil · HSS-G fine 8 · PBI 144', 160],
+  ['Capacitor ×16', 'PBI foil 2 · HSS-S foil · PBI 36', 80],
+  ['Inductor ×16', 'HSS-E ring · Palladium fine 4 · PBI 144', 160],
+];
+
+/* ---------- topics ---------- */
+const TOPICS = [
+  { id: 'overview', name: '로드맵' },
+  { id: 'entry', name: '1 · IV 진입 · 해치' },
+  { id: 'circuit', name: '2 · 회로' },
+  { id: 'resource', name: '3 · 자원 처리' },
+  { id: 'passive', name: '4 · 패시브 (PBI)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'next', name: '5 · LuV 준비' },
+];
+
+/* ---------- 로드맵 ---------- */
+function viewOverview() {
+  const stages = [
+    ['I0', 'EV에서 가져올 것', 'EV', 'Tungstensteel · RTM 코일 EBF · EV 해치 2개 멀티블럭 · Platinum · Nano 회로(IV · LuV)'],
+    ['I1', 'IV 전력 인입', 'EV', 'EV 트랜스포머(승압 4A EV → 1A IV) · Tungsten 케이블 · 발전: Extreme Combustion'],
+    ['I2', 'IV 단일 블록 기계', 'IV', 'IV Circuit Assembler(양자 회로 2,400) · IV Assembler · IV Cutter · IV Mixer'],
+    ['I3', 'IV 에너지 해치', 'IV', 'HPIC 웨이퍼(IV CR = LCR + EV 해치 2) → IV Cutter · 클린룸 · IV Voltage Coil'],
+    ['I4', 'Quantum 회로 · ASMD', 'IV', 'Qbit CPU · PBI → ASMD → Quantum Assembly(IV) · Computer(LuV)'],
+    ['I5', 'IV 정제 · PBI (패시브)', 'IV', 'Rarest Metal → Iridium · Osmium, Indium · Gallium · InGaP, PBI 라인'],
+    ['I6', 'LuV 준비', 'LuV', 'HSS-G 코일 · HSS-S · Ruridit · NbTi · Assembly Line · LuV 부품 · Fusion 연료(D · T)'],
+  ];
+  return `
+  <h2>IV 로드맵</h2>
+  <p class="lead">"IV"는 <b>회로 조립기와 기계가 8,192V(7,680 EU/t) 레시피까지 돌릴 수 있는 단계</b>입니다. GTCEu jar에서 2,048 &lt; EU/t ≤ 8,192인 레시피 91개, 팩 스크립트 50개를 걸러 단계로 묶었습니다.
+  EV 해치 2개 멀티블럭(LCR · EBF · GCYM Large Mixer · Large Cutter …)은 EV 단계에서도 IV 레시피를 돌리지만, <b>양자 회로는 Circuit Assembler라 진짜 IV 단일 블록</b>이 필요합니다(Circuit Assembler 멀티블럭은 해치 2개 불가 — <a href="common.html#hatch">공용 › 해치</a>).</p>
+  <div class="tiles">
+    ${tile('IV에 열리는 GTCEu 레시피', '91', '개', '조립 28 · 각인 12 · Assembly Line 10 · 회로 9 …')}
+    ${tile('IV 회로 조립기로 새로', 'Quantum ×3', '', 'EV · IV · LuV 회로 (2,400 EU/t)')}
+    ${tile('이 단계의 코일', 'HSS-G', '5,400K', 'IV Assembler로 만들고 IV 해치 2개 = 5,800K')}
+    ${tile('PBI 목표', fmt(S.pbN * PBI_RUN, 0), 'mB/시간', `${S.pbN}회 · ASMD 약 ${fmt(S.pbN * PBI_RUN / 288 * 16, 0)}개분(Resistor 기준)`)}
+  </div>
+  <div class="card">
+    <h3>단계</h3>
+    ${flow({
+      label: 'IV 로드맵', h: 400,
+      nodes: [
+        { id: 'i0', x: 20, y: 30, w: 170, t: 'I0 EV에서', s: 'Tungstensteel · RTM · Pt', k: 'EV' },
+        { id: 'i1', x: 230, y: 30, w: 170, t: 'I1 IV 전력', s: 'EV 트랜스포머 승압', k: 'EV' },
+        { id: 'i2', x: 440, y: 30, w: 170, t: 'I2 IV 기계', s: 'Circuit Assembler …', k: 'IV' },
+        { id: 'i3', x: 650, y: 30, w: 170, t: 'I3 IV 해치', s: 'HPIC · Voltage Coil', k: 'IV' },
+        { id: 'i4', x: 440, y: 170, w: 170, t: 'I4 Quantum', s: 'ASMD · Qbit CPU', k: 'IV' },
+        { id: 'i5', x: 230, y: 170, w: 170, t: 'I5 IV 정제 · PBI', s: 'Ir · Os · In · PBI', k: 'IV' },
+        { id: 'i6', x: 650, y: 170, w: 170, t: 'I6 LuV 준비', s: 'HSS-S · NbTi · AL', k: 'LuV' },
+        { id: 'luv', x: 860, y: 176, w: 120, h: 44, t: 'LuV', k: 'GOAL' },
+        { id: 'pw', x: 20, y: 300, w: 380, t: '전력: Extreme Combustion (공용 › 발전)', s: '보석 발전 한계 ~10k EU/t를 넘는 시점', k: 'src' },
+      ],
+      edges: [
+        { a: 'i0', b: 'i1' }, { a: 'i1', b: 'i2' }, { a: 'i2', b: 'i3' }, { a: 'i2', b: 'i4', fs: 'b', ts: 't' },
+        { a: 'i0', b: 'i5', fs: 'b', ts: 't', l: 'Pt 라인', lt: 0.5 }, { a: 'i5', b: 'i4', l: 'PBI · In' },
+        { a: 'i3', b: 'i6', fs: 'b', ts: 't' }, { a: 'i4', b: 'i6', l: 'LuV 회로' }, { a: 'i5', b: 'i6', fs: 'b', ts: 'b', k: 70, l: 'Ir · Os', lt: 0.5 }, { a: 'i6', b: 'luv' },
+        { a: 'pw', b: 'i5', dash: true, fs: 'r', ts: 'b' },
+      ],
+    })}
+    ${tierLegend(['EV', 'IV', 'LuV', 'GOAL', 'src'])}
+    <div class="tscroll" style="margin-top:12px"><table>
+      <thead><tr><th>단계</th><th>무엇</th><th>전압</th><th>핵심</th><th>탭</th></tr></thead>
+      <tbody>${stages.map(([id, t, v, d], i) => `<tr><td><b>${id}</b></td><td>${esc(t)}</td><td>${v}</td><td>${esc(d)}</td><td>${['—', '1', '1', '1', '2', '3 · 4', '5'][i]}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>IV에 새로 열리는 것 (GTCEu · 팩)</h3><ul class="pts">
+      <li><b>회로</b>: <code>quantum_processor_ev</code> · <code>quantum_assembly_iv</code> · <code>quantum_computer_luv</code>(2,400). ASMD 5종(3,840). ZPM Mainframe은 팩이 <b>LuV Assembly Line</b>으로 옮김.</li>
+      <li><b>칩</b>: <code>hpic_wafer</code>(IV CR · 클린룸) · <code>cut_hpic</code>, <code>neutronium_boule</code>(6,484K) · Neutronium 웨이퍼 각인 12종, 팩 <code>hyper_nand/nor_memory_chip</code>.</li>
+      <li><b>금속</b>: Mixer <code>niobium_titanium</code> · <code>hsss</code> · <code>rhodium_plated_palladium</code>(7,680) · <code>hsse</code> · <code>ruridit</code>(~4,000). 코일 <code>hssg_coil_block</code>.</li>
+      <li><b>화학</b>: <code>rarest_metal_mixture_separation</code> · <code>diaminobenzidine</code> · <code>diphenyl_isophtalate</code> · <code>polybenzimidazole</code>, <code>liquid_ender_air</code> · <code>distill_liquid_ender_air</code>.</li>
+      <li><b>기계 · 부품</b>: <code>assembly_line_casing</code> · <code>assembly_control_casing</code>, LuV 부품 8종 Assembly Line(6,000), <code>energy_hatch_iv</code>, 팩 <code>iv_rotor_holder</code> · <code>large_me_assembler</code>.</li>
+    </ul></div>
+    <div class="card"><h3>보는 순서</h3><ul class="pts">
+      <li>EV 페이지의 <b>RTM 코일 + EV 해치 2개</b> EBF(4,800K)가 먼저 — HSS-G(4,200K) · Niobium-Titanium · Vanadium-Gallium(4,500K)이 여기서 녹습니다.</li>
+      <li>LCR에 EV 해치 2개면 <b>IV 화학(HPIC 웨이퍼 · PBI · Rarest Metal)</b>이 IV 전력 없이 됩니다. 진짜 IV 전력은 Circuit Assembler · Cutter · Assembler 몇 대분.</li>
+      <li>발전은 <a href="common.html#power">공용 › 발전</a>: IV 진입 즈음 Extreme Combustion. 보석 발전은 <a href="gcrops.html#plan">gCrops 다이아몬드</a>로 버틸 수 있지만 대당 출력이 막혀 있습니다.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 1 IV 진입 · 해치 ---------- */
+function viewEntry() {
+  const mach = [
+    ['IV Circuit Assembler', '<code>quantum_*</code>(2,400) — 멀티블럭으로 대체 불가', '필수'],
+    ['IV Cutter', '<code>cut_hpic</code> · <code>cut_neutronium_boule</code>(7,680) · 클린룸', 'GCYM Large Cutter + EV 해치 2'],
+    ['IV Assembler', '<code>voltage_coil_iv</code> · <code>energy_hatch_iv</code> · <code>hssg_coil_block</code> · Assembly Line 케이싱 · ASMD', 'Large Assembler는 해치 2개 불가'],
+    ['IV Mixer', 'NbTi · HSS-S · HSS-E · Rhodium-Plated Palladium · Ruridit', 'GCYM Large Mixer + EV 해치 2'],
+    ['IV Chemical Reactor', '<code>hpic_wafer</code> · <code>polybenzimidazole</code>', 'LCR + EV 해치 2'],
+    ['IV Vacuum Freezer', '<code>liquid_ender_air</code>', 'Vacuum Freezer + EV 해치 2'],
+  ];
+  return `
+  <h2>1 · IV 진입 · 해치</h2>
+  <p class="lead">순서는 EV와 같습니다: <b>트랜스포머 → IV 단일 블록 → IV 해치</b>. IV 해치의 칩(HPIC)은 IV 화학 + IV 절단이라, 먼저 LCR · Large Cutter에 EV 해치 2개를 달아 IV 전압을 만들면 IV 단일 블록 없이도 HPIC가 나옵니다.</p>
+  <div class="card">
+    <h3>IV 해치 부품</h3>
+    ${flow({
+      label: 'IV 해치 부품', h: 300,
+      nodes: [
+        { id: 'pic', x: 20, y: 30, w: 160, t: 'PIC 웨이퍼', s: 'EV 페이지 E3 (Phosphorus)', k: 'EV' },
+        { id: 'ingap', x: 20, y: 170, w: 160, t: 'InGaP dust 2', s: 'Indium · Gallium · Phosphorus', k: 'src' },
+        { id: 'vg', x: 220, y: 170, w: 160, t: 'Vanadium-Gallium 288', s: 'Mixer EV · EBF 4,500K', k: 'EV', tip: 'mixer:vanadium_gallium Vanadium 3 + Gallium 1 → 4 · blast 4500K = RTM + EV 해치 2' },
+        { id: 'hw', x: 250, y: 30, w: 170, t: 'HPIC 웨이퍼', s: 'LCR(EV 해치 2) · 클린룸 · 1200t', k: 'IV', tip: 'chemical:hpic_wafer 7680 EU/t · LCR은 chemical 레시피도 돌림' },
+        { id: 'hp', x: 470, y: 30, w: 170, t: 'HPIC ×2', s: 'IV Cutter · 클린룸 · 900t', k: 'IV', tip: 'cut_hpic 7680 EU/t — Large Cutter + EV 해치 2도 가능' },
+        { id: 'vc', x: 470, y: 170, w: 170, t: 'IV Voltage Coil', s: 'IV Assembler', k: 'IV' },
+        { id: 'hat', x: 700, y: 100, w: 240, t: 'IV Energy Hatch', s: '+ IV Hull · Tungsten 케이블 2 · NaK 3000', k: 'GOAL' },
+      ],
+      edges: [
+        { a: 'pic', b: 'hw' }, { a: 'ingap', b: 'hw', fs: 't', ts: 'b', fo: 30, to: -40 }, { a: 'vg', b: 'hw', fs: 't', ts: 'b', to: 20 }, { a: 'hw', b: 'hp' },
+        { a: 'hp', b: 'hat' }, { a: 'vc', b: 'hat' },
+      ],
+    })}
+    ${tierLegend(['EV', 'IV', 'GOAL', 'src'])}
+    <p class="sub" style="margin:10px 0 0">HPIC 웨이퍼 1장 = HPIC 2 = 해치 1개. LuV 해치도 HPIC 2 + LuV 회로(Assembly Line)라 HPIC는 계속 씁니다.</p>
+  </div>
+  <div class="card">
+    <h3>IV 기계 — 단일 블록이 꼭 필요한 것</h3>
+    <div class="tscroll"><table><thead><tr><th>기계</th><th>여는 레시피</th><th>해치 2개 대안</th></tr></thead>
+      <tbody>${mach.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">IV Hull = Tungstensteel plate 8 casing + Tungsten 케이블 2 + PBI/Polytetrafluoroethylene 절연 ${EMI}. 트랜스포머는 <code>ev_transformer</code>(EV ↔ IV).</p>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>해치 배분</h3><div class="tscroll"><table>
+      <thead><tr><th>용도</th><th class="n">IV 해치</th><th>대안</th></tr></thead><tbody>
+        <tr><td>LCR (HPIC 웨이퍼 · PBI · Rarest)</td><td class="n">0</td><td>EV 해치 2개</td></tr>
+        <tr><td>EBF (HSS-G · NbTi · HSS-S)</td><td class="n">0 → 2</td><td>RTM + EV 2(4,800K)로 HSS-G까지, HSS-S(5,000K)는 HSS-G 코일 + IV 해치 2(5,800K)</td></tr>
+        <tr><td>Assembly Line</td><td class="n">2</td><td>LuV 부품(6,000)은 IV 1개로, LuV 해치(30,720)는 IV 2개 ${EMI}</td></tr>
+        <tr><td>Super EBF · Super EOF</td><td class="n">1씩</td><td>해치 1개 멀티블럭</td></tr>
+      </tbody></table></div></div>
+    <div class="card"><h3>퀘스트 쪽</h3><ul class="pts">
+      <li>Line Of Progression: <code>Better Chips</code>(HPIC 포함) → <code>IV Universal Circuit</code> → <code>Hssg Coil Block</code>.</li>
+      <li>Power: <b>Extreme Combustion</b>(IV), Solar(EV~) — <a href="common.html#power">공용 › 발전</a>.</li>
+      <li>지금 열린 <code>Enhanced Chips</code>에 <code>qbit_cpu_chip</code>이 들어 있습니다(2 탭).</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 2 회로 ---------- */
+function viewCircuit() {
+  return `
+  <h2>2 · 회로</h2>
+  <p class="lead"><b>IV Circuit Assembler</b>(클린룸)가 Quantum 계열을 엽니다. <b>LuV 회로(Quantum Computer)</b>가 2,400 EU/t로 싸게 나오고, ASMD를 쓰면 시간이 절반 · SMD가 1/4로 줄어듭니다. ZPM 회로는 팩이 <b>Assembly Line(LuV 30,720)</b>으로 옮겨서 LuV 단계 일입니다.</p>
+  <div class="card">
+    <h3>Quantum 계열</h3>
+    ${hbar(QUANT.map(c => ({ label: `${c.n} (${c.t})`, sub: c.id, value: c.eut, color: c.eut > 8192 ? 'var(--s8)' : 'var(--s7)', text: `${fmt(c.eut, 0)} EU/t · ${c.dur}t · ${c.out}개` })), { max: 32000, ref: { v: 8192, l: 'IV 기계 한계 8,192V' }, cols: ['회로', 'EU/t'] })}
+    <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>회로</th><th>재료</th></tr></thead>
+      <tbody>${QUANT.map(c => `<tr><td><b>${c.n}</b> <code>${c.id}</code></td><td>${esc(c.in)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">모두 클린룸 · Extreme Circuit Board(Platinum 보드) ${EMI}. <code>_asmd</code> 버전: SMD 12 → ASMD 3, 시간 절반.</p>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Qbit CPU</h3><ul class="pts">
+      <li><code>qbit_cpu_wafer_radon</code>(EV CR · 클린룸 · 1200t): Nano CPU 웨이퍼 + InGaP dust 1 + <b>Radon 50</b> → Qbit 웨이퍼 → EV Cutter ×4.</li>
+      <li>대안 <code>qbit_cpu_wafer_quantum_eye</code>: Quantum Eye 2 + Gallium Arsenide 288. Quantum Eye = Ender Eye + Radon 250(HV Chemical Bath).</li>
+      <li><b>Radon</b>: <code>distill_liquid_ender_air</code>(IV) 200,000mB → Radon 1000 + Deuterium 50,000 · Tritium 10,000(Fusion 연료) — 3 탭. 초반엔 <code>radon_from_uranium_238</code>(LCR HV · Pu-239 촉매 · 4000t).</li>
+    </ul></div>
+    <div class="card"><h3>ASMD (IV Assembler · 3,840)</h3>
+      <div class="tscroll"><table><thead><tr><th>ASMD</th><th>재료</th><th class="n">틱</th></tr></thead>
+        <tbody>${ASMD.map(r => `<tr><td><b>${r[0]}</b></td><td>${esc(r[1])}</td><td class="n">${r[2]}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">전부 <b>PBI</b>(4 탭 패시브)가 들어갑니다. HSS-S · HSS-E · NbTi · Vanadium-Gallium은 5 탭 금속과 겹칩니다.</p></div>
+  </div>`;
+}
+
+/* ---------- 3 자원 처리 ---------- */
+function viewResource() {
+  return `
+  <h2>3 · 자원 처리</h2>
+  <p class="lead">IV에서 새로 뽑아야 하는 것은 <b>Iridium · Osmium</b>(HSS-S · Ruridit · LuV 부품), <b>Indium · Gallium</b>(InGaP → HPIC · Qbit · ASMD Diode), <b>Radon · Xenon · Deuterium · Tritium</b>(Qbit · Neutronium Boule · Fusion)입니다.</p>
+  ${flow({
+    label: 'IV 정제', h: 470,
+    nodes: [
+      { id: 'pgs', x: 20, y: 30, w: 170, t: 'PGS 라인 (EV 페이지)', s: 'Cooperite → PGS', k: 'src' },
+      { id: 'rm', x: 230, y: 30, w: 170, t: 'Rarest Metal Mixture', s: 'PGS 부산물 (EMI 확인)', k: 'EV' },
+      { id: 'rs', x: 440, y: 30, w: 170, t: 'Rarest 분리', s: 'LCR(EV 해치 2) · HCl 4000', k: 'IV', tip: 'rarest_metal_mixture_separation: 7 → Iridium Metal Residue 5 + Acidic Osmium 2000 + H2 3000 · 400t' },
+      { id: 'ir', x: 650, y: 0, w: 180, t: 'Iridium', s: 'Centrifuge → IrCl → CR + H₂', k: 'GOAL', tip: 'iridium_metal_residue_separation → Iridium Chloride 4 → + H2 3000 → Iridium 1' },
+      { id: 'os', x: 650, y: 90, w: 180, t: 'Osmium', s: 'Distillation → OsO₄ → CR + H₂', k: 'GOAL', tip: 'acidic_osmium_solution_separation (MV) → Osmium Tetroxide 5 → + H2 8000 → Osmium 1' },
+      { id: 'sg', x: 20, y: 190, w: 170, t: 'Sphalerite + Galena', s: 'crushed purified 각 1', k: 'src' },
+      { id: 'ic', x: 230, y: 190, w: 170, t: 'Indium Concentrate', s: 'Mixer · H₂SO₄ 4000', k: 'EV', tip: 'mixer:indium_concentrate 150 EU/t' },
+      { id: 'in', x: 440, y: 190, w: 170, t: 'Indium', s: 'CR · Aluminium 16 → 1 (×4)', k: 'EV', tip: 'indium_concentrate_separation_4x: Concentrate 4000 + Al 16 → Indium 1' },
+      { id: 'gp', x: 650, y: 190, w: 150, t: 'InGaP', s: 'Mixer · In + Ga + P → 3', k: 'GOAL' },
+      { id: 'ea', x: 20, y: 350, w: 170, t: 'Ender Air', s: 'Gas Collector · gCrops', k: 'src' },
+      { id: 'lea', x: 230, y: 350, w: 170, t: 'Liquid Ender Air', s: 'Vacuum Freezer (EV 해치 2)', k: 'IV' },
+      { id: 'dea', x: 440, y: 350, w: 170, t: 'Distillation (IV)', s: '200,000mB · 2000t', k: 'IV', tip: 'distill_liquid_ender_air: NO2 122000 · D 50000 · He 15000 · T 10000 · Kr · Xe · Rn 각 1000 · Ender Pearl' },
+      { id: 'gas', x: 650, y: 350, w: 200, t: 'D · T · Rn · Xe · He', s: 'Fusion 연료 · Qbit · Neutronium', k: 'GOAL' },
+    ],
+    edges: [
+      { a: 'pgs', b: 'rm' }, { a: 'rm', b: 'rs' }, { a: 'rs', b: 'ir' }, { a: 'rs', b: 'os' },
+      { a: 'sg', b: 'ic' }, { a: 'ic', b: 'in' }, { a: 'in', b: 'gp' },
+      { a: 'ea', b: 'lea' }, { a: 'lea', b: 'dea' }, { a: 'dea', b: 'gas' },
+    ],
+  })}
+  ${tierLegend(['EV', 'IV', 'GOAL', 'src'])}
+  <div class="grid2">
+    <div class="card"><h3>Gallium · Phosphorus</h3><ul class="pts">
+      <li><b>Gallium</b>: Bauxite · Sphalerite 부산물 ${EMI} — HV 페이지 Void 체인의 Bauxite 전해가 이미 돌고 있다면 부산물 칸을 확인.</li>
+      <li><b>Phosphorus</b>: Apatite(Rock Filter · Pyrochlore 부산물). EV 페이지 PIC와 같은 원료.</li>
+      <li><b>Vanadium</b>: Vanadium Magnetite(HV Void 체인 B) → Vanadium-Gallium.</li>
+    </ul></div>
+    <div class="card"><h3>작물로 대체 (gCrops)</h3><ul class="pts">
+      <li><b>Ender Air</b> 작물: 티어 4(Aetheric · Illuminating) — EV Harvester · 한 번에 10배. End에 가지 않고 Ender Air를 얻는 길 ${EMI}.</li>
+      <li><b>Sheldonite</b>(→ Cooperite) 티어 5 · IV, <b>Tungstate</b> · <b>Ilmenite</b> 티어 5 — 광석 라인과 비교는 <a href="gcrops.html#crops">gCrops › 작물 목록</a>.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 4 패시브 (PBI) ---------- */
+function viewPassiveFlow() {
+  const n = S.pbN;
+  return `
+  <h2>4 · 패시브 (PBI)</h2>${subnav()}
+  <p class="lead"><b>Polybenzimidazole(PBI)</b>은 ASMD 전부 · LuV 이후 Assembly Line 유체 · 회로 납땜에 계속 들어가는 IV의 핵심 폴리머입니다. 원료는 전부 HV 화학 청크에서 이미 만드는 것(Benzene · Chlorine · 질산 · 황산 · 수소 · 암모니아)이라 한 청크로 묶을 수 있습니다.</p>
+  ${flow({
+    label: 'PBI 라인', h: 440,
+    nodes: [
+      { id: 'bz', x: 20, y: 20, w: 150, t: 'Benzene + Cl', s: `${fmt(2 * n, 0)}B · ${fmt(4 * n, 0)}B /h`, k: 'src' },
+      { id: 'cb', x: 200, y: 20, w: 160, t: 'Chlorobenzene', s: 'LV CR · 240t', k: 'LV' },
+      { id: 'nm', x: 20, y: 130, w: 150, t: 'Nitration Mixture', s: 'Mixer · HNO₃ + H₂SO₄', k: 'src' },
+      { id: 'ncb', x: 390, y: 70, w: 170, t: 'Nitrochlorobenzene', s: 'HV CR · 100t', k: 'HV' },
+      { id: 'dcb', x: 590, y: 70, w: 170, t: 'Dichlorobenzidine', s: 'EV CR · + H₂ 2000 · Cu', k: 'EV' },
+      { id: 'dab', x: 790, y: 70, w: 180, t: 'Diaminobenzidine', s: 'LCR IV · + NH₃ 2000 · Zn', k: 'IV' },
+      { id: 'nap', x: 20, y: 260, w: 150, t: 'Naphthalene', s: 'Coal Tar 증류 400/1000', k: 'src' },
+      { id: 'pa', x: 200, y: 260, w: 160, t: 'Phthalic Acid', s: 'LCR (MV) · + H₂SO₄ · K', k: 'MV' },
+      { id: 'dpi', x: 590, y: 260, w: 170, t: 'Diphenyl Isophtalate', s: 'LCR IV · Phenol 2000 · H₂SO₄', k: 'IV' },
+      { id: 'pbi', x: 790, y: 200, w: 180, t: `PBI ${fmt(n * PBI_RUN, 0)}mB/h`, s: 'LCR IV · 100t/회', k: 'GOAL' },
+      { id: 'ph', x: 790, y: 350, w: 180, t: 'Phenol 1000 회수', s: '→ DPIP로 되돌림', k: 'src' },
+    ],
+    edges: [
+      { a: 'bz', b: 'cb' }, { a: 'cb', b: 'ncb', l: '2000/회' }, { a: 'nm', b: 'ncb', l: '4000/회' }, { a: 'ncb', b: 'dcb' }, { a: 'dcb', b: 'dab' },
+      { a: 'nap', b: 'pa' }, { a: 'pa', b: 'dpi', l: '1000/회' }, { a: 'dab', b: 'pbi', fs: 'b', ts: 't' }, { a: 'dpi', b: 'pbi' },
+      { a: 'pbi', b: 'ph', fs: 'b', ts: 't' }, { a: 'ph', b: 'dpi', dash: true },
+    ],
+  })}
+  ${tierLegend(['LV', 'MV', 'HV', 'EV', 'IV', 'GOAL', 'src'])}
+  <div class="grid2">
+    <div class="card"><h3>원료 (시간당 ${n}회)</h3>
+      ${hbar(PER_RUN.map(([k, v, w]) => ({ label: k, sub: w, value: v * n / 1000, color: 'var(--s5)', text: `${fmt(v * n / 1000, 1)} B/h` })), { cols: ['원료', 'B/시간'] })}
+    </div>
+    <div class="card"><h3>기계 가동률</h3>
+      <div class="tscroll"><table><thead><tr><th>기계</th><th>레시피</th><th class="n">EU/t</th><th class="n">가동률</th></tr></thead>
+        <tbody>${STEPS.map(([m, r, e, t, k]) => `<tr><td>${esc(m)}</td><td><code>${r}</code></td><td class="n">${fmt(e, 0)}</td><td class="n">${fmt(t * k * n / 72000 * 100, 1)}%</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">16회/시간이어도 각 기계 10% 안팎 — 한 대씩이면 충분하고, IV LCR 3개는 Distinct Bus로 한 대에 몰아도 됩니다(Mechanics). 부산물 HCl · 묽은 황산은 HV 화학 청크로 되돌립니다.</p></div>
+  </div>`;
+}
+function viewPassive3d() {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `
+  <h2>4 · 패시브 (PBI)</h2>${subnav()}
+  <p class="lead">PBI 라인을 <b>16×16 청크 하나</b>에 넣은 배치입니다. 북쪽이 IV LCR 3대(EV 해치 2개씩), 가운데가 단일 블록 반응기, 남쪽이 원료 탱크 줄입니다.</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="PBI 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li><b>LCR 3대는 벽을 나눠 한 줄로</b>(Wall Sharing) — 9칸이 아니라 7칸.</li>
+      <li><b>반응 순서대로 서쪽 → 동쪽</b>: Chlorobenzene → Nitrochlorobenzene → Dichlorobenzidine → LCR.</li>
+      <li>원료 탱크는 남쪽 끝 한 줄, HV 화학 청크와 ME로 연결.</li>
+    </ul></div>
+    <div class="card"><h3>연결</h3><ul class="pts">
+      <li>Benzene · Chlorine · 질산 · 황산 · 수소 · 암모니아: HV 패시브 화학 청크(HV 페이지)에서.</li>
+      <li>Naphthalene: Coal Tar 증류(MV Distillation Tower) — Pyrolyse Oven 청크 ${EMI}.</li>
+      <li>PBI는 ME로 → IV Assembler(ASMD) · 이후 Assembly Line.</li>
+    </ul></div>
+  </div>`;
+}
+const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+function buildPbiChunk() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  multi(1, 1, 3, 3, 3, '--s7', 'LCR DAB', 'LCR · Diaminobenzidine|EV 해치 2 = IV · Dichlorobenzidine 1000 + NH3 2000 + Zinc(NC)');
+  multi(3, 1, 3, 3, 3, '--s7', 'LCR DPIP', 'LCR · Diphenyl Isophtalate|Wall Sharing · Phenol 2000 + H2SO4 1000 + Phthalic 1000');
+  multi(5, 1, 3, 3, 3, '--s7', 'LCR PBI', 'LCR · Polybenzimidazole|DAB 1000 + DPIP 1000 → PBI 1008 + Phenol 1000');
+  multi(10, 1, 3, 3, 3, '--s1', 'LCR Phth', 'LCR · Phthalic Acid|MV 해치 · Naphthalene 2000 + H2SO4 1000 + Potassium tiny → 2500');
+  unit(1, 0, 6, { col: '--s1', label: 'ClBz', tip: 'LV Chemical Reactor|chlorobenzene · Benzene 1000 + Cl 2000' });
+  unit(2, 0, 6, { col: '--s1', label: 'Nitr', tip: 'Mixer|nitration_mixture · HNO3 1000 + H2SO4 1000 → 2000' });
+  unit(4, 0, 6, { col: '--s2', label: 'NClBz', tip: 'HV Chemical Reactor|nitrochlorobenzene · NM 2000 + Chlorobenzene 1000' });
+  unit(6, 0, 6, { col: '--s5', label: 'DClBd', tip: 'EV Chemical Reactor|dichlorobenzidine · + H2 2000 · Cu tiny' });
+  unit(8, 0, 6, { col: '--s5', label: 'EV Tr', tip: 'hv_transformer|EV Chemical Reactor용' });
+  const tanks = ['Benzene', 'Chlorine', 'Nitric', 'Sulfuric', 'Hydrogen', 'Ammonia', 'Phenol', 'Naphtha', 'Zinc', 'Waste'];
+  tanks.forEach((t, i) => unit(1 + i, 0, 12, { col: t === 'Waste' ? '--s8' : '--muted', label: t.slice(0, 5), tip: `Super Tank · ${t}|${t === 'Waste' ? 'HCl · 묽은 황산 → HV 화학 청크' : 'ME로 공급'}` }));
+  unit(13, 0, 12, { col: '--good', label: 'PBI', tip: 'Super Tank · PBI|ME storage bus → IV Assembler' });
+  unit(14, 0, 14, { col: '--s1', label: 'Conv', tip: '컨버터 · 트랜스포머|EV 4A × 6 (LCR 3대 × EV 해치 2)' });
+  const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
+  [[[1, 6], [2, 6]], [[2, 6], [4, 6]], [[4, 6], [6, 6]], [[6, 6], [2, 4]], [[11, 4], [4, 4]], [[4, 4], [6, 4]], [[1, 11], [6, 7]], [[13, 11], [6, 4]]]
+    .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  return { boxes, pipes };
+}
+
+/* ---------- 5 LuV 준비 ---------- */
+function viewNext() {
+  const temps = [
+    ['HSS-G', 4200, 'RTM · EV 해치 2', 4800], ['Niobium-Titanium', 4500, 'RTM · EV 해치 2', 4800], ['Vanadium-Gallium', 4500, 'RTM · EV 해치 2', 4800],
+    ['Iridium · Osmium', 4500, 'RTM · EV 해치 2', 4800], ['HSS-S · HSS-E', 5000, 'HSS-G · IV 해치 2', 5800], ['Naquadah', 5000, 'HSS-G · IV 해치 2', 5800],
+    ['Samarium', 5400, 'HSS-G · IV 해치 2', 5800], ['Naquadah Boule', 5400, 'HSS-G · IV 해치 2', 5800],
+  ];
+  return `
+  <h2>5 · LuV 준비</h2>
+  <p class="lead">LuV로 가려면 <b>Assembly Line</b>(LuV 부품 · LuV 해치 · ZPM 회로)과 그 재료 금속(<b>HSS-S · Ruridit · Niobium-Titanium · Samarium</b>)이 필요합니다. LuV 부품 8종은 Assembly Line <b>6,000 EU/t — IV 전압</b>이라 IV에서 미리 만들 수 있습니다.</p>
+  <div class="card"><h3>코일과 blast 온도</h3>
+    <p class="sub">IV에서 <b>HSS-G 코일</b>(IV Assembler 7,680)을 만들고 IV 해치 2개로 5,800K. 전 티어 표는 <a href="common.html#coil">공용 › 코일 사다리</a>.</p>
+    ${hbar(temps.map(([a, t, c, ct]) => ({ label: a, sub: `${c} = ${fmt(ct, 0)}K`, value: t, color: t > 4800 ? 'var(--s8)' : 'var(--s7)', text: `${fmt(t, 0)}K` })), { max: 6400, ref: { v: 5800, l: 'HSS-G + IV 해치 2개 = 5,800K' }, cols: ['재료', 'K'] })}
+    <p class="sub" style="margin:10px 0 0">HSS-G 코일: HSS-G 2x wire 8 + Tungsten Carbide foil 8 + Borosilicate Glass foil 16 + Tungsten 144. LuV에서는 Naquadah 코일(7,700K)로 Neutronium Boule · Europium.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>LuV 부품 금속</h3><ol class="steps">
+      <li><b>HSS-G</b>: Mixer EV — Tungstensteel 5 + Chromium + Molybdenum 2 + Vanadium → 9 → EBF 4,200K.</li>
+      <li><b>HSS-S</b>: Mixer IV HSS-G 6 + Iridium 2 + Osmium 1 → 9 → EBF 5,000K. LuV Motor · Robot Arm 본체.</li>
+      <li><b>Ruridit</b>: Mixer Ruthenium 2 + Iridium 1 → 3. Ruthenium은 PGS 라인(Ruthenium Tetroxide). LuV Motor fine wire 64.</li>
+      <li><b>Niobium-Titanium</b>: Mixer IV Niobium + Titanium → 2 → EBF 4,500K. LuV 케이블 · 에너지 해치.</li>
+      <li><b>Samarium Magnetic</b>: Samarium(Monazite · Bastnasite 부산물) EBF 5,400K → 자화. LuV Motor.</li>
+    </ol></div>
+    <div class="card"><h3>Assembly Line</h3><ul class="pts">
+      <li><b>케이싱</b>: <code>assembly_line_casing</code>(Ruridit gear 2 · IV Robot Arm 2 · Tungstensteel frame) · <code>assembly_control_casing</code>(HPIC · IV Sensor · Emitter · Motor) — 둘 다 IV Assembler.</li>
+      <li><b>LuV 부품</b> 8종: <code>electric_motor_luv</code> 등 6,000 EU/t · 600t · Lubricant 250 · Solder. LuV Robot Arm에는 LuV 회로(Quantum Computer) 1 + IV 회로 2.</li>
+      <li><b>LuV 해치</b>(30,720): Assembly Line에 IV 해치 2개면 LuV ${EMI} — 아니면 IV 트랜스포머.</li>
+      <li><b>연구</b>: ZPM 회로(Quantum Mainframe)는 Scanner 연구 필요(팩). LuV 이후 Assembly Line 레시피 대부분이 Data Stick 연구.</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>IV 동안 모아 둘 것</h3><div class="tscroll"><table>
+    <thead><tr><th>재료</th><th>어디에</th><th>공급</th></tr></thead><tbody>
+      <tr><td>Deuterium · Tritium</td><td>LuV Fusion(Helium 플라즈마) 연료</td><td>Liquid Ender Air 증류 (3 탭)</td></tr>
+      <tr><td>Iridium · Osmium · Ruthenium</td><td>HSS-S · Ruridit · LuV 부품</td><td>Rarest Metal · PGS</td></tr>
+      <tr><td>PBI</td><td>ASMD · Assembly Line 유체</td><td>4 탭 패시브</td></tr>
+      <tr><td>HPIC</td><td>LuV · ZPM 해치 · Quantum Mainframe</td><td>1 탭</td></tr>
+      <tr><td>Europium</td><td>UV 이후 케이블 · Fusion</td><td>팩 Fusion <code>europium</code>(LuV) · Monazite ${EMI}</td></tr>
+    </tbody></table></div></div>`;
+}
+
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+
+/* ---------- page wiring ---------- */
+startPage({
+  key: 'iv-web',
+  save: () => ({ pbN: S.pbN }),
+  load: o => { if ([4, 8, 16].includes(o.pbN)) S.pbN = o.pbN; },
+  layouts: [[viewPassive3d, buildPbiChunk]],
+  afterRender: () => document.querySelectorAll('#pbn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.pb === S.pbN)),
+});
+document.getElementById('pbn').addEventListener('click', e => {
+  const b = e.target.closest('button[data-pb]'); if (!b) return;
+  S.pbN = +b.dataset.pb; render();
+});
+</script>
+</body>
+</html>

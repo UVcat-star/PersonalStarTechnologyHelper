@@ -11,6 +11,7 @@
   const TIERS = [
     { id: 'HV', href: 'hv.html', name: 'High Voltage', color: '#c98500', now: true },
     { id: 'EV', href: 'ev.html', name: 'Extreme Voltage', color: '#9b4fc4', next: true },
+    { id: 'IV', href: 'iv.html', name: 'Insane Voltage', color: '#2f6fd6' },
   ];
 
   const root = document.documentElement;

@@ -13,6 +13,7 @@
      layouts?  [[viewFn, builderFn], …] — views that host the 3D canvas and what they draw
      layoutButton?(button)  extra #layctl buttons; return true when handled
      mainClick?(event)      extra clicks inside <main>; return true when handled
+     afterRender?()         runs after every render (header controls outside <main>)
    } */
 let PAGE = {};
 function curTopic() { return TOPICS.find(t => t.id === S.topic) || TOPICS[0]; }
@@ -53,6 +54,7 @@ function render() {
   const lay = (PAGE.layouts || []).find(([view]) => view === fn);
   if (lay) { setBuilder(lay[1]); mountLayout(PAGE.layoutButton); }
   window.scrollTo(0, y);
+  if (PAGE.afterRender) PAGE.afterRender();
   persist();
 }
 function startPage(config) {
