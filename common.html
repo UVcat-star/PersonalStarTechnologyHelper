@@ -123,7 +123,7 @@ const HATCH_PARTS = [
   ['ZPM', 'UHPIC 2 + ZPM 회로', 'Vanadium-Gallium 케이블 4 · ZPM Voltage Coil 2 · NaK 8000 · Solder 1440 (Assembly Line)', '—'], ['UV', 'UHPIC 2 + UV 회로', 'YBCO 케이블 4 · UV Voltage Coil 2 · NaK 10000 · Solder 2880 (Assembly Line)', '—'],
 ];
 const H1 = ['Super EBF', 'Super Vacuum Freezer', 'Super Electric Ore Factory', 'Super Cutter', 'Super Implosion Compressor', 'Super Pyrolyse', 'Super Cracker', 'Super ABS', 'Distillery Column', 'Industrial Extraction Chamber', 'Industrial Brewing Station', 'Rock Filtrator', 'Mechanical Sieve'];
-const H2 = ['Electric Blast Furnace', 'Large Chemical Reactor', 'Distillation Tower', 'Vacuum Freezer', 'Implosion Compressor', 'Pyrolyse Oven', 'GCYM 대형 기계 (Large Cutter · Mixer · Centrifuge …) — Large Assembler · Circuit Assembler 제외', 'Electric Ore Factory · Ore Processing Plant (팩)', 'Void Extractor (팩)', 'Large Sieve · Rock Sifter (팩)', 'Molten Destabiliser (팩 · LuV)'];
+const H2 = ['Electric Blast Furnace', 'Large Chemical Reactor', 'Distillation Tower', 'Vacuum Freezer', 'Implosion Compressor', 'Pyrolyse Oven', 'GCYM 대형 기계 (Large Cutter · Mixer · Centrifuge …) — Large Assembler · Circuit Assembler 제외', 'Electric Ore Factory · Ore Processing Plant (팩)', 'Void Extractor (팩)', 'Large Sieve · Rock Sifter (팩)', 'Molten Destabiliser (팩 · UV)'];
 function viewHatch() {
   return `
   <h2>에너지 해치 · 멀티블럭</h2>
@@ -214,7 +214,8 @@ function viewPower() {
       <li>증강 킷이 EV까지만 있어서(<code>thermal_augments.js</code>) IV부터는 출력이 더 오르지 않습니다.</li>
     </ul></div>
     <div class="card"><h3>플라즈마 준비</h3><ul class="pts">
-      <li>팩이 Fusion을 자체 레시피(<code>fusion_scaling.js</code>, <code>reflector_fusion_reactor</code>)로 바꿨습니다. 반사판 티어 1 = LuV Fusion(Helium · Lutetium …), 2 = ZPM(Nitrogen · Oxygen · Argon · Tin), 3 = UV(Nickel · Iron), 4 = Americium.</li>
+      <li>팩이 Fusion을 자체 레시피(<code>fusion_scaling.js</code>, <code>reflector_fusion_reactor</code>)로 바꿨습니다. 레시피마다 <b>반사판(Reflector Casing) 등급</b>이 있고 — 1 Basic(EV 제작) · 2 Advanced(IV · Osmiridium · Naquadah) · 3 Complex(LuV · <b>Zirconium</b> = Abydos) · 4 Reinforced(ZPM) · 5 Borealic(UV) — 융합로 MK는 <b>시동 에너지 한도</b>를 정합니다(GTCEu 해치 16개 기준 MK1 160M · MK2 320M · MK3 640M, 팩 코어 <code>ReflectorFusionReactorMachine</code>). 반사판이 레시피보다 높으면 그만큼 오버클럭 여유.</li>
+      <li>그래서 Helium(1 · 40M) = MK1, <b>Argon · Nitrogen(2 · 180M · 280M) = MK2</b>, Nickel(3 · 480M) = Complex 반사판 + MK3, Americium(4 · 760M) = MK4.</li>
       <li>플라즈마 연료값도 팩 값(<code>plasma_turbines.js</code>): 기체 플라즈마 5mB · 액체 1mB당 Helium 27t · Oxygen 98 · Nitrogen 110 · Argon 116 · Tin 84 · Iron 135 · Nickel 180 · Americium 984 (× 2,048 EU/t).</li>
       <li><b>Deuterium · Tritium</b>(헬륨 플라즈마 원료)을 LuV 전에 모아 두세요 — 기당 각 500B/시간.</li>
       <li>Plasma Large Turbine → Supreme(UHV) → Nyinsane(UIV). 로터 홀더 티어가 오를수록 출력 2배 · 연료 1.8배(Power 챕터 "Rotor Holder OCs").</li>

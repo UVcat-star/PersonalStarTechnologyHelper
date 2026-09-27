@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UV 할 일</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="UV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · UV 할 일</h1>
+        <div class="meta">Theta 2 (GTCEu 1.7.1b) · 2026-09-27 · UV = 회로 조립기와 레시피가 524,288V까지 열리는 단계</div>
+      </div>
+      <div class="controls">
+        <span class="ctl-label">Zirconium · 개/시간</span>
+        <div class="seg" id="zrn">
+          <button data-zr="15">15</button>
+          <button data-zr="30">30</button>
+          <button data-zr="60">60</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
+<script>
+
+/* ---------- state ---------- */
+const S = { zrN: 30, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+Object.assign(TIER, {
+  LuV: { c: 'var(--s8)', name: 'LuV 기계 · 레시피' }, ZPM: { c: 'var(--s4)', name: 'ZPM 기계 · 레시피' },
+  UV: { c: 'var(--s7)', name: 'UV 기계 · 레시피' }, GOAL: { c: 'var(--good)', name: '목표' },
+});
+
+/* ---------- constants ----------
+   Zirconium 라인 (팩 additions/progression/lines/abydos_lines/zirconium.js), Zirconium 1개 기준:
+   Titanite dust 8 + Perchloric Acid 3000 → Mixer(28,000 · 400t) → Titanite Slurry 1000
+   → Centrifuge(28,000 · 360t) → Calcium Perchlorate 11 · Residue 1000 · Silica Gel 1000 · Water 1000
+      Calcium Perchlorate 11 + H2SO4 1000 → CR(496 · 120t) → Perchloric 2000 + CaSO4 6
+      Silica Gel 1000 → Centrifuge(1,984 · 120t) → Perchloric 1000 + SiO2 3      (Perchloric 3000 전부 회수)
+   Residue 1000 + NaOH 6 → LCR(17,500 · 400t) → Hydroxo-Dioxo Titanite 1000
+   → Electrolyzer(50,000 · 800t) → Titanite Residue 1000 + Na2O 3 + Water 1000
+   → LCR(6,400 · 900t) + Carbon 2 + HCl 8000 → TiCl4·ZrCl4 Mixture 1000 + Methanol 2000
+   → Centrifuge(23,000 · 1200t) → ZrCl4 5 + TiCl4 1000
+   → LCR(1,640 · 600t) + H2 4000 → Zirconium 1 + HCl 4000 */
+const ZSTEP = [
+  ['Mixer', 'titanite_proc_1', 28000, 400],
+  ['Centrifuge', 'titanite_proc_2', 28000, 360],
+  ['Chemical Reactor', 'calcium_perchlorate_to_perchloric_acid', 496, 120],
+  ['Centrifuge', 'silica_gel_to_perchloric_acid', 1984, 120],
+  ['LCR', 'titanite_proc_3', 17500, 400],
+  ['Electrolyzer', 'titanite_proc_4', 50000, 800],
+  ['LCR', 'titanite_proc_5', 6400, 900],
+  ['Centrifuge', 'titanite_proc_6', 23000, 1200],
+  ['LCR', 'zirconium_from_zirconium_tetrachloride', 1640, 600],
+];
+const ZIN = [['Titanite dust', 8, '개'], ['Sulfuric Acid', 1000, 'mB'], ['Sodium Hydroxide', 6, '개'], ['HCl (순)', 4000, 'mB'], ['Hydrogen', 4000, 'mB'], ['Carbon dust', 2, '개']];
+const ZOUT = [['Zirconium dust', 1, '개'], ['Titanium Tetrachloride', 1000, 'mB'], ['Methanol', 2000, 'mB'], ['Calcium Sulfate', 6, '개'], ['Sodium Oxide', 3, '개'], ['Silicon Dioxide', 3, '개']];
+// 반사판 3 융합 (팩 fusion_scaling.js): [출력, 입력, 출력mB, 초, EU/t, 시동M]
+const F3 = [
+  ['Tritanium', 'Titanium 288 + Duranium 144', 144, 21.6, 30720, 200],
+  ['Americium', 'Lutetium 144 + Chromium 144', 144, 14.4, 49152, 200],
+  ['Nickel 플라즈마', 'Potassium 144 + Fluorine 1000', 144, 7.2, 30720, 480],
+  ['Iron 플라즈마', 'Silicon 144 + Magnesium 144', 144, 10.8, 7680, 360],
+];
+
+/* ---------- topics ---------- */
+const TOPICS = [
+  { id: 'overview', name: '로드맵' },
+  { id: 'entry', name: '1 · UV 진입 · Abydos' },
+  { id: 'circuit', name: '2 · 회로' },
+  { id: 'resource', name: '3 · 반사판 3 융합' },
+  { id: 'passive', name: '4 · 패시브 (Zirconium)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'next', name: '5 · UHV 준비' },
+];
+
+/* ---------- 로드맵 ---------- */
+function viewOverview() {
+  const stages = [
+    ['U0', 'ZPM에서 가져올 것', 'ZPM', 'Research Station · UV 회로(Crystal Mainframe) · Fusion MK2 · Argon 플라즈마 · Stargate 부품'],
+    ['U1', 'Stargate → Abydos', 'ZPM', 'Classic Stargate · DHD · Abydos Coordinate Crystal → Abydos 광석 · 구조물'],
+    ['U2', 'Zirconium (패시브)', 'UV', 'Titanite → Perchloric 순환 → ZrCl₄ → Zirconium → Complex 반사판'],
+    ['U3', '반사판 3 융합', 'UV', 'Complex Reflector + MK2 → Tritanium · Americium → UV 부품 · Tritanium 코일'],
+    ['U4', 'UV 해치 · 기계', 'UV', 'UV 해치(Assembly Line 491,520) · UV Voltage Coil(Dysprosium · Tritanium) · Cyclonic Sifter · Molten Destabiliser'],
+    ['U5', 'UHV 회로 · MK3', 'UV', 'Wetware Mainframe(Assembly Line 300,000 · 96 CWU) → UV Fusion(MK3) → Nickel 플라즈마'],
+    ['U6', 'UHV 준비', 'UHV', 'Chemical Plant · Supreme Plasma Turbine · Americium 플라즈마(MK4) · Runic 회로'],
+  ];
+  return `
+  <h2>UV 로드맵</h2>
+  <p class="lead">"UV"는 <b>524,288V(491,520 EU/t) 레시피까지</b>입니다. GTCEu jar에서 131,072 &lt; EU/t ≤ 524,288인 레시피는 13개뿐이고, 나머지는 팩이 <b>Abydos</b>(Stargate 너머의 차원)에 걸어 두었습니다. UV의 목표는 <b>Abydos에 가서 Zirconium을 얻고, 반사판 3 융합으로 Tritanium · Americium을 만드는 것</b>입니다.</p>
+  <div class="tiles">
+    ${tile('UV에 열리는 GTCEu 레시피', '13', '개', 'UV 해치 · Tritanium 코일 · Wetware Mainframe …')}
+    ${tile('UHV 회로', 'Wetware', 'Mainframe', 'Assembly Line 300,000 · 연구 96 CWU (팩)')}
+    ${tile('이 단계의 코일', 'Tritanium', '10,800K', 'UV Assembler · UV 해치 2 = 11,500K')}
+    ${tile('Zirconium', fmt(S.zrN, 0), '/시간', `Titanite ${fmt(S.zrN * 8, 0)}/h · Centrifuge 병목 ${fmt(S.zrN * 1200 / 72000 * 100, 0)}%`)}
+  </div>
+  <div class="card">
+    <h3>단계</h3>
+    ${flow({
+      label: 'UV 로드맵', h: 400,
+      nodes: [
+        { id: 'u0', x: 20, y: 30, w: 170, t: 'U0 ZPM에서', s: '연구 · MK2 · Argon', k: 'ZPM' },
+        { id: 'u1', x: 230, y: 30, w: 170, t: 'U1 Abydos', s: 'Stargate · DHD', k: 'ZPM' },
+        { id: 'u2', x: 440, y: 30, w: 170, t: 'U2 Zirconium', s: 'Titanite 라인', k: 'UV' },
+        { id: 'u3', x: 650, y: 30, w: 170, t: 'U3 반사판 3 융합', s: 'Tritanium · Americium', k: 'UV' },
+        { id: 'u4', x: 650, y: 170, w: 170, t: 'U4 UV 해치 · 기계', s: 'UV 부품 · 코일', k: 'UV' },
+        { id: 'u5', x: 440, y: 170, w: 170, t: 'U5 UHV 회로 · MK3', s: 'Wetware Mainframe', k: 'UV' },
+        { id: 'u6', x: 230, y: 170, w: 170, t: 'U6 UHV 준비', s: 'Chemical Plant …', k: 'UV' },
+        { id: 'uhv', x: 20, y: 176, w: 120, h: 44, t: 'UHV', k: 'GOAL' },
+        { id: 'pw', x: 440, y: 300, w: 380, t: '전력: Argon 플라즈마 MK2 증설 → Nickel(MK3)', s: '기당 ~30만 EU/t · 공용 › 발전', k: 'src' },
+      ],
+      edges: [
+        { a: 'u0', b: 'u1' }, { a: 'u1', b: 'u2' }, { a: 'u2', b: 'u3', l: 'Zr' }, { a: 'u3', b: 'u4', fs: 'b', ts: 't', l: 'Tritanium · Am' },
+        { a: 'u4', b: 'u5' }, { a: 'u5', b: 'u6' }, { a: 'u6', b: 'uhv' }, { a: 'pw', b: 'u5', dash: true, fs: 't', ts: 'b' },
+      ],
+    })}
+    ${tierLegend(['ZPM', 'UV', 'GOAL', 'src'])}
+    <div class="tscroll" style="margin-top:12px"><table>
+      <thead><tr><th>단계</th><th>무엇</th><th>전압</th><th>핵심</th><th>탭</th></tr></thead>
+      <tbody>${stages.map(([id, t, v, d], i) => `<tr><td><b>${id}</b></td><td>${esc(t)}</td><td>${v}</td><td>${esc(d)}</td><td>${['—', '1', '4', '3', '1', '2', '5'][i]}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>UV에 새로 열리는 것</h3><ul class="pts">
+      <li><b>GTCEu</b>: <code>energy_hatch_uv</code> · <code>coil_tritanium</code> · <code>superconducting_coil_uv</code> · <code>fusion_casing_mk3</code> · Mixer <code>enriched_naquadah_trinium_europium_duranide</code> · <code>ruthenium_trinium_americium_neutronate</code>.</li>
+      <li><b>팩 Abydos 멀티블럭</b>(Assembly Line UV): <code>cyclonic_sifter</code> · <code>molten_destabiliser</code> · <code>injection_mixer</code> · <code>manifold_centrifuge</code> — 퀘스트 "1st Ultimate Multiblock".</li>
+      <li><b>팩 라인</b>: Zirconium(Titanite) · Akreyrium · Magma · Naquadite · Zapolgium · SiC · Rare Earth(Abydos) — <code>abydos_lines/</code>.</li>
+      <li><b>팩 기계</b>: <code>uv_fusion_reactor</code> · <code>uhv_rotor_holder</code> · <code>mega_blast_furnace</code> · Bacteria 멀티블럭 3종.</li>
+    </ul></div>
+    <div class="card"><h3>정정 · 확인한 것</h3><ul class="pts">
+      <li><b>반사판 등급은 융합로 등급과 따로</b>입니다. 레시피마다 반사판 등급이 있고(Tritanium · Americium · Nickel = 3), MK 등급은 시동 에너지 한도를 정합니다. Tritanium · Americium(200M)은 <b>MK2 + Complex 반사판</b>이면 됩니다(3 탭).</li>
+      <li><b>Molten Destabiliser는 UV 기계</b>(Assembly Line VA[UV] · UV 회로 6)입니다 — 이전 페이지의 "LuV" 표기를 고쳤습니다.</li>
+      <li><b>Chemical Plant</b>는 Assembly Line VHA[UHV] · UV 회로 4 · 연구 64 CWU(<code>abydos_multis.js</code>) — UHV.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 1 UV 진입 · Abydos ---------- */
+function viewEntry() {
+  return `
+  <h2>1 · UV 진입 · Abydos</h2>
+  <p class="lead">UV 해치(<code>energy_hatch_uv</code> Assembly Line 491,520 · 800t): UV Hull · YBCO 케이블 4 · UHPIC 2 · UV 회로 · UV Voltage Coil 2 · NaK 10,000 · Solder 2,880. 팩 UV Voltage Coil = <b>Magnetic Dysprosium rod + Tritanium fine 16</b>(UV Assembler) — Tritanium이 먼저 필요합니다.</p>
+  ${flow({
+    label: 'Stargate', h: 300,
+    nodes: [
+      { id: 'sca', x: 20, y: 30, w: 190, t: 'Stargate Component Assembly', s: 'Assembly Line 61,440', k: 'ZPM' },
+      { id: 'ring', x: 250, y: 30, w: 190, t: 'Classic Stargate', s: 'Base 1 · Chevron 9 · Ring 14', k: 'ZPM' },
+      { id: 'csg', x: 20, y: 170, w: 190, t: 'CSG 부품', s: 'Field Stabiliser · Dialer · DPU …', k: 'ZPM' },
+      { id: 'df', x: 250, y: 170, w: 190, t: 'Dimensional Finder', s: 'Abydos Coordinate Crystal', k: 'ZPM', tip: 'dimensional_finder:abydos_coordinate_crystal' },
+      { id: 'dhd', x: 480, y: 100, w: 170, t: 'Classic DHD', s: 'Crystal Interface', k: 'ZPM' },
+      { id: 'ab', x: 700, y: 100, w: 260, t: 'Abydos', s: 'Titanite · Temples · Magma · Bacteria', k: 'GOAL' },
+    ],
+    edges: [{ a: 'sca', b: 'ring' }, { a: 'csg', b: 'df' }, { a: 'ring', b: 'dhd' }, { a: 'df', b: 'dhd' }, { a: 'dhd', b: 'ab' }],
+  })}
+  ${tierLegend(['ZPM', 'GOAL'])}
+  <div class="grid2">
+    <div class="card"><h3>Abydos에서 먼저 할 것 (퀘스트 Adventures in Abydos)</h3><ul class="pts">
+      <li><b>Zirconium Ingot</b> · <b>Abydos Alloys</b>(Zircalloy-4 · Zirconium Selenide Diiodide) — Complex · Reinforced 반사판.</li>
+      <li><b>1st Ultimate Multiblock</b>: Cyclonic Sifter · Molten Destabiliser (UV Assembly Line, 연구 24 CWU).</li>
+      <li><b>Otherworldly Biology</b> → Bacterial Colonies → Bacteria 멀티블럭 3종 — Wetware · Stem Cells 원료.</li>
+      <li><b>Temples · Cartouche</b> 구조물, Ruined Component Parts — 이후 Runic 회로 재료.</li>
+      <li><b>Magma processing</b> · Bulk Ore Processing Array.</li>
+    </ul></div>
+    <div class="card"><h3>UV 기계</h3><div class="tscroll"><table>
+      <thead><tr><th>기계</th><th>여는 것</th></tr></thead><tbody>
+        <tr><td><b>UV Assembler</b></td><td>Tritanium 코일 · Superconducting Coil UV · UV Voltage Coil · Fusion Casing MK3</td></tr>
+        <tr><td><b>UV Mixer</b></td><td>ENTED · RTAN(UHV 초전도 재료)</td></tr>
+        <tr><td><b>Assembly Line (UV 해치 2 또는 트랜스포머)</b></td><td>UV 해치 · Wetware Mainframe · Abydos 멀티블럭</td></tr>
+        <tr><td><b>Electrolyzer (ZPM 해치 2)</b></td><td>Titanite 50,000 — 4 탭</td></tr>
+      </tbody></table></div></div>
+  </div>`;
+}
+
+/* ---------- 2 회로 ---------- */
+function viewCircuit() {
+  return `
+  <h2>2 · 회로</h2>
+  <p class="lead">UV 회로는 ZPM 페이지(Crystal Mainframe · Wetware Computer). UV에서 새로 되는 것은 <b>UHV 회로 = 팩 Wetware Processor Mainframe</b>(Assembly Line 300,000 · 1400t · 연구 96 CWU)입니다. UV Fusion(MK3) 컨트롤러에 UHV 회로 4개.</p>
+  <div class="card"><h3>Wetware Mainframe (팩 <code>wetware_processor_mainframe</code>)</h3>
+    <div class="tscroll"><table><thead><tr><th>재료</th><th class="n">수량</th><th>출처</th></tr></thead><tbody>
+      <tr><td>Tritanium Frame</td><td class="n">2</td><td>3 탭 Tritanium</td></tr>
+      <tr><td>Wetware Processor Computer</td><td class="n">2</td><td>ZPM 페이지 (Assembly Line 64,000)</td></tr>
+      <tr><td>QRAM</td><td class="n">24</td><td>팩 QRAM 웨이퍼</td></tr>
+      <tr><td>UHPIC</td><td class="n">2</td><td>LuV 페이지</td></tr>
+      <tr><td>Living SMD Inductor · Capacitor · Diode · Resistor · Transistor</td><td class="n">12 · 16 · 12 · 12 · 12</td><td>ZPM Assembler · Polyimide</td></tr>
+      <tr><td>YBCO single wire</td><td class="n">16</td><td>—</td></tr>
+      <tr><td>Europium plate</td><td class="n">4</td><td>Fusion MK1</td></tr>
+      <tr><td>ITLC Soldering Alloy · PBI</td><td class="n">1728 · 1152 mB</td><td>IV 페이지 PBI</td></tr>
+    </tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">GTCEu 기본 <code>wetware_mainframe_uhv</code>는 팩이 제거했습니다(<code>circuits.js</code>). 다음 계열은 Abydos의 <b>Runic</b> 회로(Runic Convergence Processing Unit · UV Circuit Assembler 491,520) ${EMI} 티어.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>연구 설비 늘리기</h3><ul class="pts">
+      <li>96 CWU/t — HPCA Computation 부품을 늘리고 퀘스트 <b>Better Research Heat Sink</b>(Nanofluidic Heat Sink, UV Assembly Line)로 냉각.</li>
+      <li>팩 Living SMD 연구는 Data DNA Disk + 180 CWU(UHV) — UHV 페이지.</li>
+    </ul></div>
+    <div class="card"><h3>UV 부품이 먹는 것</h3><ul class="pts">
+      <li><b>UV Motor</b>: Samarium Magnetic long rod · Tritanium long rod 4 · ring 4 · round 8 · <b>Americium fine 128</b> · YBCO 케이블 2 · Solder 576 · Lubricant 1000 · <b>Naquadria 576</b>.</li>
+      <li><b>UV Robot Arm</b>: + UV 회로 1 · ZPM 회로 2 · LuV 회로 4.</li>
+      <li>Americium fine 128 = Americium 16 ingot → 부품 한 세트에 수백 ingot. 3 탭 Americium 융합이 핵심.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 3 반사판 3 융합 ---------- */
+function viewResource() {
+  const rows = F3.map(([n, i, o, sec, eut, st]) => ({ n, i, o, sec, eut, st, perH: o * 3600 / sec }));
+  return `
+  <h2>3 · 반사판 3 융합</h2>
+  <p class="lead">팩 융합로는 레시피마다 필요한 <b>반사판 등급</b>과 <b>시동 에너지</b>가 따로입니다(팩 코어 <code>ReflectorFusionReactorMachine</code>: 반사판이 모자라면 레시피 불가, 남으면 그만큼 오버클럭 여유). Tritanium · Americium은 반사판 3 · 시동 200M이라 <b>ZPM의 MK2에 Complex 반사판만 바꿔 끼우면</b> 됩니다.</p>
+  <div class="card"><h3>반사판 3 레시피 (팩 <code>fusion_scaling.js</code>)</h3>
+    ${hbar(rows.map(r => ({ label: r.n, sub: `${r.i} · 시동 ${r.st}M`, value: r.perH / 144, color: r.st <= 320 ? 'var(--good)' : 'var(--s8)', text: `${fmt(r.perH / 144, 0)} ingot/h · ${fmt(r.eut, 0)} EU/t` })), { cols: ['레시피', 'ingot/시간 (1대)'] })}
+    <p class="sub" style="margin:10px 0 0">초록 = MK2(320M)로 가능, 빨강 = MK3(640M) 필요. Nickel 플라즈마는 발전용 — 기당 순 ~34만 EU/t로 Argon(~30만)과 큰 차이 없음(<a href="common.html#power">공용 › 발전</a>).</p></div>
+  <div class="grid2">
+    <div class="card"><h3>반사판</h3><div class="tscroll"><table>
+      <thead><tr><th>등급</th><th>패널 재료</th><th>제작</th></tr></thead><tbody>
+        <tr><td>1 Basic</td><td>Ruridit plate · Beryllium double 2 · Tungsten Carbide double</td><td>EV · 클린룸</td></tr>
+        <tr><td>2 Advanced</td><td>Osmiridium plate · Naquadah double 2 · Basic 패널</td><td>IV · 클린룸</td></tr>
+        <tr><td><b>3 Complex</b></td><td>Trinaquadalloy plate · <b>Zirconium double 2</b> · Advanced 패널</td><td>LuV · 클린룸</td></tr>
+        <tr><td>4 Reinforced</td><td>Zirconium Selenide Diiodide · Tritanium double 2</td><td>ZPM · Sterile</td></tr>
+        <tr><td>5 Borealic</td><td>Ancient Netherite · Void double 2</td><td>UV · Sterile</td></tr>
+      </tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">패널 → Reflector Casing 블록 조립은 <code>start_fusion_machines.js</code>의 <code>reflectorBlock</code> ${EMI} 수량.</p></div>
+    <div class="card"><h3>원료</h3><ul class="pts">
+      <li><b>Duranium</b>(반사판 2 · MK2): Gallium 144 + Radon 1000 → 144 · 28.8초. Tritanium 1회에 Duranium 144.</li>
+      <li><b>Radon</b>(반사판 1 · 200M → MK2): Gold 144 + Mercury 100 → 1000.</li>
+      <li><b>Lutetium</b>(반사판 1 · MK1): Lanthanum 144 + Silicon 144 → 144.</li>
+      <li><b>Titanium</b>: Zirconium 라인의 부산물 TiCl₄(Zr 1개당 1,000mB)가 그대로 Titanium 원료.</li>
+      <li>MK2 한 대로 번갈아 돌리면 반사판 · 시동 에너지를 다시 채워야 하므로, 레시피마다 융합로를 나누는 편이 낫습니다 ${EMI}.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 4 패시브 (Zirconium) ---------- */
+function viewPassiveFlow() {
+  const z = S.zrN;
+  return `
+  <h2>4 · 패시브 (Zirconium)</h2>${subnav()}
+  <p class="lead">Zirconium은 Abydos의 <b>Titanite</b>에서 뽑습니다. <b>Perchloric Acid 3,000mB가 전부 되돌아오는 순환</b>이라 처음 한 번만 채우면 되고, 부산물 TiCl₄는 Tritanium용 Titanium이 됩니다. 시간당 Zirconium ${z}개.</p>
+  ${flow({
+    label: 'Zirconium 라인', h: 470,
+    nodes: [
+      { id: 'ti', x: 20, y: 30, w: 160, t: `Titanite ${fmt(8 * z, 0)}/h`, s: 'Abydos 광석 · gCrops titanite', k: 'src' },
+      { id: 'mx', x: 220, y: 30, w: 170, t: 'Titanite Slurry', s: 'Mixer 28,000 · Perchloric 3000', k: 'LuV' },
+      { id: 'c1', x: 430, y: 30, w: 170, t: 'Centrifuge', s: '28,000 · 360t', k: 'LuV' },
+      { id: 'pc', x: 430, y: 170, w: 170, t: 'Perchloric 회수', s: 'CaClO₄ → 2000 · Silica Gel → 1000', k: 'src' },
+      { id: 'l1', x: 650, y: 30, w: 170, t: 'Hydroxo-Dioxo', s: 'LCR 17,500 · NaOH 6', k: 'LuV' },
+      { id: 'el', x: 650, y: 170, w: 170, t: 'Titanite Residue', s: 'Electrolyzer 50,000 · 800t', k: 'ZPM' },
+      { id: 'l2', x: 650, y: 310, w: 170, t: 'TiCl₄·ZrCl₄', s: 'LCR 6,400 · C 2 + HCl 8000', k: 'LuV' },
+      { id: 'c2', x: 430, y: 310, w: 170, t: 'ZrCl₄ ×5', s: 'Centrifuge 23,000 · 1200t', k: 'LuV' },
+      { id: 'zr', x: 220, y: 310, w: 170, t: `Zirconium ${z}/h`, s: 'LCR · H₂ 4000', k: 'GOAL' },
+      { id: 'tcl', x: 220, y: 400, w: 170, h: 50, t: `TiCl₄ ${fmt(z, 0)}B/h`, s: '→ Titanium → Tritanium', k: 'GOAL' },
+      { id: 'meo', x: 860, y: 310, w: 120, h: 50, t: 'Methanol', s: `${fmt(2 * z, 0)}B/h`, k: 'src' },
+    ],
+    edges: [
+      { a: 'ti', b: 'mx' }, { a: 'mx', b: 'c1' }, { a: 'c1', b: 'pc', fs: 'b', ts: 't' }, { a: 'pc', b: 'mx', dash: true, fs: 'l', ts: 'b', l: 'Perchloric 3000' },
+      { a: 'c1', b: 'l1', l: 'Residue' }, { a: 'l1', b: 'el', fs: 'b', ts: 't' }, { a: 'el', b: 'l2', fs: 'b', ts: 't' }, { a: 'l2', b: 'c2' }, { a: 'c2', b: 'zr' },
+      { a: 'c2', b: 'tcl', fs: 'b', ts: 'r' }, { a: 'l2', b: 'meo' },
+    ],
+  })}
+  ${tierLegend(['LuV', 'ZPM', 'GOAL', 'src'])}
+  <div class="grid2">
+    <div class="card"><h3>원료 · 부산물 (시간당)</h3><div class="tscroll"><table>
+      <thead><tr><th>들어가는 것</th><th class="n">양</th><th>나오는 것</th><th class="n">양</th></tr></thead>
+      <tbody>${ZIN.map((r, i) => `<tr><td>${r[0]}</td><td class="n">${fmt(r[1] * z, 0)} ${r[2]}</td><td>${ZOUT[i][0]}</td><td class="n">${fmt(ZOUT[i][1] * z, 0)} ${ZOUT[i][2]}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">HCl은 8,000 넣고 4,000 돌아와서 순 4,000. Perchloric Acid는 0(순환).</p></div>
+    <div class="card"><h3>기계 가동률</h3><div class="tscroll"><table>
+      <thead><tr><th>기계</th><th>레시피</th><th class="n">EU/t</th><th class="n">가동률</th></tr></thead>
+      <tbody>${ZSTEP.map(([m, r, e, t]) => `<tr><td>${m}</td><td><code>${r}</code></td><td class="n">${fmt(e, 0)}</td><td class="n">${fmt(t * z / 72000 * 100, 0)}%</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">병목은 ZrCl₄ Centrifuge(1200t)와 Electrolyzer(800t). 60개/시간이면 Centrifuge 100% — 두 대로.</p></div>
+  </div>`;
+}
+function viewPassive3d() {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `
+  <h2>4 · 패시브 (Zirconium)</h2>${subnav()}
+  <p class="lead">Zirconium 라인을 <b>16×16 청크 하나</b>에 넣은 배치입니다. 서쪽이 Perchloric 순환(Mixer · Centrifuge · 회수 반응기), 가운데가 LCR 3대(벽 공유), 동쪽이 ZPM Electrolyzer와 ZrCl₄ Centrifuge입니다. 단일 블록 기계는 모두 해당 전압 단일 블록 기준.</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="Zirconium 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${[['--s8', 'LuV 기계'], ['--s4', 'ZPM 기계'], ['--s1', '저전압 회수'], ['--muted', '탱크'], ['--good', 'Zirconium · TiCl₄']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li><b>Perchloric은 탱크 하나로 닫힌 고리</b> — Mixer가 빼 가고 회수 반응기 두 대가 채웁니다.</li>
+      <li>LCR 3대(NaOH · Carbon/HCl · H₂)는 Wall Sharing으로 한 줄, 레시피가 달라 Distinct Bus 불필요(각자 한 레시피).</li>
+      <li>Electrolyzer(50,000)는 ZPM 단일 블록 또는 대형 전해기 + LuV 해치 2 ${EMI}.</li>
+    </ul></div>
+    <div class="card"><h3>연결</h3><ul class="pts">
+      <li>Titanite: Abydos 채굴 → Stargate 너머에서 ME로(Quantum 링크 · 차원 간 전송 ${EMI}).</li>
+      <li>H₂SO₄ · HCl · H₂ · NaOH: HV 화학 청크.</li>
+      <li>TiCl₄ → EV 페이지 Titanium EBF(Mg 환원) → 3 탭 Tritanium 융합.</li>
+    </ul></div>
+  </div>`;
+}
+const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+function buildZrChunk() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  unit(1, 0, 1, { col: '--muted', label: 'Titanite', tip: 'Titanite dust 창고|Abydos' });
+  unit(2, 0, 2, { col: '--s8', label: 'Mixer', tip: 'LuV Mixer · titanite_proc_1|Titanite 8 + Perchloric 3000 · 28,000 EU/t' });
+  unit(3, 0, 2, { col: '--s8', label: 'Cent-1', tip: 'LuV Centrifuge · titanite_proc_2|Slurry → CaClO4 11 · Residue · Silica Gel' });
+  unit(1, 0, 4, { col: '--muted', label: 'HClO4', tip: 'Super Tank · Perchloric Acid|닫힌 고리 3000mB/회' });
+  unit(2, 0, 5, { col: '--s1', label: 'CR-Ca', tip: 'MV Chemical Reactor|CaClO4 11 + H2SO4 1000 → Perchloric 2000 · 496 EU/t' });
+  unit(3, 0, 5, { col: '--s1', label: 'Cent-Si', tip: 'EV Centrifuge|Silica Gel → Perchloric 1000 + SiO2 3 · 1,984 EU/t' });
+  multi(6, 1, 3, 3, 3, '--s8', 'LCR NaOH', 'LCR · titanite_proc_3|NaOH 6 · 17,500 EU/t (LuV 해치 또는 IV 해치 2)');
+  multi(8, 1, 3, 3, 3, '--s8', 'LCR C+HCl', 'LCR · titanite_proc_5|Carbon 2 + HCl 8000 → TiCl4·ZrCl4 + Methanol 2000 · 6,400');
+  multi(10, 1, 3, 3, 3, '--s1', 'LCR H2', 'LCR · zirconium_from_zirconium_tetrachloride|ZrCl4 5 + H2 4000 → Zr 1 + HCl 4000 · 1,640');
+  unit(14, 0, 2, { col: '--s4', label: 'Elec', tip: 'ZPM Electrolyzer · titanite_proc_4|50,000 EU/t · 800t' });
+  unit(14, 0, 5, { col: '--s8', label: 'Cent-Zr', tip: 'LuV Centrifuge · titanite_proc_6|Mixture → ZrCl4 5 + TiCl4 1000 · 1200t (병목)' });
+  unit(13, 0, 5, { col: '--s8', label: 'Cent-Zr2', tip: 'LuV Centrifuge 2대째|60개/시간이면 필요' });
+  ['H2SO4', 'HCl', 'H2', 'NaOH', 'Carbon', 'MeOH'].forEach((t, i) => unit(6 + i, 0, 8, { col: '--muted', label: t, tip: `Super Tank · ${t}|${t === 'MeOH' ? '부산물 Methanol' : 'HV 화학 청크에서 ME'}` }));
+  unit(13, 0, 9, { col: '--good', label: 'Zr', tip: 'Zirconium 창고|→ Complex 반사판 · Abydos 합금' });
+  unit(14, 0, 9, { col: '--good', label: 'TiCl4', tip: 'TiCl4 탱크|→ Titanium → Tritanium' });
+  unit(14, 0, 14, { col: '--s4', label: 'ZPM Tr', tip: '트랜스포머|ZPM Electrolyzer · LuV 기계 전력' });
+  const c = (x, zz) => [x + 0.5, 1.2, zz + 0.5];
+  [[[1, 1], [2, 2]], [[2, 2], [3, 2]], [[3, 2], [3, 5]], [[2, 5], [1, 4]], [[1, 4], [2, 2]], [[3, 2], [7, 3]], [[7, 3], [14, 2]], [[14, 2], [9, 3]], [[9, 3], [14, 5]], [[14, 5], [11, 3]], [[11, 3], [13, 9]], [[14, 5], [14, 9]]]
+    .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  return { boxes, pipes };
+}
+
+/* ---------- 5 UHV 준비 ---------- */
+function viewNext() {
+  return `
+  <h2>5 · UHV 준비</h2>
+  <p class="lead">범위는 UV까지지만, UV 동안 준비해 둘 UHV의 문턱을 정리했습니다. UHV 기계 대부분이 <b>Assembly Line VHA[UHV](983,040)</b> + 연구입니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>코일</h3><ul class="pts">
+      <li><b>Tritanium 코일</b>(UV Assembler 491,520): Trinaquadalloy Frame · Tritanium 2x wire 8 · Naquadria foil 8 · Niobium Nitride foil 32 · Trinium 144 → UV 해치 2 = <b>11,500K</b>.</li>
+      <li>UHV: 팩 <b>Zalloy</b> 코일(1,966,080) — 퀘스트 Zalloy Ingot · Zalloy Coil Block(Abydos).</li>
+      <li><a href="common.html#coil">공용 › 코일 사다리</a>.</li>
+    </ul></div>
+    <div class="card"><h3>UHV 문턱 (팩)</h3><ul class="pts">
+      <li><b>UV Fusion(MK3)</b>: Fusion Coil · UHV 회로 4 · Quantum Star · Americium double plate · ZPM Field Gen 2 · UHPIC 128 · ENTED wire 32 · ITLC Solder · YBCO 1152 — Nickel 플라즈마(480M).</li>
+      <li><b>UHV Fusion(MK4)</b> → Americium 플라즈마(반사판 4 · 760M · 984t/mB) — 기당 ~83만 EU/t.</li>
+      <li><b>Supreme Plasma Turbine</b>(UHV Assembly Line · 연구 128 CWU).</li>
+      <li><b>Chemical Plant</b>(VHA[UHV] · 연구 64 CWU) — HV 페이지에서 기다리던 Persulfate · Naquadah 스킵.</li>
+      <li><b>Draconic · Runic</b> 회로, Living SMD 연구(180 CWU).</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>UV 동안 모아 둘 것</h3><div class="tscroll"><table>
+    <thead><tr><th>재료</th><th>어디에</th><th>공급</th></tr></thead><tbody>
+      <tr><td>Americium</td><td>UV 부품(fine 128/Motor) · MK3 double plate</td><td>3 탭 융합</td></tr>
+      <tr><td>Tritanium</td><td>UV 부품 · 코일 · Wetware Mainframe frame</td><td>3 탭 융합</td></tr>
+      <tr><td>Zirconium · Zircalloy-4 · ZrSeI₂</td><td>Complex · Reinforced 반사판 · Abydos 합금</td><td>4 탭</td></tr>
+      <tr><td>Quantum Star</td><td>MK3 컨트롤러</td><td>Nether Star + Radon 1250 (HV Chemical Bath)</td></tr>
+      <tr><td>Enriched Naquadah Trinium Europium Duranide</td><td>UV 초전도 · MK3 wire</td><td>UV Mixer</td></tr>
+    </tbody></table></div></div>`;
+}
+
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+
+/* ---------- page wiring ---------- */
+startPage({
+  key: 'uv-web',
+  save: () => ({ zrN: S.zrN }),
+  load: o => { if ([15, 30, 60].includes(o.zrN)) S.zrN = o.zrN; },
+  layouts: [[viewPassive3d, buildZrChunk]],
+  afterRender: () => document.querySelectorAll('#zrn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.zr === S.zrN)),
+});
+document.getElementById('zrn').addEventListener('click', e => {
+  const b = e.target.closest('button[data-zr]'); if (!b) return;
+  S.zrN = +b.dataset.zr; render();
+});
+</script>
+</body>
+</html>

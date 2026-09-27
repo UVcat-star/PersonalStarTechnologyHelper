@@ -129,7 +129,7 @@ function viewOverview() {
       <li><b>회로</b>: <code>crystal_processor_iv</code> · <code>crystal_assembly_luv</code>(9,600), <code>crystal_cpu</code> 각인(10,000). 팩 Assembly Line <code>crystal_processor_computer</code> · <code>quantum_processor_mainframe</code>(ZPM 회로 · 30,720).</li>
       <li><b>칩</b>: <code>uhpic_wafer</code> · <code>cut_uhpic</code>, 팩 <code>qram_chip</code> · <code>hyper_nand/nor_memory_wafer</code>.</li>
       <li><b>기계</b>: 팩 <code>luv_fusion_reactor</code> · <code>active_transformer</code>(Dreamlink 시작) · <code>coil_naquadah</code> · <code>superconducting_coil_luv</code> · ZPM 부품 8종(Assembly Line 24,000) · 팩 <code>super_abs</code> · <code>super_gas_collector</code> · <code>modular_combustion_frame</code> · <code>luv_rotor_holder</code>.</li>
-      <li><b>화학 · 자원</b>: <code>naquadah_separation</code>(LCR 30,720) · <code>trinium_sulfide_separation</code>(EBF) · <code>osmiridium</code> · <code>indium_tin_barium_titanium_cuprate</code>, 팩 Xenotime · Naquadite · Molten Destabiliser 라인.</li>
+      <li><b>화학 · 자원</b>: <code>naquadah_separation</code>(LCR 30,720) · <code>trinium_sulfide_separation</code>(EBF) · <code>osmiridium</code> · <code>indium_tin_barium_titanium_cuprate</code>, 팩 Xenotime · Naquadite 라인.</li>
     </ul></div>
     <div class="card"><h3>보는 순서</h3><ul class="pts">
       <li><b>Fusion MK1이 LuV의 목표</b>입니다. 컨트롤러가 ZPM 회로 4 · UHPIC 64 · Superconducting Coil(Trinium 3,456)이라 <b>Naquadah 라인 → Trinium</b>이 먼저입니다.</li>
@@ -244,10 +244,11 @@ function viewResource() {
       <li><b>ITBTC</b>: Mixer LuV In 4 · Sn 2 · Ba 2 · Ti · Cu 7 + O₂ 14,000 → 16. Indium은 IV 페이지 3 탭.</li>
       <li><b>Plutonium-241</b>: Pu-239 Centrifuge 부산물(20%) · Nuclear Fission 챕터 ${EMI}.</li>
     </ul></div>
-    <div class="card"><h3>MK1로 하는 것 (팩 <code>fusion_scaling.js</code>, 반사판 티어 1)</h3><ul class="pts">
+    <div class="card"><h3>MK1로 하는 것 (팩 <code>fusion_scaling.js</code> · Basic Reflector)</h3><ul class="pts">
       <li><b>Helium 플라즈마</b>: D 1000 + T 1000 → 1000 · 4,096 EU/t · 7.2초 · 시동 40M EU → Plasma Turbine 순 ~7만 EU/t.</li>
       <li><b>Europium</b>: Neodymium 144 + Hydrogen 3000 → 144 · 24,576 · 28.8초 — Crystal Chip · ZPM Motor(Europium fine 96).</li>
-      <li><b>Lutetium</b>: La 144 + Si 144 → 144 · 7,680 · 7.2초. <b>Radon</b>: Au 144 + Hg 100 → 1000 · 30,720.</li>
+      <li><b>Lutetium</b>: La 144 + Si 144 → 144 · 7,680 · 7.2초 · 80M. (Radon은 반사판 1이지만 시동 200M이라 MK1 한도 160M을 넘음 → MK2.)</li>
+      <li><b>반사판</b>: Basic Neutron Reflector(EV · 클린룸): Ruridit plate · Beryllium double plate 2 · Tungsten Carbide double plate · Tin Alloy 2304 → Basic Reflector Casing. MK1 시동 한도 160M(GTCEu 해치 16개 기준) ${EMI}.</li>
       <li>D · T는 IV 페이지 Liquid Ender Air 증류(한 번에 D 50,000 · T 10,000).</li>
     </ul></div>
   </div>`;

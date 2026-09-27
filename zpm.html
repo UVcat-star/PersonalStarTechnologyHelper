@@ -204,8 +204,8 @@ function viewResource() {
   return `
   <h2>3 · Fusion MK2 · 자원</h2>
   <p class="lead">팩 <code>zpm_fusion_reactor</code>(Assembly Line ZPM · 1350t · 연구 16 CWU): <b>Fusion Coil</b> · <b>UV 회로 4</b> · Naquadria double plate · Europium double plate · LuV Field Generator 2 · <b>UHPIC 96</b> · Uranium Rhodium Dinaquadide wire 32 · Solder 1152 · Vanadium-Gallium 1152.</p>
-  <div class="card"><h3>반사판 티어 2 플라즈마 비교 (팩 값)</h3>
-    <p class="sub">순출력 = 플라즈마를 전부 터빈에 넣었을 때의 EU/t − 융합로 소비. 터빈 효율 · 시동 에너지 전.</p>
+  <div class="card"><h3>반사판 2 플라즈마 비교 (팩 값)</h3>
+    <p class="sub">순출력 = 플라즈마를 전부 터빈에 넣었을 때의 EU/t − 융합로 소비. 터빈 효율 · 시동 에너지 전. 반사판 2 = <b>Advanced Neutron Reflector</b>(IV · 클린룸: Osmiridium plate · Naquadah double plate 2 · Basic 패널). 시동 180M · 280M이 MK1 한도(160M)를 넘어서 <b>MK2</b>가 필요합니다.</p>
     ${hbar(PL.map(p => ({ label: `${p.n} 플라즈마`, sub: p.in, value: p.net, color: p.k === 'argon' ? 'var(--good)' : 'var(--s4)', text: `${fmt(p.net / 1000, 0)}k EU/t` })), { cols: ['플라즈마', '순 EU/t'] })}
     <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>플라즈마</th><th>원료 / 회</th><th class="n">회당</th><th class="n">융합 EU/t</th><th class="n">시동</th><th class="n">원료 / 시간</th></tr></thead>
       <tbody>${PL.map(p => `<tr><td><b>${p.n}</b></td><td>${esc(p.in)}</td><td class="n">${p.out}mB · ${p.sec}초</td><td class="n">${fmt(p.eut, 0)}</td><td class="n">${p.start}M</td><td class="n">${fmt(p.runsH, 0)}회</td></tr>`).join('')}</tbody></table></div>
@@ -218,9 +218,10 @@ function viewResource() {
       <li><b>Europium</b> double plate: Fusion MK1.</li>
     </ul></div>
     <div class="card"><h3>ZPM Fusion으로 만드는 자원</h3><ul class="pts">
-      <li><b>Duranium</b>: Gallium 144 + Radon 1000 → 144 (16,384). <b>Tritanium</b>(티어 3): Titanium 288 + Duranium 144 → UV 코일 · 부품.</li>
+      <li><b>Duranium</b>(반사판 2): Gallium 144 + Radon 1000 → 144 (16,384). <b>Tritanium</b>(반사판 3): Titanium 288 + Duranium 144 → UV 코일 · 부품.</li>
       <li><b>Darmstadtium</b>: Arsenic 288 + Ruthenium 144 → 144 (30,720).</li>
-      <li><b>Americium</b>(티어 3): Lutetium 144 + Chromium 144 → Neutronium · UV Fusion 컨트롤러.</li>
+      <li><b>Americium</b>(반사판 3): Lutetium 144 + Chromium 144 → UV 부품 · UV Fusion 컨트롤러.</li>
+      <li><b>반사판 3 = Complex</b>(LuV 제작 · Trinaquadalloy + <b>Zirconium</b> double plate) — Zirconium은 Abydos(5 탭). Tritanium · Americium · Nickel은 Abydos 다음.</li>
       <li>Oxygen 플라즈마: Helium-3 필요(Ender Air 증류 · Void 가스 ${EMI}).</li>
     </ul></div>
   </div>`;
