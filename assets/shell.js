@@ -6,7 +6,7 @@
 (function () {
   const TIERS = [
     { id: 'HV', href: 'hv.html', name: 'High Voltage', color: '#c98500', now: true },
-    { id: 'EV', href: 'ev.html', name: 'Extreme Voltage', color: '#9b4fc4', soon: true },
+    { id: 'EV', href: 'ev.html', name: 'Extreme Voltage', color: '#9b4fc4', next: true },
   ];
 
   const root = document.documentElement;
@@ -59,7 +59,7 @@
     const items = TIERS.map(t => `
       <a href="${t.href}" class="${t.soon ? 'soon' : ''}" ${t.id === current ? 'aria-current="page"' : ''} title="${esc(t.id + ' · ' + t.name)}">
         <span class="tier" style="--tc:${t.color}">${esc(t.id)}</span>
-        <span class="lbl"><span class="row">${esc(t.id)}${t.now ? '<span class="badge now">현재</span>' : t.soon ? '<span class="badge">Coming soon</span>' : ''}</span><small>${esc(t.name)}</small></span>
+        <span class="lbl"><span class="row">${esc(t.id)}${t.now ? '<span class="badge now">현재</span>' : t.next ? '<span class="badge">다음</span>' : t.soon ? '<span class="badge">Coming soon</span>' : ''}</span><small>${esc(t.name)}</small></span>
       </a>`).join('');
 
     const side = document.createElement('aside');

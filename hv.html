@@ -988,7 +988,7 @@ function viewPersulfate() {
         <tr><td>⑤</td><td><code>sodium_bisulfate_electrolysis</code></td><td>Sodium Bisulfate 7</td><td>Sodium Persulfate 500 + Hydrogen 1000</td><td class="n">150t / 30</td></tr>
       </tbody></table></div>
   </div>
-  ${callout('info', 'i', '<b>EV 이후:</b> Chemical Plant의 <code>sodium_persulfate_skip</code>(Theta 2에서도 같음) — Sodium 1 + Sulfur 1 + Oxygen 4000 → Sodium Persulfate 500 (30t, 960 EU/t). 금속 Sodium 공급원이 필요합니다.')}`;
+  ${callout('warn', '!', '<b>Chemical Plant 단축은 한참 뒤입니다.</b> <code>sodium_persulfate_skip</code> 레시피 자체는 960 EU/t지만 <b>Chemical Plant 컨트롤러가 UHV급 Assembly Line 레시피</b>(<code>abydos_multis.js</code>)라 EV에서도 못 만듭니다. EV까지는 이 5단 라인(황산은 패시브 탭의 LCR)을 그대로 씁니다.')}`;
 }
 
 /* ---------- 3 PTFE → LCR · 부트스트랩 ---------- */

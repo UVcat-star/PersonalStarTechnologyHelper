@@ -3,57 +3,1026 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EV 자동화 라인</title>
+<title>EV 할 일</title>
 <link rel="stylesheet" href="assets/site.css">
 <script src="assets/shell.js"></script>
 <style>
+header {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--page); border-bottom: 1px solid var(--border);
+}
 .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
-header { border-bottom: 1px solid var(--border); }
-header h1 { font-size: 18px; margin: 0; font-weight: 650; padding: 14px 0 2px; }
-header .meta { color: var(--muted); font-size: 13px; padding-bottom: 12px; }
-main { padding: 40px 0 60px; }
-.hero { text-align: center; padding: 36px 16px 28px; }
-.hero .tier { width: 64px; height: 40px; font-size: 18px; margin: 0 auto 14px; border-radius: 10px; }
-.hero h2 { font-size: 26px; margin: 0 0 6px; }
-.hero p { color: var(--ink-2); margin: 0 auto; max-width: 560px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; max-width: 760px; margin: 0 auto 16px; }
-.card h3 { font-size: 15px; margin: 0 0 4px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 0 10px; }
+.top h1 { font-size: 18px; margin: 0; font-weight: 650; }
+.top .meta { color: var(--muted); font-size: 13px; }
+.controls { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button, .btn {
+  font: inherit; font-size: 13px; border: 0; background: var(--surface); color: var(--ink-2);
+  padding: 5px 12px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+.btn { border: 1px solid var(--border); border-radius: 8px; }
+.ctl-label { font-size: 13px; color: var(--ink-2); }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+nav.tabs button {
+  font: inherit; font-size: 14px; background: none; border: 0; color: var(--ink-2);
+  padding: 10px 14px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap;
+}
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+main { padding: 20px 0 60px; }
+section.tab { display: none; }
+section.tab.on { display: block; }
+h2 { font-size: 20px; margin: 4px 0 6px; }
+h3 { font-size: 15px; margin: 0 0 4px; }
+p.lead { color: var(--ink-2); margin: 0 0 18px; max-width: 820px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; margin-bottom: 16px; min-width: 0;
+}
 .card .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
-ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 10px; }
-.from { display: block; font-size: 12.5px; color: var(--muted); }
+.grid2 { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.grid2 > .card { margin-bottom: 0; }
+.stack > * + * { margin-top: 16px; }
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .l { font-size: 13px; color: var(--ink-2); }
+.tile .v { font-size: 28px; font-weight: 650; line-height: 1.2; margin-top: 4px; }
+.tile .v small { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 4px; }
+.tile .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.diagram { overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 720px; height: auto; }
+svg text { font-family: inherit; }
+.node rect.box { fill: var(--surface-2); stroke: var(--border); }
+.node.src rect.box { fill: var(--surface); stroke: var(--axis); stroke-dasharray: 4 3; }
+.node .t { font-size: 13px; font-weight: 600; fill: var(--ink); }
+.node .s { font-size: 11.5px; fill: var(--ink-2); }
+.node:hover rect.box, .edge:hover path.line { filter: brightness(1.08); }
+.edge path.line { fill: none; stroke: var(--edge); stroke-linecap: round; }
+.edge path.hit { fill: none; stroke: transparent; stroke-width: 16; }
+.edge:hover path.line { stroke: var(--ink-2); }
+.elabel { font-size: 11.5px; fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--ink-2); margin: 10px 0 0; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend i.dash { background: none !important; border: 1.5px dashed var(--axis); }
+/* bar charts */
+.bars { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 6px 12px; align-items: center; }
+.bars .lab { font-size: 13px; color: var(--ink-2); text-align: right; line-height: 1.25; }
+.bars .lab b { color: var(--ink); font-weight: 600; }
+.track { position: relative; height: 28px; }
+.track .bar {
+  position: absolute; top: 4px; height: 20px; border-radius: 0 4px 4px 0; cursor: default;
+  transition: filter .1s;
+}
+.track .bar.negb { border-radius: 4px 0 0 4px; }
+.track .bar:hover, .track .seg-b:hover { filter: brightness(1.12); }
+.track .val { position: absolute; top: 4px; z-index: 1; background: var(--surface); padding: 0 3px; border-radius: 3px; font-size: 12.5px; line-height: 20px; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.track .zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--axis); }
+.refline { position: absolute; top: -6px; bottom: -6px; width: 0; border-left: 1.5px solid var(--ink-2); pointer-events: none; }
+.chart { position: relative; }
+.chart .refl { position: absolute; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; transform: translateX(-50%); }
+.axisrow { display: grid; grid-template-columns: minmax(96px, max-content) 1fr; gap: 0 12px; margin-top: 4px; }
+.axis { position: relative; height: 18px; border-top: 1px solid var(--axis); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.axis span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+.stackbar { display: flex; gap: 2px; height: 24px; }
+.stackbar .seg-b { height: 100%; }
+.stackbar .seg-b:first-child { border-radius: 0; }
+.stackbar .seg-b:last-child { border-radius: 0 4px 4px 0; }
+details.tbl { margin-top: 12px; font-size: 13px; }
+details.tbl summary { cursor: pointer; color: var(--ink-2); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.tscroll { overflow-x: auto; }
 code { overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
-a { color: var(--s1); }
+.callout { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; background: var(--surface); margin-bottom: 12px; font-size: 14px; }
+.callout .ic { flex: none; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; margin-top: 1px; }
+.callout.warn { border-left-color: var(--warning); } .callout.warn .ic { background: var(--warning); color: #0b0b0b; }
+.callout.crit { border-left-color: var(--critical); } .callout.crit .ic { background: var(--critical); }
+.callout.info { border-left-color: var(--s1); } .callout.info .ic { background: var(--s1); }
+.callout.ok { border-left-color: var(--good); } .callout.ok .ic { background: var(--good); }
+.callout b { font-weight: 650; }
+.emi { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 0 6px; border-radius: 4px; border: 1px solid var(--warning); color: var(--ink); background: color-mix(in srgb, var(--warning) 18%, transparent); }
+ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); }
+.chip i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+#tip {
+  position: fixed; z-index: 20; pointer-events: none; display: none; max-width: 300px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 8px 10px; font-size: 12.5px; line-height: 1.45;
+}
+#tip .tv { font-weight: 650; font-size: 14px; }
+#tip .tl { color: var(--ink-2); }
+@media (max-width: 600px) {
+  .top { padding-top: 10px; }
+  .controls { margin-left: 0; }
+  .tile .v { font-size: 24px; }
+}
+.subnav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.subnav button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.subnav button[aria-selected="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+ol.steps { margin: 0; padding-left: 22px; } ol.steps li + li { margin-top: 8px; }
+.src { color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body data-tier="EV">
 <header>
   <div class="wrap">
-    <h1>Star Technology · EV 자동화 라인</h1>
-    <div class="meta">아직 정리 전입니다</div>
+    <div class="top">
+      <div>
+        <h1>Star Technology · EV 할 일</h1>
+        <div class="meta">Theta 2 (GTCEu 1.7.1b) · 2026-09-27 · EV = 회로 조립기와 레시피가 2,048V까지 열리는 단계</div>
+      </div>
+      <div class="controls">
+        <span class="ctl-label">Void Extractor · MV 해치</span>
+        <div class="seg" id="ven">
+          <button data-n="2">2대</button>
+          <button data-n="3">3대</button>
+          <button data-n="4">4대</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
   </div>
 </header>
-<main class="wrap">
-  <div class="hero">
-    <span class="tier" style="--tc:#9b4fc4">EV</span>
-    <h2>Coming soon</h2>
-    <p>EV 라인은 <code>EV Universal Circuit</code>에 가까워지면 여기에 정리합니다. 지금은 HV 단계를 진행 중입니다.</p>
-  </div>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
 
-  <div class="card">
-    <h3>HV에서 EV로 넘겨 둔 일</h3>
-    <p class="sub">HV 문서에서 "EV가 되면" 하기로 한 항목입니다. EV 페이지를 만들 때 여기서 시작합니다.</p>
-    <ul class="pts">
-      <li><b><code>Molten Ore Mixture</code> → <code>Distillation Tower</code></b><br>
-        HV 동안 <code>Super Tank</code>에 모아 둔 유체를 <code>Bauxite</code>, <code>Tungstate</code>, <code>Cooperite</code>, <code>Pitchblende</code> 등 7종으로 나눕니다. 탱크 동쪽 3×3을 이 자리로 비워 두었습니다.
-        <span class="from"><a href="hv.html#void">HV · Void Extractor 체인</a></span></li>
-      <li><b><code>Sodium Persulfate</code> 라인을 <code>Chemical Plant</code> 한 대로 교체</b><br>
-        <code>sodium_persulfate_skip</code>: <code>Sodium</code> dust 1 + <code>Sulfur</code> dust 1 + <code>Oxygen</code> 4000 → <code>Sodium Persulfate</code> 500 (30t, 960 EU/t). 금속 <code>Sodium</code> 공급원이 따로 필요합니다.
-        <span class="from"><a href="hv.html#persulfate">HV · Sodium Persulfate</a></span></li>
-      <li><b>Ore Factory B에 EV 에너지 해치</b><br>
-        1단계 오버클럭이 걸려 필요한 대수가 절반으로 줄어듭니다.
-        <span class="from"><a href="hv.html#crushed">HV · Crushed Ore 분류</a></span></li>
-    </ul>
+<script>
+/* ---------- state ---------- */
+const S = { veN: 4, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+try {
+  const saved = JSON.parse(localStorage.getItem('ev-web') || '{}');
+  if ([2, 3, 4].includes(saved.veN)) S.veN = saved.veN;
+  if (saved.topic) S.topic = saved.topic;
+  if (saved.sub) S.sub = saved.sub;
+  if (saved.lay) Object.assign(S, saved.lay);
+} catch (e) {}
+function readHash() {
+  const [t, s] = decodeURIComponent(location.hash.slice(1)).split('/');
+  if (t) S.topic = t;
+  if (t && s) S.sub[t] = s;
+}
+readHash();
+function persist() {
+  const sub = TOPICS.find(t => t.id === S.topic)?.subs ? '/' + curSub() : '';
+  const want = '#' + S.topic + sub;
+  if (location.hash !== want) history.replaceState(null, '', want);
+  try { localStorage.setItem('ev-web', JSON.stringify({ veN: S.veN, topic: S.topic, sub: S.sub, lay: { layGhost: S.layGhost, layPipes: S.layPipes, layLabels: S.layLabels } })); } catch (e) {}
+}
+
+/* ---------- constants ----------
+   Void Extractor (HV 페이지): MV 해치 · 사이클 320t · 사이클당 Molten Ore Mixture 175mB (D 단계).
+   Distillation Tower molten_ore_mixture: 10,000mB · 1200t · 1920 EU/t →
+   Bauxite 1500 · Pitchblende 1250 · Molybdenite 1000 · Ilmenite 1000 · Bastnasite 1000 · Tungstate 2000 · Cooperite 2250 (+ Metal Mixture dust 1).
+   Autoclave raw_*: Molten X Ore 500 + Stone Dust → Raw X (160t · 480 EU/t). */
+const CYC = 320, CPH1 = 72000 / CYC, MOM_CYCLE = 175;
+const LIMIT = 0.95;
+const MOLTEN = [
+  { k: 'ilm', n: 'Ilmenite', mb: 1000, use: 'Rutile → Titanium', feed: true },
+  { k: 'bau', n: 'Bauxite', mb: 1500, use: 'Aluminium · Rutile · Gallium', feed: true },
+  { k: 'tun', n: 'Tungstate', mb: 2000, use: 'Tungsten (IV 준비)', feed: true },
+  { k: 'coo', n: 'Cooperite', mb: 2250, use: 'Platinum · Palladium', feed: true },
+  { k: 'pit', n: 'Pitchblende', mb: 1250, use: 'Uranium · Thorium (보관)' },
+  { k: 'mol', n: 'Molybdenite', mb: 1000, use: 'Molybdenum (MoSi2 코일 · 보관)' },
+  { k: 'bas', n: 'Bastnasite', mb: 1000, use: 'Neodymium (EV 모터 자석)' },
+];
+const momH = n => MOM_CYCLE * CPH1 * n;                   // mB / 시간
+const runsH = n => momH(n) / 10000;                         // 증류 / 시간
+const rawPerRun = m => m.mb / 500;
+// 광석 가공 가정: Raw 1 → Crushed 1, Ore Factory(EV 티어) 본 광물 기대 1.5 dust, 4차 부산물 7.5%
+const DUSTPER = 1.5, QUAT = 0.075;
+const TI_RUN = (1000 / 500) * DUSTPER * 2 / 10 + (1000 / 500) * QUAT + (1500 / 500) * DUSTPER / 15 + (1500 / 500) * QUAT;   // Rutile = Titanium
+const AL_RUN = (1500 / 500) * DUSTPER / 15 * 6;
+const W_RUN = (2000 / 500) * DUSTPER / 7;                  // Tungstate 7 → Tungstic Acid 7 → Tungsten 1
+const PGS_COO = (2250 / 500) * 4;                          // purified Cooperite 1 → PGS 4 (세척 필요)
+const PT_RUN = PGS_COO / 6 * 3 / 3;                        // PGS 6 → Platinum Raw 3 → Platinum 1 (Raw 3당)
+const pNeed = u => Math.max(1, Math.ceil(u / LIMIT - 1e-9));
+</script>
+<script>
+/* ---------- helpers ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n, d = 1) => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: d });
+const TIER = {
+  LV: { c: 'var(--s3)', name: 'LV 기계' },
+  MV: { c: 'var(--s1)', name: 'MV 기계' },
+  HV: { c: 'var(--s2)', name: 'HV 기계' },
+  LCR: { c: 'var(--s7)', name: 'Large Chemical Reactor' },
+  OF: { c: 'var(--s4)', name: 'Electric Ore Factory' },
+  tank: { c: 'var(--muted)', name: '탱크 / 저장' },
+  src: { c: 'transparent', name: '원료 / 외부 공급' },
+};
+function tierLegend(keys) {
+  return `<div class="legend">${keys.map(k => `<span><i class="${k === 'src' ? 'dash' : ''}" style="background:${TIER[k].c}"></i>${esc(TIER[k].name)}</span>`).join('')}</div>`;
+}
+
+/* flow diagram: nodes {id,x,y,w,h,t,s,k,tip}, edges {a,b,l,amt,fs,ts,fo,to,k,lt,tip,dash} */
+function flow(spec) {
+  const W = spec.w || 1000, H = spec.h;
+  const N = {};
+  spec.nodes.forEach(n => { n.w = n.w || 150; n.h = n.h || 56; N[n.id] = n; });
+  const dir = { r: [1, 0], l: [-1, 0], t: [0, -1], b: [0, 1] };
+  const port = (n, side, off = 0) => ({
+    r: [n.x + n.w, n.y + n.h / 2 + off], l: [n.x, n.y + n.h / 2 + off],
+    t: [n.x + n.w / 2 + off, n.y], b: [n.x + n.w / 2 + off, n.y + n.h],
+  })[side];
+  let edges = '', labels = '';
+  spec.edges.forEach(e => {
+    const a = N[e.a], b = N[e.b];
+    const dx = (b.x + b.w / 2) - (a.x + a.w / 2), dy = (b.y + b.h / 2) - (a.y + a.h / 2);
+    let fs = e.fs, ts = e.ts;
+    if (!fs || !ts) {
+      if (Math.abs(dx) >= Math.abs(dy)) { fs = fs || (dx > 0 ? 'r' : 'l'); ts = ts || (dx > 0 ? 'l' : 'r'); }
+      else { fs = fs || (dy > 0 ? 'b' : 't'); ts = ts || (dy > 0 ? 't' : 'b'); }
+    }
+    const p0 = port(a, fs, e.fo), p3 = port(b, ts, e.to);
+    const dist = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]);
+    const k = e.k || Math.max(30, dist * 0.4);
+    // stop the stroke short of the arrowhead so thick flows don't bleed past it
+    const back = 7;
+    const p3s = [p3[0] + dir[ts][0] * back, p3[1] + dir[ts][1] * back];
+    const c1 = [p0[0] + dir[fs][0] * k, p0[1] + dir[fs][1] * k];
+    const c2 = [p3s[0] + dir[ts][0] * k, p3s[1] + dir[ts][1] * k];
+    const d = `M${p0} C${c1} ${c2} ${p3s}`;
+    const sw = e.amt ? Math.min(11, Math.max(2, 1.5 + Math.sqrt(e.amt) / 9)) : 2;
+    const tip = e.tip || e.l || '';
+    // arrowhead drawn as its own triangle so its size is independent of stroke width
+    const ang = Math.atan2(-dir[ts][1], -dir[ts][0]);
+    const aw = Math.max(7, sw * 0.9), al = 9;
+    const tipPt = p3, bx = p3[0] - Math.cos(ang) * al, by = p3[1] - Math.sin(ang) * al;
+    const px = -Math.sin(ang) * aw, py = Math.cos(ang) * aw;
+    const tri = `${tipPt} ${bx + px},${by + py} ${bx - px},${by - py}`;
+    edges += `<g class="edge" data-tip="${esc(tip)}" tabindex="0">
+      <path class="hit" d="${d}"/>
+      <path class="line" d="${d}" style="stroke-width:${sw}${e.dash ? ';stroke-dasharray:5 5' : ''}"/>
+      <polygon points="${tri}" fill="var(--edge)"/></g>`;
+    if (e.l) {
+      const t = e.lt ?? 0.5, u = 1 - t;
+      const x = u * u * u * p0[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p3s[0];
+      const y = u * u * u * p0[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p3s[1];
+      // keep labels off the stroke: above horizontal flows, beside vertical ones
+      const horiz = 'rl'.includes(fs) && 'rl'.includes(ts), vert = 'tb'.includes(fs) && 'tb'.includes(ts);
+      const lines = String(e.l).split('\n');
+      const defLy = horiz ? -(sw / 2 + 6 + (lines.length - 1) * 7) : 0;
+      const defLx = vert ? sw / 2 + 6 : 0;
+      const anchor = e.anchor || (vert && e.lx === undefined ? 'start' : 'middle');
+      const lx = x + (e.lx ?? defLx), ly = y + (e.ly ?? defLy);
+      labels += `<text class="elabel" x="${lx}" y="${ly - (lines.length - 1) * 7}" text-anchor="${anchor}">${lines.map((s, i) => `<tspan x="${lx}" dy="${i ? 14 : 4}">${esc(s)}</tspan>`).join('')}</text>`;
+    }
+  });
+  let nodes = '';
+  spec.nodes.forEach(n => {
+    const tc = TIER[n.k] ? TIER[n.k].c : 'var(--muted)';
+    const isSrc = n.k === 'src';
+    nodes += `<g class="node ${isSrc ? 'src' : ''}" data-tip="${esc(n.tip || (n.t + (n.s ? ' · ' + n.s : '')))}" tabindex="0">
+      <rect class="box" x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"/>
+      ${isSrc ? '' : `<rect x="${n.x}" y="${n.y}" width="5" height="${n.h}" rx="2" fill="${tc}"/>`}
+      <text class="t" x="${n.x + 14}" y="${n.y + (n.s ? 23 : n.h / 2 + 5)}">${esc(n.t)}</text>
+      ${n.s ? `<text class="s" x="${n.x + 14}" y="${n.y + 41}">${esc(n.s)}</text>` : ''}
+    </g>`;
+  });
+  return `<div class="diagram"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(spec.label)}">${edges}${nodes}${labels}</svg></div>`;
+}
+
+function niceMax(v) {
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+function ticks(max) {
+  // pick a division count whose step is a round number (1, 2, 2.5, 5 × 10^k)
+  const nice = s => { const p = Math.pow(10, Math.floor(Math.log10(s))); return [1, 2, 2.5, 5, 10].some(m => Math.abs(s / p - m) < 1e-9); };
+  const n = [4, 5, 3, 2, 6].find(k => nice(max / k)) || 4;
+  return Array.from({ length: n + 1 }, (_, i) => max * i / n);
+}
+
+/* horizontal bars. rows {label, sub, value, color, text, tip}; opts {max, unit, ref:{v,l}, signed, cols} */
+function hbar(rows, o = {}) {
+  const unit = o.unit || '';
+  const absMax = Math.max(...rows.map(r => Math.abs(r.value)), o.ref ? o.ref.v : 0);
+  const max = o.max || niceMax(absMax * 1.08);
+  const room = 0.8; // bars use 80% of the track, the rest is for the value label
+  const pct = v => (Math.abs(v) / max) * room * (o.signed ? 50 : 100);
+  const zero = o.signed ? 50 : 0;
+  let html = `<div class="chart"><div class="bars">`;
+  rows.forEach(r => {
+    const w = pct(r.value), neg = r.value < 0;
+    const left = o.signed ? (neg ? zero - w : zero) : 0;
+    const text = r.text ?? `${fmt(r.value)}${unit}`;
+    const valPos = o.signed
+      ? (neg ? `right:${100 - left + 1}%` : `left:${left + w + 1}%`)
+      : `left:calc(${w}% + 6px)`;
+    html += `<div class="lab"><b>${esc(r.label)}</b>${r.sub ? `<br><span style="font-size:11.5px;color:var(--muted)">${esc(r.sub)}</span>` : ''}</div>
+      <div class="track">
+        ${o.signed ? `<div class="zero" style="left:${zero}%"></div>` : ''}
+        ${w > 0 ? `<div class="bar ${neg ? 'negb' : ''}" tabindex="0" data-tip="${esc(r.tip || `${text}|${r.label}`)}" style="left:${left}%;width:${w}%;background:${r.color}"></div>` : ''}
+        <div class="val" style="${valPos}">${esc(text)}</div>
+        ${o.ref ? `<div class="refline" style="left:${pct(o.ref.v)}%"></div>` : ''}
+      </div>`;
+  });
+  html += `</div>`;
+  if (!o.signed && !o.noAxis) {
+    html += `<div class="axisrow"><div></div><div class="axis">${ticks(max).map(t => `<span style="left:${(t / max) * room * 100}%">${fmt(t, 2)}</span>`).join('')}</div></div>`;
+  }
+  if (o.ref) html += `<div style="font-size:12px;color:var(--ink-2);margin-top:6px">│ 세로선 = ${esc(o.ref.l)}</div>`;
+  if (o.legend) html += `<div class="legend">${o.legend.map(l => `<span><i style="background:${l.c}"></i>${esc(l.n)}</span>`).join('')}</div>`;
+  const cols = o.cols || ['항목', '값'];
+  html += `<details class="tbl"><summary>표로 보기</summary><div class="tscroll"><table><thead><tr>${cols.map((c, i) => `<th class="${i ? 'n' : ''}">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.label)}${r.sub ? ' (' + esc(r.sub) + ')' : ''}</td><td class="n">${esc(r.text ?? fmt(r.value) + unit)}</td></tr>`).join('')}</tbody></table></div></details>`;
+  return html + `</div>`;
+}
+
+function stackbar(parts, unit) {
+  const total = parts.reduce((a, b) => a + b.v, 0);
+  return `<div class="stackbar">${parts.map(p => `<div class="seg-b" tabindex="0" data-tip="${esc(`${fmt(p.v, 0)}${unit} (${fmt(p.v / total * 100, 0)}%)|${p.n}`)}" style="width:${p.v / total * 100}%;background:${p.c}"></div>`).join('')}</div>
+    <div class="legend">${parts.map(p => `<span><i style="background:${p.c}"></i>${esc(p.n)} · ${fmt(p.v, 0)}${unit}</span>`).join('')}</div>
+    <details class="tbl"><summary>표로 보기</summary><table><thead><tr><th>원료</th><th class="n">Fluorine</th><th class="n">비율</th></tr></thead><tbody>
+    ${parts.map(p => `<tr><td>${esc(p.n)}</td><td class="n">${fmt(p.v, 0)}${unit}</td><td class="n">${fmt(p.v / total * 100, 0)}%</td></tr>`).join('')}</tbody></table></details>`;
+}
+
+const tile = (l, v, u, d) => `<div class="tile"><div class="l">${esc(l)}</div><div class="v">${v}${u ? `<small>${esc(u)}</small>` : ''}</div>${d ? `<div class="d">${esc(d)}</div>` : ''}</div>`;
+const callout = (kind, icon, html) => `<div class="callout ${kind}"><span class="ic" aria-hidden="true">${icon}</span><div>${html}</div></div>`;
+const EMI = '<span class="emi">EMI 확인</span>';
+
+
+
+/* ---------- topics ---------- */
+TIER.EV = { c: 'var(--s5)', name: 'EV 기계 · EV 레시피' };
+TIER.GOAL = { c: 'var(--good)', name: '목표' };
+TIER.IV = { c: 'var(--s8)', name: 'IV' };
+const TOPICS = [
+  { id: 'overview', name: '로드맵' },
+  { id: 'entry', name: '1 · EV 진입 · 해치' },
+  { id: 'circuit', name: '2 · 회로' },
+  { id: 'resource', name: '3 · 자원 처리' },
+  { id: 'passive', name: '4 · 패시브', subs: [['flow', '수지 · 대수'], ['3d', '정제 청크 · 3D']] },
+  { id: 'next', name: '5 · IV 준비' },
+];
+const curTopic = () => TOPICS.find(t => t.id === S.topic) || TOPICS[0];
+function curSub() { const t = curTopic(); if (!t.subs) return null; const s = S.sub[t.id]; return t.subs.some(x => x[0] === s) ? s : t.subs[0][0]; }
+const subnav = () => { const t = curTopic(); if (!t.subs) return ''; return `<div class="subnav" role="tablist" id="subnav">${t.subs.map(([id, n]) => `<button role="tab" data-sub="${id}" aria-selected="${id === curSub()}">${esc(n)}</button>`).join('')}</div>`; };
+
+/* 멀티블럭 에너지 해치 한도 (GTCEu autoAbilities = 최소 1 · 최대 2, 팩은 P.ability(PA.euIn, {max})) */
+const HATCH1 = [
+  ['Super EBF', 'electric_blast_furnace'], ['Super Vacuum Freezer', 'vacuum_freezer'], ['Super Electric Ore Factory', 'electric_ore_processing'],
+  ['Super Cutter', 'cutter'], ['Super Implosion Compressor', 'implosion_compressor'], ['Super Pyrolyse', 'pyrolyse_oven'], ['Super Cracker', 'cracker'],
+  ['Super ABS', 'alloy_blast_smelter'], ['Distillery Column', 'distillery'], ['Industrial Extraction Chamber', 'extractor'], ['Industrial Brewing Station', 'brewery'],
+  ['Rock Filtrator', 'rock_filtrator'], ['Mechanical Sieve', 'mechanical_sieve'],
+];
+const HATCH2 = [
+  ['Electric Blast Furnace', 'GTCEu'], ['Large Chemical Reactor', 'GTCEu'], ['Distillation Tower', 'GTCEu'], ['Vacuum Freezer', 'GTCEu'], ['Implosion Compressor', 'GTCEu'],
+  ['Pyrolyse Oven', 'GTCEu'], ['GCYM 대형 기계 전부 (Large Cutter · Assembler · Mixer …)', 'GTCEu · 컨트롤러가 IV 부품'],
+  ['Electric Ore Factory', '팩'], ['Ore Processing Plant', '팩'], ['Void Extractor', '팩'], ['Large Sieve', '팩'], ['Rock Sifter', '팩'], ['Molten Destabiliser', '팩 (LuV)'],
+];
+
+/* ---------- 로드맵 ---------- */
+function viewOverview() {
+  const n = S.veN, r = runsH(n);
+  const stages = [
+    ['E0', 'HV에서 가져올 것', 'HV', 'Titanium 재고 · Kanthal EBF · 클린룸 · Workstation(EV 회로) · HV 해치 · Molten Ore Mixture 탱크'],
+    ['E1', 'EV 전력 인입', 'HV', 'HV 트랜스포머(승압 4A HV → 1A EV) · Aluminium 케이블 · EV 전력 예산'],
+    ['E2', 'EV 단일 블록 기계', 'EV', 'EV Assembler · EV Cutter · EV Circuit Assembler · EV Chemical Reactor · EV Chemical Bath · EV Electrolyzer · EV Mixer'],
+    ['E3', 'EV 에너지 해치', 'EV', 'EV Voltage Coil(Platinum) · PIC(Phosphorus 웨이퍼 · EV Cutter · 클린룸) → Super 멀티블럭과 IV 전압용'],
+    ['E4', 'Nano 회로', 'EV', 'Nano CPU · Advanced Circuit Board(Epoxy) · NOR · SMD → Nano Assembly(EV) · Supercomputer(IV) · Mainframe(LuV)'],
+    ['E5', 'EV 정제 (패시브)', 'EV', `Molten Ore Mixture → Titanium · Tungsten · Platinum. 시간당 증류 ${fmt(r, 1)}회`],
+    ['E6', 'IV 준비', 'IV', 'Nichrome 코일 → Tungsten · Tungstensteel → IV Hull · IV 해치(HPIC) · GCYM 대형 기계'],
+  ];
+  return `
+  <h2>EV 로드맵</h2>
+  <p class="lead">왼쪽 메뉴의 "EV"는 결국 <b>회로 조립기와 기계가 2,048V(1,920 EU/t) 레시피까지 돌릴 수 있는 단계</b>입니다. EV에 새로 열리는 것을 GTCEu jar와 팩 스크립트에서 전압으로 걸러서(512 &lt; EU/t ≤ 2,048) 단계로 묶었습니다.
+  HV 해치 2개를 단 멀티블럭은 HV 단계에서도 EV 레시피를 돌리지만(HV 페이지), <b>단일 블록 기계와 해치 1개짜리 멀티블럭은 진짜 EV 전력</b>이 있어야 합니다.</p>
+  <div class="tiles">
+    ${tile('EV에 열리는 GTCEu 레시피', '82', '개', '회로 11 · 조립 13 · 믹서 10 · 각인 11 …')}
+    ${tile('EV 회로 조립기로 새로', 'Nano ×4', '', 'HV · EV · IV · LuV 회로 (Nano Mainframe 1,920 EU/t)')}
+    ${tile('EV Hull 1개', '8', 'Titanium plate', 'EV Casing = Titanium plate 8')}
+    ${tile('시간당 증류 (VE ' + n + '대)', fmt(r, 1), '회', `Titanium ${fmt(r * TI_RUN, 0)} · Tungsten ${fmt(r * W_RUN, 0)} · Platinum ${fmt(r * PT_RUN, 0)}`)}
   </div>
-</main>
+  <div class="card">
+    <h3>단계</h3>
+    <p class="sub">위에서 아래로 진행합니다. 탭 번호는 오른쪽 열.</p>
+    ${flow({
+      label: 'EV 로드맵', h: 400,
+      nodes: [
+        { id: 'e0', x: 20, y: 30, w: 170, t: 'E0 HV에서', s: 'Ti · Kanthal · 클린룸', k: 'HV' },
+        { id: 'e1', x: 230, y: 30, w: 170, t: 'E1 EV 전력', s: 'HV 트랜스포머 승압', k: 'HV' },
+        { id: 'e2', x: 440, y: 30, w: 170, t: 'E2 EV 기계', s: 'Assembler · Cutter …', k: 'EV' },
+        { id: 'e3', x: 650, y: 30, w: 170, t: 'E3 EV 해치', s: 'Voltage Coil · PIC', k: 'EV' },
+        { id: 'e4', x: 440, y: 170, w: 170, t: 'E4 Nano 회로', s: 'IV · LuV 회로까지', k: 'EV' },
+        { id: 'e5', x: 230, y: 170, w: 170, t: 'E5 EV 정제', s: 'Ti · W · Pt 패시브', k: 'EV' },
+        { id: 'e6', x: 650, y: 170, w: 170, t: 'E6 IV 준비', s: 'Tungstensteel · HPIC', k: 'IV' },
+        { id: 'iv', x: 860, y: 176, w: 120, h: 44, t: 'IV', k: 'GOAL' },
+        { id: 'pw', x: 20, y: 300, w: 380, t: '전력: 보석 발전 (HV 페이지 "나중에")', s: 'EV 정제 · 기계가 MV 64A를 넘기 시작', k: 'src' },
+      ],
+      edges: [
+        { a: 'e0', b: 'e1' }, { a: 'e1', b: 'e2' }, { a: 'e2', b: 'e3' }, { a: 'e2', b: 'e4', fs: 'b', ts: 't' },
+        { a: 'e0', b: 'e5', fs: 'b', ts: 't', l: 'Molten Ore', lt: 0.5 }, { a: 'e5', b: 'e4', l: 'Pt · Ti' },
+        { a: 'e3', b: 'e6', fs: 'b', ts: 't' }, { a: 'e4', b: 'e6', l: 'IV 회로' }, { a: 'e5', b: 'e6', fs: 'b', ts: 'b', k: 70, l: 'Tungsten', lt: 0.5 }, { a: 'e6', b: 'iv' },
+        { a: 'pw', b: 'e5', dash: true, fs: 'r', ts: 'b' },
+      ],
+    })}
+    ${tierLegend(['HV', 'EV', 'IV', 'GOAL', 'src'])}
+    <div class="tscroll" style="margin-top:12px"><table>
+      <thead><tr><th>단계</th><th>무엇</th><th>전압</th><th>핵심</th><th>탭</th></tr></thead>
+      <tbody>${stages.map(([id, t, v, d], i) => `<tr><td><b>${id}</b></td><td>${esc(t)}</td><td>${v}</td><td>${esc(d)}</td><td>${['—', '1', '1', '1', '2', '3 · 4', '5'][i]}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>EV에 새로 열리는 것 (GTCEu · 팩)</h3>
+      <ul class="pts">
+        <li><b>회로</b>: <code>nano_processor_hv</code> · <code>nano_processor_assembly_ev</code> · <code>nano_computer_iv</code>(600 EU/t), <code>nano_mainframe_luv</code>(1,920). Quantum은 2,400 EU/t라 IV부터.</li>
+        <li><b>칩</b>: <code>nano_cpu_wafer</code>(EV · 클린룸), <code>cut_pic</code>(EV · 클린룸). Naquadah 웨이퍼 각인은 전부 EV지만 Naquadah가 없음.</li>
+        <li><b>금속</b>: <code>tungstic_acid_from_tungstate/scheelite</code> · <code>tungstic_acid_electrolysis</code>(960), Mixer <code>tungstensteel</code> · <code>rtm_alloy</code> · <code>hssg</code>(1,920).</li>
+        <li><b>자원</b>: <code>distillation_tower/molten_ore_mixture</code> · <code>molten_ore_mixture_recycling</code>(팩, 1,920) · <code>metal_mixture_separation</code>(900) · Ore Factory EV 티어 10종.</li>
+        <li><b>부품</b>: <code>voltage_coil_ev</code>, <code>energy_hatch_ev</code>, 팩 코일 <code>molybdenum_disilicide_coil_block</code> · <code>rtm_alloy_coil_block</code>(1,920).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>정정: Chemical Plant는 EV가 아님</h3>
+      ${callout('warn', '!', 'HV 페이지 초안에 "EV가 되면 Chemical Plant의 <code>sodium_persulfate_skip</code>으로 Persulfate 라인을 대체"라고 적었는데, <b>Chemical Plant 컨트롤러는 UHV급 Assembly Line 레시피</b>(<code>abydos_multis.js</code>)입니다. 레시피 자체는 960 EU/t지만 기계를 한참 뒤에나 만듭니다. EV에서도 Persulfate는 패시브 탭의 LCR 황산 → Bisulfate → 전해 경로를 유지합니다.')}
+      <p class="sub" style="margin:0">퀘스트 쪽 다음 목표: <code>Nano CPU Chips</code>(열림) · <code>LPIC Chips</code> · <code>HV Energy Input Hatch</code> · <code>Vacuum Freezer</code> · <code>Distilling</code> · <code>Nichrome Ingot</code> · <code>Better Chips</code>(MPIC · NOR · NAND · HPIC · SoC) · <code>Tungsten Dust</code> · <code>Platinum Raw Dust</code> · <code>EV Energy Core</code>.</p>
+    </div>
+  </div>`;
+}
+
+/* ---------- 1 EV 진입 · 해치 ---------- */
+function viewEntry() {
+  const machines = [
+    ['EV Assembler', '<code>voltage_coil_ev</code>(1,920) · <code>energy_hatch_ev</code>(1,920) · RTM · MoSi2 코일', '—'],
+    ['EV Cutter', '<code>cut_pic</code>(1,920) → PIC', '클린룸'],
+    ['EV Circuit Assembler', 'Nano 회로 4종 (600 · 1,920)', '클린룸'],
+    ['EV Chemical Reactor', '<code>nano_cpu_wafer</code>(1,920)', '클린룸'],
+    ['EV Chemical Bath', '<code>tungstic_acid_from_tungstate</code>(960)', '—'],
+    ['EV Electrolyzer', '<code>tungstic_acid_electrolysis</code>(960)', '—'],
+    ['EV Mixer', 'Tungstensteel · RTM · <code>molten_ore_mixture_recycling</code>(팩)', '—'],
+  ];
+  return `
+  <h2>1 · EV 진입 · 해치</h2>
+  <p class="lead">EV 레시피를 돌리는 방법은 두 가지입니다. <b>해치 2개를 받는 멀티블럭</b>은 한 단계 아래 해치 2개로(HV 2개 = EV), <b>단일 블록 기계와 해치 1개짜리 멀티블럭</b>은 진짜 EV 전력과 EV 해치로. EV 에너지 해치의 부품(EV Voltage Coil · PIC)이 EV 단일 블록 기계에서 나오므로 순서는 <b>트랜스포머 → EV 단일 블록 → EV 해치</b>입니다.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>E1 · EV 전력 인입</h3>
+      <ul class="pts">
+        <li><b>HV 트랜스포머</b>(<code>hv_transformer_1a</code>)를 승압 모드로: HV 4A → EV 1A. Assembler 레시피: HV Hull + 한 단계 위 케이블 1(Aluminium) + HV 케이블 4(Gold) ${EMI} 개수.</li>
+        <li>EV 간선은 <b>Aluminium 케이블</b>. 단일 블록 EV 기계 한 대는 돌 때 EV 1A = MV 16A.</li>
+        <li>MV 64A 컨버터 설비로는 EV 기계 2~3대가 한계라, EV 정제까지 가면 <b>보석 발전</b>이 필요해집니다(HV 페이지 전력 탭).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>E2 · 만들 EV 단일 블록 기계</h3>
+      <div class="tscroll"><table>
+        <thead><tr><th>기계</th><th>EV에서 여는 레시피</th><th>설치</th></tr></thead>
+        <tbody>${machines.map(([a, b, c]) => `<tr><td><b>${a}</b></td><td>${b}</td><td>${c}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">모두 EV Hull(Titanium plate 8 + Aluminium 케이블 2 + PE 288) + EV 부품(모터: Kanthal 2x wire 4 · Titanium rod 2 · Neodymium magnet · Aluminium 2x cable 2) + EV 회로(Workstation).</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>E3 · EV 에너지 해치</h3>
+    <p class="sub"><code>energy_hatch_ev</code> — EV Assembler · 1,920 EU/t · 200t: EV Hull + Aluminium 케이블 2 + <b>PIC 2</b> + <b>EV Voltage Coil</b> + Sodium Potassium 2000.</p>
+    ${flow({
+      label: 'EV 해치 부품', h: 300,
+      nodes: [
+        { id: 'si', x: 20, y: 30, w: 150, t: 'Silicon 64 + Phosphorus 8', s: 'GaAs 2 · N2 8000', k: 'src' },
+        { id: 'pb', x: 210, y: 30, w: 150, t: 'Phosphorus Boule', s: 'EBF 2484K · 12000t', k: 'HV', tip: 'blast:phosphorus_boule — Kanthal 코일 필요 (Cupronickel 1900K로는 부족)' },
+        { id: 'pw', x: 400, y: 30, w: 150, t: 'Phosphorus 웨이퍼 32', s: 'HV Cutter · 클린룸', k: 'HV' },
+        { id: 'pe', x: 590, y: 30, w: 150, t: 'PIC 웨이퍼', s: 'Brown 렌즈 · HV · 클린룸', k: 'HV', tip: 'engrave_pic_phosphorus: 900t · 480 EU/t' },
+        { id: 'pic', x: 780, y: 30, w: 190, t: 'PIC ×4', s: 'EV Cutter · 클린룸 · 900t', k: 'EV', tip: 'cut_pic: 1920 EU/t' },
+        { id: 'nd', x: 20, y: 170, w: 150, t: 'Neodymium magnetic rod', s: 'Bastnasite · Monazite', k: 'src' },
+        { id: 'pt', x: 210, y: 170, w: 150, t: 'Platinum fine wire 16', s: 'PGS 라인 (3 탭)', k: 'src' },
+        { id: 'vc', x: 400, y: 170, w: 150, t: 'EV Voltage Coil', s: 'EV Assembler · 200t', k: 'EV', tip: 'voltage_coil_ev: 1920 EU/t' },
+        { id: 'hat', x: 780, y: 170, w: 190, t: 'EV Energy Hatch', s: '+ EV Hull · Al 케이블 2 · NaK 2000', k: 'GOAL' },
+      ],
+      edges: [
+        { a: 'si', b: 'pb' }, { a: 'pb', b: 'pw' }, { a: 'pw', b: 'pe' }, { a: 'pe', b: 'pic' },
+        { a: 'nd', b: 'vc', fs: 'r', ts: 'l', fo: -8, to: -8 }, { a: 'pt', b: 'vc' }, { a: 'vc', b: 'hat', l: '1개' }, { a: 'pic', b: 'hat', fs: 'b', ts: 't', l: '2개' },
+      ],
+    })}
+    ${tierLegend(['HV', 'EV', 'GOAL', 'src'])}
+    <p class="sub" style="margin:10px 0 0">PIC 웨이퍼 1장 = PIC 4 = 해치 2개. Phosphorus Boule 1개 = 웨이퍼 32장이라 부족할 일은 없습니다. Phosphorus는 Apatite(Rock Filter MV 지오드 · Pyrochlore 부산물)에서 ${EMI}.</p>
+  </div>
+  <div class="card">
+    <h3>멀티블럭 에너지 해치 한도</h3>
+    <p class="sub">GTCEu 멀티블럭은 <code>autoAbilities</code>로 에너지 해치 최소 1 · <b>최대 2</b>(jar 확인). 팩 멀티블럭은 <code>P.ability(PA.euIn, { max })</code>로 각자 정합니다(startup 스크립트 확인). 해치 2개 = 한 티어 위 전압(암페어 합이 4의 거듭제곱일 때).</p>
+    <div class="grid2">
+      <div>
+        <h4 style="margin:0 0 6px">해치 1개만 — 진짜 EV 해치가 필요</h4>
+        <div class="tscroll"><table><thead><tr><th>멀티블럭</th><th>레시피 종류</th></tr></thead>
+          <tbody>${HATCH1.map(([a, b]) => `<tr><td>${esc(a)}</td><td><code>${b}</code></td></tr>`).join('')}</tbody></table></div>
+        <p class="sub" style="margin:8px 0 0">Super 계열은 빠르지만 해치가 1개라 <b>EV 레시피엔 EV 해치</b>(HV 2개 불가). Super EOF로 EV 티어 광석을 돌리려면 EV 해치.</p>
+      </div>
+      <div>
+        <h4 style="margin:0 0 6px">해치 2개까지 — HV 2개로 EV 레시피</h4>
+        <div class="tscroll"><table><thead><tr><th>멀티블럭</th><th>출처</th></tr></thead>
+          <tbody>${HATCH2.map(([a, b]) => `<tr><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join('')}</tbody></table></div>
+        <p class="sub" style="margin:8px 0 0">이쪽은 EV 해치 2개면 <b>IV 레시피</b>까지 돕니다 — IV 준비(5 탭)의 지름길. Cleanroom의 해치 한도는 ${EMI}.</p>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>EV 해치를 어디에 몇 개</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>용도</th><th class="n">EV 해치</th><th>대안</th></tr></thead>
+      <tbody>
+        <tr><td>Distillation Tower · Ore Factory(EV 티어) · EBF</td><td class="n">0</td><td>HV 해치 2개로 이미 EV</td></tr>
+        <tr><td>Super EOF · Super EBF · Super Vacuum Freezer</td><td class="n">1씩</td><td>일반 버전 + HV 2개</td></tr>
+        <tr><td>IV 레시피용 (EBF · Large Cutter 등)</td><td class="n">2씩</td><td>IV 트랜스포머 + IV 단일 블록</td></tr>
+      </tbody></table></div>
+  </div>`;
+}
+
+/* ---------- 2 회로 ---------- */
+const NANO = [
+  { n: 'Nanoprocessor', t: 'HV', id: 'nano_processor_hv', eut: 600, dur: 200, out: 1, in: 'Advanced Circuit Board · Nano CPU · SMD Resistor 8 · SMD Capacitor 8 · SMD Transistor 8 · Electrum fine wire 8' },
+  { n: 'Nanoprocessor Assembly', t: 'EV', id: 'nano_processor_assembly_ev', eut: 600, dur: 400, out: 2, in: 'Advanced Circuit Board · Nanoprocessor 2 · SMD Inductor 4 · SMD Capacitor 8 · RAM 8 · Electrum fine 16' },
+  { n: 'Nano Supercomputer', t: 'IV', id: 'nano_computer_iv', eut: 600, dur: 400, out: 1, in: 'Advanced Circuit Board · Nano Assembly 2 · SMD Diode 8 · NOR 4 · RAM 16 · Electrum fine 16' },
+  { n: 'Nano Mainframe', t: 'LuV', id: 'nano_mainframe_luv', eut: 1920, dur: 800, out: 1, in: 'Aluminium Frame 2 · Nano Supercomputer 2 · SMD Inductor 16 · SMD Capacitor 32 · RAM 16 · Annealed Copper 1x wire 32' },
+];
+const NBOM = [
+  ['Advanced Circuit Board', 4, 8, 'Epoxy Board(Epoxy plate · Gold foil 8 · 황산 500) → + Electrum foil 8 · Persulfate 1000 (LV CR)'],
+  ['Nano CPU', 2, 4, 'CPU 웨이퍼 + Carbon Fibers 16 + Glowstone 576 → EV CR · 클린룸 → HV Cutter · 클린룸 → 8개'],
+  ['SMD Resistor · Transistor', '16 · 16', '32 · 32', 'HV Assembler (Electrum · Carbon / Gallium foil · Annealed Copper)'],
+  ['SMD Capacitor', 24, 80, 'HV Assembler (PVC foil 2 · Aluminium foil → 12)'],
+  ['SMD Inductor · Diode', '4 · 8', '24 · 16', 'HV Assembler (NZF ring · Cupronickel / GaAs · Platinum fine 8)'],
+  ['NOR Memory', 4, 8, 'Phosphorus 웨이퍼 · Pink 렌즈 (HV · 클린룸) → Cutter → 16'],
+  ['RAM', 24, 64, '실리콘 웨이퍼 · Green 렌즈 → 32'],
+  ['Electrum fine wire', 48, 96, '—'],
+  ['Aluminium Frame · Annealed Copper wire', '—', '2 · 32', 'Mainframe 전용'],
+];
+function viewCircuit() {
+  return `
+  <h2>2 · 회로</h2>
+  <p class="lead"><b>EV Circuit Assembler</b>(클린룸 안)가 Nano 계열 네 가지를 엽니다. 가장 큰 변화는 <b>IV · LuV 회로</b>입니다 — IV는 HV의 Micro Mainframe(480 EU/t · 800t)보다 부품이 가볍고, LuV 회로(Nano Mainframe, 1,920 EU/t)가 EV에서 처음 나옵니다.</p>
+  <div class="card">
+    <h3>EV 회로 조립기로 새로 되는 회로</h3>
+    ${hbar(NANO.map(c => ({ label: `${c.n} (${c.t})`, sub: c.id, value: c.eut, color: c.eut > 512 ? 'var(--s5)' : 'var(--s2)', text: `${fmt(c.eut, 0)} EU/t · ${c.dur}t · ${c.out}개` })), { max: 2400, ref: { v: 2048, l: 'EV 기계 한계 2,048V' }, cols: ['회로', 'EU/t'] })}
+    <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>회로</th><th>재료</th></tr></thead>
+      <tbody>${NANO.map(c => `<tr><td><b>${c.n}</b> <code>${c.id}</code></td><td>${esc(c.in)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">Quantum Processor(EV) · Assembly(IV)는 2,400 EU/t라 IV부터. ASMD 버전은 부품이 3,840 EU/t라 역시 IV부터. 모두 클린룸.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>재료표</h3>
+      <p class="sub">IV 1 = Nano Supercomputer 1개, LuV 1 = Nano Mainframe 1개(Supercomputer 2개 포함). 납땜 별도.</p>
+      <div class="tscroll"><table><thead><tr><th>부품</th><th class="n">IV 1</th><th class="n">LuV 1</th><th>만드는 곳</th></tr></thead>
+        <tbody>${NBOM.map(r => `<tr><td>${esc(r[0])}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td>${esc(r[3])}</td></tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="card">
+      <h3>새로 필요한 부품 체인</h3>
+      <ul class="pts">
+        <li><b>Nano CPU</b> <code>nano_cpu_wafer</code>(EV CR · 클린룸 · 1200t): CPU 웨이퍼 + <b>Carbon Fibers 16</b> + <b>Glowstone 576</b>. 웨이퍼 1장 = Nano CPU 8. 퀘스트 <code>Nano CPU Chips</code>가 지금 열려 있음.</li>
+        <li><b>Carbon Fibers</b>: <code>carbon_fibers_ptfe</code>(MV · Carbon 4 + PTFE 18 → 2)가 PTFE 라인과 맞물립니다. Epoxy면 4개(HV).</li>
+        <li><b>Glowstone</b>: 팩 Dust 체질 40%(<code>sieving.js</code>) — 기지 Mechanical Sieve가 이미 dust를 체질 중. 576mB = Glowstone dust 4.</li>
+        <li><b>Advanced Circuit Board</b>: Epoxy가 필요 → HV 페이지 기타 탭의 Epoxy 체인(LCR <code>epoxy_shortcut</code>). Nano 회로 1개당 보드 1장.</li>
+        <li><b>NOR Memory</b>: Phosphorus 웨이퍼(E3의 PIC와 같은 Boule). 퀘스트 <code>NOR Memory Chips</code>.</li>
+        <li><b>SMD</b>: 전부 HV Assembler(480). Diode는 Platinum fine wire 8 → 3 탭 Platinum.</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
+/* ---------- 3 자원 처리 ---------- */
+const EV_ORES = [
+  ['Ilmenite', 'Iron', 'Iron', 'Rutile', 'Titanium'], ['Bauxite', 'Gallium', 'Grossular', 'Rutile', 'Aluminium · Titanium'], ['Tungstate', 'Silver', 'Manganese', 'Lithium', 'Tungsten'],
+  ['Cooperite', 'Palladium', 'Nickel', 'Nickel', 'Platinum (세척 → PGS가 나음)'], ['Bastnasite', 'Neodymium', 'Neodymium', 'Rare Earth', 'Neodymium 자석'], ['Pitchblende', 'Thorium', 'Thorium', 'Uraninite', 'Uranium'],
+  ['Molybdenite', 'Molybdenum', 'Sulfur', 'Molybdenum', 'Molybdenum'], ['Scheelite', 'Manganese', 'Manganese', 'Molybdenum', 'Tungsten'], ['Cobaltite', 'Cobalt', 'Sulfur', 'Cobalt', 'Cobalt'], ['Chromite', 'Iron', 'Magnesium', 'Iron', 'Chromium (Nichrome)'],
+];
+function viewResource() {
+  const n = S.veN, r = runsH(n), h = 1;
+  return `
+  <h2>3 · 자원 처리</h2>
+  <p class="lead">EV의 자원은 Void 체인이 HV 동안 모아 둔 <b>Molten Ore Mixture</b>에서 나옵니다. 증류탑으로 7종의 molten 광석이 나오고, Autoclave로 Raw 광석을 만든 뒤 <b>Ore Factory EV 티어</b>(Persulfate 100 · 1,920 EU/t)로 가공합니다. 증류와 EV 티어 Ore Factory는 HV 해치 2개로 이미 돌아가니, EV에서 새로 여는 건 <b>Tungsten 체인</b>과 <b>재활용 Mixer</b>입니다.</p>
+  <div class="tiles">
+    ${tile('Molten Ore Mixture', fmt(momH(n) / 1000, 0), 'B / 시간', `VE ${n}대 · 증류 ${fmt(r, 1)}회`)}
+    ${tile('Titanium', fmt(r * TI_RUN, 0), '/ 시간', 'Rutile 경로 (HV 페이지 5 탭)')}
+    ${tile('Tungsten', fmt(r * W_RUN, 0), '/ 시간', 'Tungstate만. Scheelite 없음')}
+    ${tile('Platinum', fmt(r * PT_RUN, 0), '/ 시간', 'Cooperite 세척 → PGS')}
+  </div>
+  <div class="card">
+    <h3>증류 1회(10,000mB)에서 나오는 것</h3>
+    ${hbar(MOLTEN.map(m => ({ label: m.n, sub: m.use, value: m.mb, color: m.feed ? 'var(--s5)' : 'var(--axis)', text: `${fmt(m.mb, 0)}mB → Raw ${fmt(rawPerRun(m), 1)}` })), { cols: ['Molten 광석', 'mB → Raw'], legend: [{ n: '바로 가공 (Ti · W · Pt · Al)', c: 'var(--s5)' }, { n: '탱크에 보관', c: 'var(--axis)' }] })}
+    <p class="sub" style="margin:10px 0 0">+ <code>Metal Mixture</code> dust 1 — <code>metal_mixture_separation</code>(Centrifuge 900 EU/t, EV 단일 블록): Hematite · Bauxite 25% · Pyrolusite · Barite · Chromite · Ilmenite 5.5%.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Tungsten (EV에서 새로)</h3>
+      <ol class="steps">
+        <li>Molten Tungstate 500 + Stone Dust → Raw Tungstate (Autoclave HV).</li>
+        <li>Raw → Crushed → Ore Factory EV 티어 → Tungstate dust (+ Silver · Manganese · Lithium).</li>
+        <li><code>tungstic_acid_from_tungstate</code>: Tungstate 7 + HCl 2000 → Tungstic Acid 7 + Lithium Chloride 4 (Chemical Bath <b>EV · 960</b> · 210t).</li>
+        <li><code>tungstic_acid_electrolysis</code>: Tungstic Acid 7 → <b>Tungsten dust 1</b> + H 2000 + O 4000 (Electrolyzer <b>EV · 960</b> · 210t).</li>
+        <li>Tungsten dust → ingot: blast 3600K → <b>Nichrome 코일</b> + Vacuum Freezer.</li>
+      </ol>
+      <p class="sub" style="margin:10px 0 0">HCl은 패시브 화학 청크(HV 페이지)의 HCl 탱크에서. 증류 1회당 Tungsten ${fmt(W_RUN, 2)}.</p>
+    </div>
+    <div class="card">
+      <h3>Platinum (HV부터 가능, EV에서 본격)</h3>
+      <ol class="steps">
+        <li>Crushed <b>Chalcopyrite · Bornite</b>(Void 체인 F) 또는 <b>Cooperite</b>(증류) → Ore Washer로 Purified ${EMI} 팩 세척기.</li>
+        <li><code>pgs_from_*</code>: Purified + Nitric Acid 100 → PGS 2 (Cooperite는 4) (CR LV).</li>
+        <li><code>pgs_separation</code>: PGS 6 + Aqua Regia 1200 → Platinum Raw 3 · Palladium Raw 3 · Inert 2 · Rarest 1 (Centrifuge HV 480).</li>
+        <li><code>raw_platinum_separation</code>: Platinum Raw 3 → <b>Platinum 1</b> + Cl 800 (Electrolyzer MV).</li>
+      </ol>
+      <p class="sub" style="margin:10px 0 0">Void 체인 F의 Chalcopyrite · Bornite는 VE ${n}대면 시간당 각 ${fmt(0.42 * CPH1 * n, 0)}개라 Cooperite(시간당 ${fmt(r * 4.5, 0)}개)보다 훨씬 많습니다. Platinum 수요(Voltage Coil 16 fine wire · SMD Diode)만큼만 Ore Factory B에서 돌려 쓰세요. Nitric Acid · Aqua Regia(= Nitric 1000 + HCl 2000)가 새로 필요합니다.</p>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Ore Factory EV 티어 10종</h3>
+      <p class="sub"><code>ore_factory_processing.js</code> ev 표 (Theta 2). Persulfate 100 · 1,920 EU/t · 320t.</p>
+      <div class="tscroll"><table><thead><tr><th>Crushed</th><th>2차</th><th>3차</th><th>4차</th><th>쓸모</th></tr></thead>
+        <tbody>${EV_ORES.map(r => `<tr>${r.map((c, i) => `<td>${i ? esc(c) : `<b>${esc(c)}</b>`}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    </div>
+    <div class="card">
+      <h3>재활용 Mixer (팩, EV)</h3>
+      <p class="sub"><code>molten_ore_mixture_recycling</code>: Lava 32000 + Stone Dust 32 + <b>Crushed Ore 16(아무거나)</b> → Molten Ore Mixture 6000 (800t · 1,920 EU/t).</p>
+      <ul class="pts">
+        <li>남는 Crushed Ore(예: 쓸 곳 없는 MV 티어)를 Molten Ore Mixture로 바꿔 Ti · W · Pt로 돌립니다. 퀘스트 <code>Easier Molten Ore Mixture</code>.</li>
+        <li>Lava는 기지의 Large Stone Barrel(<code>lava from cobblestones</code> 7대)에서.</li>
+        <li>Crushed 16 → 증류 0.6회 → Titanium ${fmt(0.6 * TI_RUN, 2)} · Tungsten ${fmt(0.6 * W_RUN, 2)}. Ore Factory로 바로 가공하는 것과 비교해 쓸 곳 없는 광석만 넣으세요.</li>
+        <li>IV Mixer면 <code>molten_ore_mixture_looping</code>(Metal Mixture 2 → 20000)로 증류 부산물을 되돌립니다.</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
+/* ---------- 4 패시브 ---------- */
+// EV 정제 청크 기계 (u = 필요한 대수)
+const EGROUPS = [
+  { id: 'DT', m: 'Distillation Tower', t: 'EV', eut: 1920, u: n => runsH(n) * 1200 / 72000, r: 'molten_ore_mixture · HV 해치 2개 또는 EV 해치' },
+  { id: 'AC', m: 'Autoclave', t: 'HV', eut: 480, u: n => runsH(n) * MOLTEN.filter(m => m.feed).reduce((a, m) => a + rawPerRun(m), 0) * 160 / 72000, r: 'raw_* (Ilmenite · Bauxite · Tungstate · Cooperite 전용 4대)', min: 4 },
+  { id: 'MC', m: 'Macerator', t: 'HV', eut: 30, u: n => runsH(n) * 13.5 * 150 / 72000, r: 'Raw → Crushed ' },
+  { id: 'OF', m: 'Electric Ore Factory', t: 'EV', eut: 1920, u: n => runsH(n) * 9 * 320 / 72000, r: 'EV 티어 · Persulfate · HV 해치 2개' },
+  { id: 'OW', m: 'Ore Washer', t: 'MV', eut: 16, u: n => runsH(n) * 4.5 * 400 / 72000, r: 'Cooperite 세척 (EMI 확인)' },
+  { id: 'R1', m: 'Electric Blast Furnace', t: 'HV', eut: 480, u: n => runsH(n) * (2 * DUSTPER / 10) * 1600 / 72000, r: 'rutile_from_ilmenite_fix · 1700K' },
+  { id: 'EL', m: 'Electrolyzer', t: 'MV', eut: 2, u: n => runsH(n) * (3 * DUSTPER / 15) * 270 / 72000, r: 'bauxite_electrolysis' },
+  { id: 'TC', m: 'Chemical Reactor', t: 'HV', eut: 480, u: n => runsH(n) * TI_RUN * 400 / 72000, r: 'titanium_tetrachloride' },
+  { id: 'R2', m: 'Electric Blast Furnace', t: 'HV', eut: 480, u: n => runsH(n) * TI_RUN * 800 / 72000, r: 'titanium_from_tetrachloride · 2141K · Kanthal' },
+  { id: 'VF', m: 'Vacuum Freezer', t: 'HV', eut: 480, u: () => 0.3, r: 'Hot Titanium · Tungsten (EMI 확인 시간)' },
+  { id: 'WB', m: 'Chemical Bath', t: 'EV', eut: 960, u: n => runsH(n) * W_RUN * 210 / 72000, r: 'tungstic_acid_from_tungstate' },
+  { id: 'WE', m: 'Electrolyzer', t: 'EV', eut: 960, u: n => runsH(n) * W_RUN * 210 / 72000, r: 'tungstic_acid_electrolysis' },
+  { id: 'PG', m: 'Chemical Reactor', t: 'MV', eut: 30, u: n => runsH(n) * 4.5 * 50 / 72000, r: 'pgs_from_cooperite' },
+  { id: 'PS', m: 'Centrifuge', t: 'HV', eut: 480, u: n => runsH(n) * PGS_COO / 6 * 500 / 72000, r: 'pgs_separation' },
+  { id: 'PE', m: 'Electrolyzer', t: 'MV', eut: 120, u: n => runsH(n) * PT_RUN * 100 / 72000, r: 'raw_platinum_separation' },
+];
+const eNeed = (g, n) => Math.max(g.min || 1, pNeed(g.u(n)));
+function evPower(n) { let avg = 0, peak = 0; EGROUPS.forEach(g => { avg += g.u(n) * g.eut; peak += eNeed(g, n) * g.eut; }); return { avg, peak }; }
+
+function viewPassiveFlow() {
+  const n = S.veN, r = runsH(n), P = evPower(n);
+  return `
+  <h2>4 · 패시브</h2>${subnav()}
+  <p class="lead">EV의 패시브는 <b>Molten Ore Mixture 정제</b>입니다 — 증류 → Autoclave → Ore Factory(EV 티어) → Titanium · Tungsten · Platinum. HV 페이지의 패시브 화학 청크(황산 · PE · PTFE)는 그대로 돌고, 여기서 HCl · Persulfate를 받아 씁니다.</p>
+  <div class="tiles">
+    ${tile('증류', fmt(r, 1), '회 / 시간', `Molten Ore ${fmt(momH(n) / 1000, 0)}B · 가동률 ${fmt(r * 1200 / 72000 * 100, 0)}%`)}
+    ${tile('Titanium', fmt(r * TI_RUN, 0), 'ingot / 시간', `EV Hull ${fmt(r * TI_RUN / 8, 1)}개분`)}
+    ${tile('Tungsten', fmt(r * W_RUN, 0), '/ 시간', 'IV Hull 1개 = Tungstensteel 8')}
+    ${tile('청크 전력', fmt(P.avg / 128, 0), 'A 평균 (MV 환산)', `피크 ${fmt(P.peak / 128, 0)}A — 보석 발전이 필요한 규모`)}
+  </div>
+  <div class="card">
+    <h3>물질 흐름 (증류 1회)</h3>
+    ${flow({
+      label: 'EV 정제', h: 470,
+      nodes: [
+        { id: 'mo', x: 20, y: 30, w: 150, t: 'Molten Ore Mixture', s: '10,000mB', k: 'tank' },
+        { id: 'dt', x: 210, y: 30, w: 150, t: 'Distillation Tower', s: 'EV · 1200t', k: 'EV' },
+        { id: 'tk', x: 400, y: 30, w: 150, t: 'Molten 탱크 ×7', s: 'Pitch · Moly · Bast 보관', k: 'tank' },
+        { id: 'ac', x: 590, y: 30, w: 150, t: 'Autoclave ×4', s: 'Raw 13.5개', k: 'HV' },
+        { id: 'of', x: 780, y: 30, w: 190, t: 'Ore Factory EV 티어', s: 'HV 해치 2개 · Persulfate', k: 'EV' },
+        { id: 'ti', x: 780, y: 160, w: 190, t: 'Titanium', s: `${fmt(TI_RUN, 2)} / 회 · Rutile → TiCl4 → EBF`, k: 'GOAL' },
+        { id: 'wb', x: 590, y: 280, w: 150, t: 'Chemical Bath · 전해', s: 'EV 960 · HCl 2000', k: 'EV' },
+        { id: 'w', x: 780, y: 280, w: 190, t: 'Tungsten', s: `${fmt(W_RUN, 2)} / 회 → Nichrome EBF`, k: 'GOAL' },
+        { id: 'ow', x: 400, y: 280, w: 150, t: '세척 → PGS', s: 'Nitric 100 · Aqua Regia', k: 'MV' },
+        { id: 'pt', x: 400, y: 390, w: 150, t: 'Platinum', s: `${fmt(PT_RUN, 2)} / 회 (+ Pd)`, k: 'GOAL' },
+        { id: 'hcl', x: 20, y: 280, w: 150, t: 'HCl · Persulfate', s: 'HV 패시브 화학 청크', k: 'src' },
+      ],
+      edges: [
+        { a: 'mo', b: 'dt', amt: 1000 }, { a: 'dt', b: 'tk', amt: 1000 }, { a: 'tk', b: 'ac' }, { a: 'ac', b: 'of', l: 'Crushed' },
+        { a: 'of', b: 'ti', l: 'Ilmenite · Bauxite', fs: 'b', ts: 't' }, { a: 'of', b: 'wb', fs: 'b', ts: 't', fo: -60, l: 'Tungstate dust', lt: 0.4, anchor: 'end', lx: -8 },
+        { a: 'wb', b: 'w' }, { a: 'ac', b: 'ow', fs: 'b', ts: 't', l: 'Cooperite', lt: 0.35 }, { a: 'ow', b: 'pt' },
+        { a: 'hcl', b: 'ow', dash: true }, { a: 'hcl', b: 'wb', fs: 'b', ts: 'b', dash: true, k: 60 },
+      ],
+    })}
+    ${tierLegend(['MV', 'HV', 'EV', 'tank', 'GOAL', 'src'])}
+  </div>
+  <div class="card">
+    <h3>기계 대수 (VE ${n}대)</h3>
+    <div class="tscroll"><table><thead><tr><th>ID</th><th>기계</th><th>레시피</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+      <tbody>${EGROUPS.map(g => `<tr><td><span class="chip"><i style="background:${TIER[g.t].c}"></i></span> ${g.id}</td><td>${g.t} ${esc(g.m)}</td><td>${esc(g.r)}</td><td class="n">${fmt(g.u(n) * 100, 0)}%</td><td class="n"><b>${eNeed(g, n)}</b></td></tr>`).join('')}
+        <tr><td colspan="3">평균 · 피크 전력</td><td class="n">${fmt(P.avg, 0)} EU/t</td><td class="n">피크 ${fmt(P.peak, 0)}</td></tr></tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">Autoclave는 molten 종류마다 한 대씩(유체가 섞이면 막힘). Vacuum Freezer는 Titanium과 Tungsten이 같이 씁니다. Hot ingot 냉각 시간은 ${EMI}.</p>
+  </div>`;
+}
+
+const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+function buildEvChunk() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const node = (x, y, z, what) => box({ x: x + 0.15, y: y + 0.15, z: z + 0.15, w: 0.7, h: 0.7, d: 0.7, col: '--s8', node: true, tip: `LaserIO Node · ${what}|` });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const n = S.veN;
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  multi(1, 1, 3, 3, 8, '--s5', 'Distillation', 'Distillation Tower · 3×3 · 8층|HV 해치 2개(EV) · 출력 7종 = 층마다 출력 해치');
+  MOLTEN.forEach((m, i) => { unit(5 + i, 0, 1, { col: m.feed ? '--s5' : '--muted', label: m.n.slice(0, 4), tip: `Super Tank · Molten ${m.n}|${m.use}` }); node(5 + i, 1, 1, m.n); });
+  MOLTEN.filter(m => m.feed).forEach((m, i) => unit(5 + i, 0, 3, { col: '--s2', label: 'AC-' + m.n.slice(0, 3), tip: `HV Autoclave · ${m.n}|Molten ${m.n} 500 + Stone Dust → Raw` }));
+  unit(9, 0, 3, { col: '--s2', label: 'Mac', tip: 'HV Macerator|Raw → Crushed' });
+  unit(10, 0, 3, { col: '--s1', label: 'Wash', tip: 'Ore Washer|Cooperite 세척 (EMI 확인)' });
+  multi(11, 3, 5, 5, 7, '--s4', 'Ore Factory EV', 'Electric Ore Factory · 5×5 · 높이 7|EV 티어 레시피 · HV 해치 2개 · Persulfate 100');
+  multi(1, 6, 3, 3, 4, '--s8', 'EBF Rutile', 'EBF · Ilmenite → Rutile|rutile_from_ilmenite_fix · 1700K');
+  multi(1, 10, 3, 3, 4, '--s8', 'EBF Ti', 'EBF · Titanium|titanium_from_tetrachloride · 2141K · Kanthal 16');
+  multi(5, 10, 3, 3, 3, '--s1', 'Vac Freezer', 'Vacuum Freezer · 3×3×3|Hot Titanium · Tungsten');
+  unit(5, 0, 7, { col: '--s2', label: 'TiCl4', tip: 'HV CR · titanium_tetrachloride|Rutile + Carbon 2 + Cl 4000' });
+  unit(6, 0, 7, { col: '--s1', label: 'Baux', tip: 'Electrolyzer · Bauxite|15 → Al 6 + Rutile' });
+  unit(7, 0, 7, { col: '--s1', label: 'MgCl2', tip: 'Electrolyzer · MgCl2|Mg · Cl 회수 (EMI 확인)' });
+  unit(9, 0, 10, { col: '--s5', label: 'W-Bath', tip: 'EV Chemical Bath|tungstic_acid_from_tungstate · 960' });
+  unit(10, 0, 10, { col: '--s5', label: 'W-Elec', tip: 'EV Electrolyzer|tungstic_acid_electrolysis · 960' });
+  unit(9, 0, 13, { col: '--s1', label: 'AquaR', tip: 'Mixer · Aqua Regia|Nitric 1000 + HCl 2000' });
+  unit(10, 0, 13, { col: '--s1', label: 'PGS', tip: 'CR · pgs_from_cooperite|Purified + Nitric 100' });
+  unit(11, 0, 13, { col: '--s2', label: 'PGS-C', tip: 'HV Centrifuge · pgs_separation|PGS 6 + Aqua Regia 1200' });
+  unit(12, 0, 13, { col: '--s1', label: 'Pt', tip: 'Electrolyzer · raw_platinum_separation|Platinum Raw 3 → Platinum' });
+  ['Ti', 'W', 'Pt'].forEach((k, i) => unit(14, 0, 10 + i, { col: '--good', label: k, tip: `${k} 창고|ME storage bus` }));
+  unit(13, 0, 15, { col: '--s5', label: 'EV Tr', tip: 'hv_transformer (승압)|HV 4A → EV 1A · EV Chemical Bath · Electrolyzer용' });
+  unit(14, 0, 15, { col: '--s1', label: 'Conv', tip: '컨버터|전력 — 보석 발전으로 확장 예정' });
+  // 레이저: 노드 대신 주요 흐름을 선으로
+  const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
+  [[[2, 2], [5, 1]], [[5, 1], [11, 1]], [[5, 3], [8, 3]], [[9, 3], [11, 4]], [[13, 7], [5, 7]], [[5, 7], [2, 7]], [[2, 9], [2, 10]], [[4, 11], [5, 11]], [[13, 8], [9, 10]], [[10, 3], [10, 13]]]
+    .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  return { boxes, pipes };
+}
+
+function viewPassive3d() {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `
+  <h2>4 · 패시브</h2>${subnav()}
+  <p class="lead">EV 정제를 <b>16×16 청크 하나</b>에 넣은 배치입니다. 북쪽 줄이 증류탑과 molten 탱크 7개, 가운데가 Autoclave와 Ore Factory, 남쪽이 Titanium · Tungsten · Platinum 마무리입니다. 멀티블럭 크기는 GTCEu · 팩 패턴 기준(증류탑 8층 · Ore Factory 5×5×7).</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="EV 정제 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${[['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '보관 탱크'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li><b>증류탑 옆에 molten 탱크 7개를 한 줄로.</b> 쓰는 4종(Ilmenite · Bauxite · Tungstate · Cooperite)만 Autoclave로 내리고 나머지는 보관.</li>
+      <li><b>Autoclave는 molten 종류마다 1대.</b> 한 대에 여러 유체가 들어가면 막힙니다.</li>
+      <li><b>EBF 2대(Rutile · Titanium)와 Vacuum Freezer를 서쪽에.</b> Titanium EBF는 Kanthal 코일, 나중에 Tungsten용 Nichrome EBF를 옆에 추가.</li>
+      <li><b>EV 단일 블록은 Tungsten 두 대뿐</b> — 트랜스포머 하나로. 나머지는 HV · MV와 HV 해치 2개 멀티블럭입니다.</li>
+    </ul></div>
+    <div class="card"><h3>연결</h3><ul class="pts">
+      <li>HCl · Persulfate · Nitric 원료는 HV 패시브 화학 청크(ME)에서.</li>
+      <li>Molten Ore Mixture는 처리 청크(HV 페이지 2 탭)의 Molten 탱크 → 이 청크 증류탑.</li>
+      <li>Ti · W · Pt는 ME로 → EV Hull · Voltage Coil · SMD Diode · IV 준비.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 5 IV 준비 ---------- */
+function viewNext() {
+  const n = S.veN, r = runsH(n);
+  const temps = [
+    ['Titanium 추출', 2141, 'Kanthal', 2700], ['Nichrome', 2700, 'Kanthal', 2700], ['RTM Alloy', 3000, 'Nichrome', 3600],
+    ['Tungstensteel', 3000, 'Nichrome', 3600], ['Tungsten', 3600, 'Nichrome', 3600], ['HSS-G', 4200, 'RTM', 4500],
+  ];
+  return `
+  <h2>5 · IV 준비</h2>
+  <p class="lead">IV로 가려면 <b>Tungstensteel</b>(IV Hull · IV 부품)과 <b>IV 에너지 해치</b>(HPIC)가 필요합니다. HPIC를 자르는 <code>cut_hpic</code>이 IV(7,680 EU/t)라, EV에서 준비할 것은 Tungsten · 코일 · IV 전압을 만드는 방법입니다.</p>
+  <div class="card">
+    <h3>코일과 blast 온도</h3>
+    <p class="sub">jar의 재료 정의에서 읽은 blast 온도. EBF 실효 온도 = 코일 + 100K × (에너지 티어 − MV). EV 전압이면 +200K.</p>
+    ${hbar(temps.map(([a, t, c, ct]) => ({ label: a, sub: `${c} 코일 (${ct}K)`, value: t, color: t > 2900 ? 'var(--s8)' : 'var(--s4)', text: `${fmt(t, 0)}K` })), { max: 4800, ref: { v: 2900, l: 'Kanthal + EV 보너스 = 2,900K' }, cols: ['재료', 'K'] })}
+    <p class="sub" style="margin:10px 0 0"><b>Tungstensteel(3000K)과 Tungsten(3600K)은 Nichrome 코일이 필요</b>합니다. 팩 Nichrome 코일: Nichrome 2x wire 8 + Stainless foil 8 + <b>Borosilicate Glass foil 4</b> + Aluminium 144 (HV Assembler). 1700K가 넘는 금속은 Hot ingot → Vacuum Freezer.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Tungstensteel · IV Hull</h3>
+      <ol class="steps">
+        <li><b>Nichrome</b>: Mixer MV Nickel 4 + Chromium 1 → 5 (Chromium은 Chromite · Void 체인 B). EBF 2700K(Kanthal) → Vacuum Freezer. 퀘스트 <code>Nichrome Ingot</code>.</li>
+        <li><b>Nichrome 코일 16</b> → Tungsten · Tungstensteel용 EBF.</li>
+        <li><b>Tungstensteel</b>: Mixer <code>tungstensteel</code>(EV 1,920) Tungsten + Steel → EBF 3000K.</li>
+        <li><b>IV Hull</b> = Tungstensteel plate 8 casing + 케이블. Tungsten ${fmt(r * W_RUN, 0)}/시간이면 IV Hull 약 ${fmt(r * W_RUN / 4, 1)}개/시간.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>IV 전압 만들기 (HPIC)</h3>
+      <ul class="pts">
+        <li><b>경로 A · 단일 블록</b>: EV 트랜스포머(승압 EV 4A → IV 1A) + IV Cutter. IV 기계를 만들려면 IV 부품(Tungstensteel · IV 회로).</li>
+        <li><b>경로 B · 해치 2개</b>: GCYM Large Cutter에 <b>EV 해치 2개</b> = IV. 다만 GCYM 컨트롤러가 IV Robot Arm · IV Conveyor · IV 회로라 결국 IV 부품이 먼저.</li>
+        <li><b>IV 회로는 이미 됨</b>: Nano Supercomputer(EV 조립기) · Micro Mainframe(HV). LuV 회로도 Nano Mainframe.</li>
+        <li>IV 에너지 해치: <code>energy_hatch_iv</code> — IV Hull · Tungsten 케이블 2 · <b>HPIC 2</b> · IV Voltage Coil · NaK 3000 (IV).</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h3>EV 동안 모아 둘 것</h3>
+    <div class="tscroll"><table><thead><tr><th>재료</th><th>어디에</th><th>공급</th></tr></thead>
+      <tbody>
+        <tr><td>Tungsten</td><td>Tungstensteel · IV 케이블</td><td>EV 정제 ${fmt(r * W_RUN, 0)}/시간</td></tr>
+        <tr><td>Borosilicate Glass</td><td>Nichrome · RTM 코일 foil</td><td>퀘스트 <code>Borosilicate Glass Ingot</code> ${EMI}</td></tr>
+        <tr><td>Platinum · Palladium</td><td>IV Voltage Coil · SMD · Elite Board(Palladium foil)</td><td>PGS 라인</td></tr>
+        <tr><td>Iridium · Osmium</td><td>IV Emitter(Iridium rod 4) · 이후</td><td><code>rarest_metal_mixture_separation</code>은 IV — Rarest Metal Mixture를 모아 둠</td></tr>
+        <tr><td>Molybdenum · Graphene</td><td>MoSi2 코일(팩, EV) · 퀘스트 <code>Graphene Dust</code></td><td>Molten Molybdenite 보관분</td></tr>
+      </tbody></table></div>
+  </div>`;
+}
+
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+
+const L3 = { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, hit: [] };
+function drawLayout() {
+  const cv = document.getElementById('lay3d'); if (!cv) return;
+  const wrapW = cv.parentElement.clientWidth, H = wrapW < 600 ? 420 : 600;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = wrapW * dpr; cv.height = H * dpr; cv.style.height = H + 'px';
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const css = getComputedStyle(document.documentElement);
+  const colOf = v => css.getPropertyValue(v).trim() || v;
+  const rgb = hex => { const h = hex.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+  const shade = (hex, f) => `rgb(${rgb(hex).map(c => Math.round(c * f)).join(',')})`;
+  ctx.fillStyle = colOf('--surface'); ctx.fillRect(0, 0, wrapW, H);
+
+  const { boxes, pipes } = curBuilder();
+  const vis = boxes.filter(b => !b.hide && (!b.ghost || S.layGhost || b.outline));
+  // 장면 중심과 배율
+  let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  boxes.forEach(b => { [[b.x, b.y, b.z], [b.x + b.w, b.y + b.h, b.z + b.d]].forEach(p => p.forEach((v, i) => { mn[i] = Math.min(mn[i], v); mx[i] = Math.max(mx[i], v); })); });
+  const c0 = mn.map((v, i) => (v + mx[i]) / 2);
+  const cy = Math.cos(L3.yaw), sy = Math.sin(L3.yaw), cp = Math.cos(L3.pitch), sp = Math.sin(L3.pitch);
+  // 배율은 시점을 초기화할 때만 맞춘다. 회전할 때마다 맞추면 화면이 계속 커졌다 작아진다.
+  if (!L3.fit || L3.fitW !== wrapW) {
+    let ex = 0, ey = 0;
+    boxes.forEach(b => [b.x, b.x + b.w].forEach(x => [b.y, b.y + b.h].forEach(y => [b.z, b.z + b.d].forEach(z => {
+      const dx = x - c0[0], dy = y - c0[1], dz = z - c0[2], xr = cy * dx - sy * dz, zr = sy * dx + cy * dz;
+      ex = Math.max(ex, Math.abs(xr)); ey = Math.max(ey, Math.abs(zr * sp - dy * cp));
+    }))));
+    L3.fit = Math.min(wrapW / (2 * ex), H / (2 * ey)) * 0.94; L3.fitW = wrapW;
+  }
+  const sc = L3.fit * L3.zoom;
+  const P = (x, y, z) => {
+    const dx = x - c0[0], dy = y - c0[1], dz = z - c0[2];
+    const xr = cy * dx - sy * dz, zr = sy * dx + cy * dz;
+    return [wrapW / 2 + L3.panX + xr * sc, H / 2 + L3.panY + (zr * sp - dy * cp) * sc, zr * cp + dy * sp];
+  };
+  const faceDepth = n => { const zr = sy * n[0] + cy * n[2]; return zr * cp + n[1] * sp; };
+  const LIGHT = { '0,1,0': 1, '0,-1,0': 0.5, '1,0,0': 0.8, '-1,0,0': 0.8, '0,0,1': 0.66, '0,0,-1': 0.66 };
+
+  // 바닥 격자
+  ctx.strokeStyle = colOf('--grid'); ctx.lineWidth = 1;
+  for (let x = Math.floor(mn[0]) - 1; x <= Math.ceil(mx[0]) + 1; x++) { const a = P(x, 0, mn[2] - 1), b = P(x, 0, mx[2] + 1); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+  for (let z = Math.floor(mn[2]) - 1; z <= Math.ceil(mx[2]) + 1; z++) { const a = P(mn[0] - 1, 0, z), b = P(mx[0] + 1, 0, z); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+
+  const draw = [];
+  vis.forEach(b => draw.push({ k: 'box', b, d: P(b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2)[2] }));
+  if (S.layPipes) pipes.forEach(p => {
+    for (let i = 0; i < p.pts.length - 1; i++) {
+      const a = p.pts[i], q = p.pts[i + 1], len = Math.hypot(q[0] - a[0], q[1] - a[1], q[2] - a[2]);
+      const n = Math.max(1, Math.ceil(len / 0.5));
+      for (let k = 0; k < n; k++) {
+        const s0 = a.map((v, j) => v + (q[j] - v) * k / n), s1 = a.map((v, j) => v + (q[j] - v) * (k + 1) / n);
+        const m = s0.map((v, j) => (v + s1[j]) / 2);
+        draw.push({ k: 'pipe', p, s0, s1, d: P(...m)[2] + 0.05 });
+      }
+    }
+  });
+  draw.sort((u, v) => u.d - v.d);
+
+  const hit = [];
+  const pw = Math.max(1.5, sc * 0.13);
+  draw.forEach(it => {
+    if (it.k === 'pipe') {
+      const a = P(...it.s0), q = P(...it.s1);
+      const T = PIPE[it.p.type];
+      ctx.strokeStyle = colOf(T.c); ctx.lineWidth = T.w ? Math.max(1, sc * T.w) : pw; ctx.lineCap = 'round';
+      if (it.p.long) ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.setLineDash([]);
+      hit.push({ seg: [a, q], tip: `${T.n}|${it.p.long ? '8칸 초과 — Laser Connector로 중계' : T.w ? '케이블 · 레이저' : '배관'}` });
+      return;
+    }
+    const b = it.b, X = [b.x, b.x + b.w], Y = [b.y, b.y + b.h], Zs = [b.z, b.z + b.d];
+    const faces = [
+      [[0, 1, 0], [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]]], [[0, -1, 0], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]]],
+      [[1, 0, 0], [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]]], [[-1, 0, 0], [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]]],
+      [[0, 0, 1], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]], [[0, 0, -1], [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]],
+    ];
+    const base = colOf(b.zone ? '--muted' : b.col);
+    faces.forEach(([n, cs]) => {
+      if (faceDepth(n) <= 0) return;
+      const poly = cs.map(c => P(X[c[0]], Y[c[1]], Zs[c[2]]));
+      ctx.beginPath(); poly.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+      if (b.ghost) {
+        ctx.setLineDash([4, 3]); ctx.strokeStyle = colOf('--axis'); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = shade(base, LIGHT[n.join(',')]); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 0.8; ctx.stroke();
+      }
+      if (b.tip) hit.push({ poly, tip: b.tip });
+    });
+  });
+  // 라벨은 맨 위에
+  if (S.layLabels) {
+    ctx.font = `600 ${Math.max(9, Math.min(12, sc * 0.3))}px system-ui, "Malgun Gothic", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    boxes.filter(b => b.label && (!b.ghost || S.layGhost || b.hide)).forEach(b => {
+      if (b.hide && b.g && !S.layGhost) return;
+      const p = P(b.x + b.w / 2, b.y + b.h + 0.15, b.z + b.d / 2);
+      const faint = b.hide ? b.g : b.ghost;
+      ctx.lineWidth = 3; ctx.strokeStyle = colOf('--surface'); ctx.strokeText(b.label, p[0], p[1]);
+      ctx.fillStyle = colOf(faint ? '--muted' : '--ink'); ctx.fillText(b.label, p[0], p[1]);
+    });
+  }
+  // 방위: 왼쪽 아래 고정 위치에 동(+x) · 남(+z) 방향
+  const o0 = P(c0[0], 0, c0[2]), ox = 44, oy = H - 34;
+  ctx.strokeStyle = colOf('--ink-2'); ctx.fillStyle = colOf('--ink-2'); ctx.lineWidth = 2; ctx.font = '600 12px system-ui, sans-serif';
+  [[P(c0[0] + 1, 0, c0[2]), '동'], [P(c0[0], 0, c0[2] + 1), '남']].forEach(([q, t]) => {
+    const vx = q[0] - o0[0], vy = q[1] - o0[1], l = Math.hypot(vx, vy) || 1, ex = ox + vx / l * 26, ey = oy + vy / l * 26;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.fillText(t, ox + vx / l * 38, ey + vy / l * 12 + 5);
+  });
+  L3.hit = hit.reverse();
+}
+
+
+
+
+const curBuilder = () => buildEvChunk();
+function mountLayout() {
+  const cv = document.getElementById('lay3d'); if (!cv) return;
+  let drag = null;
+  cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointerup', () => { drag = null; });
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointermove', e => {
+    if (drag) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+      if (drag.pan) { L3.panX += dx; L3.panY += dy; } else { L3.yaw += dx * 0.008; L3.pitch = Math.min(1.55, Math.max(0.15, L3.pitch + dy * 0.006)); }
+      cv.removeAttribute('data-tip'); drawLayout(); return;
+    }
+    const r = cv.getBoundingClientRect(), pt = [e.clientX - r.left, e.clientY - r.top];
+    const inside = poly => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
+    const near = ([a, b]) => { const vx = b[0] - a[0], vy = b[1] - a[1], l = vx * vx + vy * vy || 1; const t = Math.max(0, Math.min(1, ((pt[0] - a[0]) * vx + (pt[1] - a[1]) * vy) / l)); return Math.hypot(a[0] + vx * t - pt[0], a[1] + vy * t - pt[1]) < 5; };
+    const h = L3.hit.find(x => x.poly ? inside(x.poly) : near(x.seg));
+    if (h) cv.setAttribute('data-tip', h.tip); else cv.removeAttribute('data-tip');
+  });
+  cv.addEventListener('wheel', e => { e.preventDefault(); L3.zoom = Math.min(4, Math.max(0.4, L3.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); drawLayout(); }, { passive: false });
+  document.getElementById('layctl').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const a = b.dataset.act;
+    if (a === 'reset') Object.assign(L3, { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, fit: 0 });
+    if (a === 'top') Object.assign(L3, { yaw: 0, pitch: 1.55, zoom: 1, panX: 0, panY: 0, fit: 0 });
+    if (a === 'in') L3.zoom = Math.min(4, L3.zoom * 1.25);
+    if (a === 'out') L3.zoom = Math.max(0.4, L3.zoom / 1.25);
+    if (a === 'pipes') S.layPipes = !S.layPipes;
+    if (a === 'labels') S.layLabels = !S.layLabels;
+    document.querySelectorAll('#layctl [data-act]').forEach(x => { if (['pipes', 'labels'].includes(x.dataset.act)) x.setAttribute('aria-pressed', S['lay' + x.dataset.act[0].toUpperCase() + x.dataset.act.slice(1)]); });
+    persist(); drawLayout();
+  });
+  new ResizeObserver(() => drawLayout()).observe(cv.parentElement);
+  drawLayout();
+}
+function render() {
+  if (!TOPICS.some(t => t.id === S.topic)) S.topic = 'overview';
+  const t = curTopic(), sub = curSub();
+  document.getElementById('tabs').innerHTML = TOPICS.map(x => `<button role="tab" data-tab="${x.id}" aria-selected="${x.id === S.topic}">${esc(x.name)}</button>`).join('');
+  document.querySelectorAll('#ven button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.n === S.veN));
+  const v = VIEWS[t.id], fn = typeof v === 'function' ? v : v[sub];
+  const y = window.scrollY;
+  document.getElementById('main').innerHTML = `<section class="tab on" role="tabpanel">${fn()}</section>`;
+  if (fn === viewPassive3d) mountLayout();
+  window.scrollTo(0, y);
+  persist();
+}
+document.getElementById('tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (!b) return; S.topic = b.dataset.tab; render(); window.scrollTo(0, 0); });
+document.getElementById('main').addEventListener('click', e => { const b = e.target.closest('#subnav button[data-sub]'); if (!b) return; S.sub[S.topic] = b.dataset.sub; L3.fit = 0; render(); });
+document.getElementById('ven').addEventListener('click', e => { const b = e.target.closest('button[data-n]'); if (!b) return; S.veN = +b.dataset.n; render(); });
+window.addEventListener('hashchange', () => { readHash(); render(); });
+window.addEventListener('themechange', () => drawLayout());
+
+/* ---------- tooltip: "value|label" or plain text ---------- */
+const tip = document.getElementById('tip');
+function showTip(el, x, y) {
+  const raw = el.getAttribute('data-tip'); if (!raw) return;
+  tip.replaceChildren();
+  const [v, l] = raw.split('|');
+  const a = document.createElement('div'); a.className = 'tv'; a.textContent = v;
+  tip.appendChild(a);
+  if (l) { const b = document.createElement('div'); b.className = 'tl'; b.textContent = l; tip.appendChild(b); }
+  tip.style.display = 'block';
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(x + 14, innerWidth - r.width - 8) + 'px';
+  tip.style.top = Math.max(8, y - r.height - 12) + 'px';
+}
+document.addEventListener('pointermove', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) showTip(el, e.clientX, e.clientY); else tip.style.display = 'none';
+});
+document.addEventListener('focusin', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el) { const r = el.getBoundingClientRect(); showTip(el, r.left + r.width / 2, r.top); }
+});
+document.addEventListener('focusout', () => { tip.style.display = 'none'; });
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawLayout());
+render();
+</script>
 </body>
 </html>
