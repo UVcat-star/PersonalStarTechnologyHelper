@@ -33,6 +33,7 @@
 
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -70,7 +71,7 @@ const TOPICS = [
   { id: 'entry', name: '1 · ZPM 진입 · 연구' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · Fusion MK2 · 자원' },
-  { id: 'passive', name: '4 · 패시브 (Argon 플라즈마)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'passive', name: '4 · 패시브 (Argon 플라즈마)', subs: [['flow', '흐름'], ['3d', '3D 배치'], ['power', '전력 · 64A']] },
   { id: 'next', name: '5 · UV 준비' },
 ];
 const AR = PL[0];
@@ -277,7 +278,7 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="Argon 발전 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s4', 'ZPM · 융합로 쪽'], ['--s8', 'Plasma Turbine'], ['--s1', '원료 준비'], ['--muted', '탱크'], ['--good', 'Substation']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+    <div class="legend">${[['--s4', 'ZPM · 융합로 쪽'], ['--s8', 'Plasma Turbine'], ['--s1', '원료 준비'], ['--muted', '탱크'], ['--good', 'Substation']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 7)}</div>
   </div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
@@ -292,7 +293,18 @@ function viewPassive3d() {
     </ul></div>
   </div>`;
 }
+const PWM = () => [
+    { name: 'Fusion MK2 (옆 청크)', eut: 24576, u: S.fzN, n: S.fzN, labels: ['Fusion MK2 (옆 청크)'] },
+    { name: 'Extractor (Carbon · Mg → 액체, EMI 확인)', eut: 30, u: AR.runsH * S.fzN * 2 * 20 / 72000, n: 2, labels: ['C-Ext', 'Mg-Ext'] },
+  ];
+function viewPower() {
+  return `
+  <h2>${TOPICS.find(t => t.id === 'passive').name}</h2>${subnav()}
+  <p class="lead">패시브 청크 하나에 <b>ZPM 64A</b>를 배정했습니다(HV 페이지 처리 청크의 MV 64A와 같은 방식). 기계마다 레시피가 가장 효율적인 전압을 고르고, 계통별로 전선을 나눕니다. 3D 배치 탭에 계통 색으로 전선이 그려져 있습니다.</p>
+  ${pwCard(PWM(), 7, `<li>이 청크는 <b>발전소</b>입니다. 소비는 융합로뿐이고, 터빈 출력(Fusion 1대당 순 ~30만 EU/t ≈ ZPM 2.3A)이 Substation을 통해 기지로 나갑니다.</li>`)}`;
+}
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+Object.assign(PIPE, PW_PIPES);
 function buildArgonChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -343,14 +355,14 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'zpm-web',
   save: () => ({ fzN: S.fzN }),
   load: o => { if ([1, 2, 3].includes(o.fzN)) S.fzN = o.fzN; },
-  layouts: [[viewPassive3d, buildArgonChunk]],
+  layouts: [[viewPassive3d, () => pwWire(buildArgonChunk(), PWM(), 7, 'Substation')]],
   afterRender: () => document.querySelectorAll('#fzn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.fz === S.fzN)),
 });
 document.getElementById('fzn').addEventListener('click', e => {

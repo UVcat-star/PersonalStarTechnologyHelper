@@ -33,6 +33,7 @@
 
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -73,7 +74,7 @@ const TOPICS = [
   { id: 'entry', name: '1 · LuV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · Naquadah · Fusion' },
-  { id: 'passive', name: '4 · 패시브 (Nether Star)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'passive', name: '4 · 패시브 (Nether Star)', subs: [['flow', '흐름'], ['3d', '3D 배치'], ['power', '전력 · 64A']] },
   { id: 'next', name: '5 · ZPM 준비' },
 ];
 
@@ -316,7 +317,7 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="Nether Star 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 6)}</div>
   </div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
@@ -331,7 +332,26 @@ function viewPassive3d() {
     </ul></div>
   </div>`;
 }
+const PWM = () => { const n = S.nsN, b = starBalance(n);
+  return [
+    { name: 'Autoclave (원소 4종)', eut: 3840, u: b.tries * 960 / 72000, n: 4, labels: ELEM.map(e => 'AC-' + e.e.slice(0, 4)) },
+    { name: 'Extractor (가루 → 유체)', eut: 30, u: b.powder * 4 * 22 / 72000, n: 4, labels: ['Ext'] },
+    { name: 'Forge Hammer', eut: 240, u: n * 300 / 72000, n: 1, labels: ['Hammer'] },
+    { name: 'Polarizer', eut: 960, u: b.tries * 400 / 72000, n: 1, labels: ['Polar'] },
+    { name: 'Forming Press', eut: 7680, u: n * 300 / 72000, n: 1, labels: ['Press'] },
+    { name: 'Implosion Compressor (시간 EMI 확인)', eut: 1920, u: n * 20 / 72000, n: 1, hatch2: true, labels: ['Implosion'] },
+    { name: 'Chemical Reactor (Blizz · Blitz · Basalz)', eut: 7680, u: b.dust * 3 * 200 / 72000, n: 1, labels: ['CR-IV'] },
+    { name: 'Dimensional Destabiliser', eut: 4096, u: b.surplus * 1200 / 72000, n: 1, labels: ['Destabiliser'] },
+    { name: 'Mixer (PCB Coolant)', eut: 480, u: b.coolant / 1000 * 200 / 72000, n: 1, labels: ['Mix'] },
+  ]; };
+function viewPower() {
+  return `
+  <h2>${TOPICS.find(t => t.id === 'passive').name}</h2>${subnav()}
+  <p class="lead">패시브 청크 하나에 <b>LuV 64A</b>를 배정했습니다(HV 페이지 처리 청크의 MV 64A와 같은 방식). 기계마다 레시피가 가장 효율적인 전압을 고르고, 계통별로 전선을 나눕니다. 3D 배치 탭에 계통 색으로 전선이 그려져 있습니다.</p>
+  ${pwCard(PWM(), 6, `<li>이 청크는 IV 이하 기계뿐이라 LuV 간선은 여유가 큽니다 — ZPM의 Heat Chamber 경로로 바꿀 때 쓸 자리.</li>`)}`;
+}
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+Object.assign(PIPE, PW_PIPES);
 function buildStarChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -392,14 +412,14 @@ function viewNext() {
   </div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'luv-web',
   save: () => ({ nsN: S.nsN }),
   load: o => { if ([2, 4, 8].includes(o.nsN)) S.nsN = o.nsN; },
-  layouts: [[viewPassive3d, buildStarChunk]],
+  layouts: [[viewPassive3d, () => pwWire(buildStarChunk(), PWM(), 6, 'IV Tr')]],
   afterRender: () => document.querySelectorAll('#nsn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ns === S.nsN)),
 });
 document.getElementById('nsn').addEventListener('click', e => {

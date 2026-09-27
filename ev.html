@@ -33,6 +33,7 @@
 
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -76,7 +77,7 @@ const TOPICS = [
   { id: 'entry', name: '1 · EV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · 자원 처리' },
-  { id: 'passive', name: '4 · 패시브', subs: [['flow', '수지 · 대수'], ['3d', '정제 청크 · 3D']] },
+  { id: 'passive', name: '4 · 패시브', subs: [['flow', '수지 · 대수'], ['3d', '정제 청크 · 3D'], ['power', '전력 · 64A']] },
   { id: 'next', name: '5 · IV 준비' },
 ];
 
@@ -405,7 +406,16 @@ function viewPassiveFlow() {
   </div>`;
 }
 
+const PWM = () => { const n = S.veN, L = { DT: ['Distillation'], AC: ['AC-Ilm', 'AC-Bau', 'AC-Tun', 'AC-Coo'], MC: ['Mac'], OF: ['Ore Factory EV'], OW: ['Wash'], R1: ['EBF Rutile'], EL: ['Baux'], TC: ['TiCl4'], R2: ['EBF Ti'], VF: ['Vac Freezer'], WB: ['W-Bath'], WE: ['W-Elec'], PG: ['PGS'], PS: ['PGS-C'], PE: ['Pt'] };
+  return EGROUPS.map(g => ({ id: g.id, name: `${g.m} (${g.id})`, eut: g.eut, u: g.u(n), n: eNeed(g, n), hatch2: ['DT', 'OF', 'R1', 'R2', 'VF'].includes(g.id), labels: L[g.id] })); };
+function viewPower() {
+  return `
+  <h2>${TOPICS.find(t => t.id === 'passive').name}</h2>${subnav()}
+  <p class="lead">패시브 청크 하나에 <b>EV 64A</b>를 배정했습니다(HV 페이지 처리 청크의 MV 64A와 같은 방식). 기계마다 레시피가 가장 효율적인 전압을 고르고, 계통별로 전선을 나눕니다. 3D 배치 탭에 계통 색으로 전선이 그려져 있습니다.</p>
+  ${pwCard(PWM(), 4, `<li>EV 정제 청크는 HV 해치 2개 멀티블럭(증류탑 · Ore Factory · EBF)이 대부분이라 EV 계통은 해치 쪽 간선 하나, 나머지는 HV · MV 가지입니다.</li>`)}`;
+}
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+Object.assign(PIPE, PW_PIPES);
 function buildEvChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -453,7 +463,7 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="EV 정제 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '보관 탱크'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+    <div class="legend">${[['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '보관 탱크'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 4)}</div>
   </div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
@@ -519,14 +529,14 @@ function viewNext() {
   </div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'ev-web',
   save: () => ({ veN: S.veN }),
   load: o => { if ([2, 3, 4].includes(o.veN)) S.veN = o.veN; },
-  layouts: [[viewPassive3d, buildEvChunk]],
+  layouts: [[viewPassive3d, () => pwWire(buildEvChunk(), PWM(), 4, 'Conv')]],
 });
 </script>
 </body>

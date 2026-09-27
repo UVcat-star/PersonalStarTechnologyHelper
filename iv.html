@@ -33,6 +33,7 @@
 
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -88,7 +89,7 @@ const TOPICS = [
   { id: 'entry', name: '1 · IV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · 자원 처리' },
-  { id: 'passive', name: '4 · 패시브 (PBI)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'passive', name: '4 · 패시브 (PBI)', subs: [['flow', '흐름'], ['3d', '3D 배치'], ['power', '전력 · 64A']] },
   { id: 'next', name: '5 · LuV 준비' },
 ];
 
@@ -328,7 +329,7 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="PBI 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 5)}</div>
   </div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
@@ -343,7 +344,16 @@ function viewPassive3d() {
     </ul></div>
   </div>`;
 }
+const PWM = () => { const L = ['ClBz', 'Nitr', 'NClBz', 'DClBd', 'LCR DAB', 'LCR Phth', 'LCR DPIP', 'LCR PBI'];
+  return STEPS.map(([m, r, e, t, k], i) => ({ id: r, name: `${m} · ${r}`, eut: e, u: t * k * S.pbN / 72000, n: 1, hatch2: m.startsWith('LCR'), labels: [L[i]] })); };
+function viewPower() {
+  return `
+  <h2>${TOPICS.find(t => t.id === 'passive').name}</h2>${subnav()}
+  <p class="lead">패시브 청크 하나에 <b>IV 64A</b>를 배정했습니다(HV 페이지 처리 청크의 MV 64A와 같은 방식). 기계마다 레시피가 가장 효율적인 전압을 고르고, 계통별로 전선을 나눕니다. 3D 배치 탭에 계통 색으로 전선이 그려져 있습니다.</p>
+  ${pwCard(PWM(), 5, `<li>LCR 3대는 EV 해치 2개(=IV)라 IV 간선에서 EV로 한 단계 내려 해치에 물립니다.</li>`)}`;
+}
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+Object.assign(PIPE, PW_PIPES);
 function buildPbiChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -408,14 +418,14 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'iv-web',
   save: () => ({ pbN: S.pbN }),
   load: o => { if ([4, 8, 16].includes(o.pbN)) S.pbN = o.pbN; },
-  layouts: [[viewPassive3d, buildPbiChunk]],
+  layouts: [[viewPassive3d, () => pwWire(buildPbiChunk(), PWM(), 5, 'Conv')]],
   afterRender: () => document.querySelectorAll('#pbn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.pb === S.pbN)),
 });
 document.getElementById('pbn').addEventListener('click', e => {
