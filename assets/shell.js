@@ -13,6 +13,7 @@
     { id: 'EV', href: 'ev.html', name: 'Extreme Voltage', color: '#9b4fc4', next: true },
     { id: 'IV', href: 'iv.html', name: 'Insane Voltage', color: '#2f6fd6' },
     { id: 'LuV', href: 'luv.html', name: 'Ludicrous Voltage', color: '#d0457a' },
+    { id: 'ZPM', href: 'zpm.html', name: 'Zero Point Module', color: '#1f9e8f' },
   ];
 
   const root = document.documentElement;

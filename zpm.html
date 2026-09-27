@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZPM 할 일</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="ZPM">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · ZPM 할 일</h1>
+        <div class="meta">Theta 2 (GTCEu 1.7.1b) · 2026-09-27 · ZPM = 회로 조립기와 레시피가 131,072V까지 열리는 단계</div>
+      </div>
+      <div class="controls">
+        <span class="ctl-label">Fusion MK2 · 대</span>
+        <div class="seg" id="fzn">
+          <button data-fz="1">1</button>
+          <button data-fz="2">2</button>
+          <button data-fz="3">3</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
+<script>
+
+/* ---------- state ---------- */
+const S = { fzN: 1, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+Object.assign(TIER, {
+  IV: { c: 'var(--s7)', name: 'IV 기계' }, LuV: { c: 'var(--s8)', name: 'LuV 기계 · LuV 레시피' },
+  ZPM: { c: 'var(--s4)', name: 'ZPM 기계 · ZPM 레시피' }, GOAL: { c: 'var(--good)', name: '목표' },
+});
+
+/* ---------- constants ----------
+   팩 fusion_scaling.js (반사판 티어 2 = ZPM Fusion):
+   argon_plasma   Carbon 144 + Magnesium 144 → 1000 · 24,576 EU/t · 7.2초 · 시동 180M
+   nitrogen_plasma Beryllium 144 + Deuterium 3000 → 1000 · 16,384 EU/t · 7.2초 · 시동 280M
+   oxygen_plasma  Carbon 144 + Helium-3 1000 → 1000 · 4,096 EU/t · 12.8초
+   tin_plasma     Silver 144 + Helium-3 1500 → 144 · 24,576 EU/t · 7.2초
+   팩 plasma_turbines.js: 기체 플라즈마 5mB당 Argon 116t · Nitrogen 110t · Oxygen 98t, Tin 1mB당 84t, 모두 2,048 EU/t. */
+const PL = [
+  { k: 'argon', n: 'Argon', in: 'Carbon dust 1 + Magnesium dust 1', out: 1000, per: 5, t: 116, eut: 24576, sec: 7.2, start: 180 },
+  { k: 'nitrogen', n: 'Nitrogen', in: 'Beryllium dust 1 + Deuterium 3000', out: 1000, per: 5, t: 110, eut: 16384, sec: 7.2, start: 280 },
+  { k: 'oxygen', n: 'Oxygen', in: 'Carbon dust 1 + Helium-3 1000', out: 1000, per: 5, t: 98, eut: 4096, sec: 12.8, start: 180 },
+  { k: 'tin', n: 'Tin', in: 'Silver dust 1 + Helium-3 1500', out: 144, per: 1, t: 84, eut: 24576, sec: 7.2, start: 280 },
+];
+PL.forEach(p => { p.gross = p.out / p.per * p.t * 2048 / (p.sec * 20); p.net = p.gross - p.eut; p.runsH = 3600 / p.sec; });
+const WET = [
+  { n: 'Wetware Processor (팩)', t: 'LuV', id: 'wetware_processor', eut: 38400, dur: 100, out: 2, in: 'Neuro Processing Unit · Crystal CPU · Nano CPU · Living SMD Capacitor 4 · Transistor 4 · YBCO fine 8' },
+  { n: 'Wetware Assembly (팩)', t: 'ZPM', id: 'wetware_processor_assembly', eut: 38400, dur: 200, out: 2, in: 'Wetware Board · Wetware Processor 2 · Living SMD Inductor 3 · Capacitor 6 · QRAM 6 · YBCO fine 16' },
+  { n: 'Wetware Computer (팩)', t: 'UV', id: 'wetware_processor_computer', eut: 64000, dur: 600, out: 1, in: 'Assembly Line: Wetware Board · Assembly 2 · Living Diode 4 · QRAM 12 · NOR 24 · NAND 48 · YBCO fine 32 · Europium plate 2 · ITLC Solder 864 · PBI 576 (연구 64 CWU)' },
+  { n: 'Crystal Mainframe (팩)', t: 'UV', id: 'crystal_processor_mainframe', eut: 61440, dur: 1000, out: 1, in: 'Assembly Line: HSS-E Frame 2 · Crystal Computer 2 · RAM 32 · HPIC 4 · ASMD Inductor 12 · Capacitor 24 · Diode 12 · Transistor 16 · NbTi wire 12 · YBCO plate 4 · Solder 1152 (연구 16 CWU)' },
+];
+
+/* ---------- topics ---------- */
+const TOPICS = [
+  { id: 'overview', name: '로드맵' },
+  { id: 'entry', name: '1 · ZPM 진입 · 연구' },
+  { id: 'circuit', name: '2 · 회로' },
+  { id: 'resource', name: '3 · Fusion MK2 · 자원' },
+  { id: 'passive', name: '4 · 패시브 (Argon 플라즈마)', subs: [['flow', '흐름'], ['3d', '3D 배치']] },
+  { id: 'next', name: '5 · UV 준비' },
+];
+const AR = PL[0];
+
+/* ---------- 로드맵 ---------- */
+function viewOverview() {
+  const n = S.fzN;
+  const stages = [
+    ['Z0', 'LuV에서 가져올 것', 'LuV', 'Fusion MK1 · Europium · Naquadah 정제 · Trinium · ZPM 부품 · Crystal Computer / Quantum Mainframe(ZPM 회로)'],
+    ['Z1', 'ZPM 해치 · 연구 설비', 'LuV', 'ZPM 해치(Assembly Line 122,880) · Research Station(100,000) · HPCA · Data Bank → Station 연구'],
+    ['Z2', 'ZPM 기계', 'ZPM', 'ZPM Circuit Assembler(Wetware 38,400 · Neuro 80,000) · ZPM Assembler(Trinium 코일 · Living SMD)'],
+    ['Z3', 'UV 회로', 'ZPM', 'Crystal Mainframe · Wetware Computer (Assembly Line + 연구)'],
+    ['Z4', 'Fusion MK2', 'ZPM', 'Fusion Coil · UV 회로 4 · Naquadria · Europium plate · UHPIC 96 · URhD wire'],
+    ['Z5', 'Argon 플라즈마 (패시브)', 'ZPM', `Carbon + Magnesium → Argon 플라즈마 → Plasma Turbine · 순 ${fmt(AR.net * n / 1000, 0)}k EU/t`],
+    ['Z6', 'UV 준비', 'UV', 'UV 부품(Assembly Line 100,000) · Trinium 코일 9,601K · Naquadria · Stargate(Abydos)'],
+  ];
+  return `
+  <h2>ZPM 로드맵</h2>
+  <p class="lead">"ZPM"은 <b>131,072V(122,880 EU/t) 레시피까지</b>입니다. GTCEu jar에서 32,768 &lt; EU/t ≤ 131,072인 레시피 45개, 팩 93개(Stargate · CSG · Abydos 준비 포함)를 걸렀습니다. 이 단계가 <b>발전을 플라즈마로 바꾸는 시점</b>입니다(<a href="common.html#power">공용 › 발전</a>).</p>
+  <div class="tiles">
+    ${tile('ZPM에 열리는 GTCEu 레시피', '45', '개', 'Assembly Line 20 · 조립 9 · Fusion 7 …')}
+    ${tile('ZPM으로 새로', 'UV 회로', '', 'Crystal Mainframe · Wetware Computer (Assembly Line)')}
+    ${tile('이 단계의 코일', 'Trinium', '9,001K', 'ZPM Assembler · ZPM 해치 2 = 9,601K')}
+    ${tile('Argon 플라즈마 순출력', fmt(AR.net * n / 1000, 0) + 'k', 'EU/t', `Fusion MK2 ${n}대 · 터빈 효율 전`)}
+  </div>
+  <div class="card">
+    <h3>단계</h3>
+    ${flow({
+      label: 'ZPM 로드맵', h: 400,
+      nodes: [
+        { id: 'z0', x: 20, y: 30, w: 170, t: 'Z0 LuV에서', s: 'Fusion MK1 · Eu · Trinium', k: 'LuV' },
+        { id: 'z1', x: 230, y: 30, w: 170, t: 'Z1 해치 · 연구', s: 'Research Station · HPCA', k: 'LuV' },
+        { id: 'z2', x: 440, y: 30, w: 170, t: 'Z2 ZPM 기계', s: 'Circuit Assembler …', k: 'ZPM' },
+        { id: 'z3', x: 650, y: 30, w: 170, t: 'Z3 UV 회로', s: 'Assembly Line + 연구', k: 'ZPM' },
+        { id: 'z4', x: 440, y: 170, w: 170, t: 'Z4 Fusion MK2', s: 'UV 회로 4 · UHPIC 96', k: 'ZPM' },
+        { id: 'z5', x: 230, y: 170, w: 170, t: 'Z5 Argon 플라즈마', s: '~30만 EU/t / 기', k: 'ZPM' },
+        { id: 'z6', x: 650, y: 170, w: 170, t: 'Z6 UV 준비', s: 'UV 부품 · Stargate', k: 'ZPM' },
+        { id: 'uv', x: 860, y: 176, w: 120, h: 44, t: 'UV', k: 'GOAL' },
+        { id: 'pw', x: 20, y: 300, w: 380, t: '전력: Extreme Combustion · Fusion MK1 → Argon 플라즈마', s: '여기서 연소 발전을 정리', k: 'src' },
+      ],
+      edges: [
+        { a: 'z0', b: 'z1' }, { a: 'z1', b: 'z2' }, { a: 'z2', b: 'z3' }, { a: 'z3', b: 'z4', fs: 'b', ts: 't', l: 'UV 회로 4' },
+        { a: 'z4', b: 'z5', l: 'Argon' }, { a: 'z4', b: 'z6' }, { a: 'z6', b: 'uv' }, { a: 'pw', b: 'z5', dash: true, fs: 'r', ts: 'b' },
+      ],
+    })}
+    ${tierLegend(['LuV', 'ZPM', 'GOAL', 'src'])}
+    <div class="tscroll" style="margin-top:12px"><table>
+      <thead><tr><th>단계</th><th>무엇</th><th>전압</th><th>핵심</th><th>탭</th></tr></thead>
+      <tbody>${stages.map(([id, t, v, d], i) => `<tr><td><b>${id}</b></td><td>${esc(t)}</td><td>${v}</td><td>${esc(d)}</td><td>${['—', '1', '1', '2', '3', '4', '5'][i]}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>ZPM에 새로 열리는 것</h3><ul class="pts">
+      <li><b>회로</b>: 팩 Wetware Processor · Assembly(38,400), <code>neuro_processor</code>(80,000), 팩 Assembly Line Wetware Computer(64,000) · Crystal Mainframe(61,440) — UV 회로.</li>
+      <li><b>기계</b>: 팩 <code>zpm_fusion_reactor</code>, <code>research_station</code> · <code>high_performance_computing_array</code> · <code>network_switch</code>(100,000), UV 부품 8종(100,000), <code>coil_trinium</code> · <code>fusion_coil</code>, 팩 <code>heat_chamber</code> · <code>mega_vacuum_freezer</code> · <code>component_part_assembly</code>.</li>
+      <li><b>Stargate</b>: 팩 <code>stargate_component_assembly</code> · <code>runic_wave_generator</code> · <code>dimensional_finder</code> · CSG 부품(퀘스트 Making the Classic Stargate) → Abydos.</li>
+      <li><b>Fusion</b>: Americium · Pu-239 · Pu-241 · Naquadria · Tin 플라즈마, 팩 반사판 티어 2 레시피(Argon · Nitrogen · Oxygen · Duranium · Darmstadtium).</li>
+    </ul></div>
+    <div class="card"><h3>보는 순서</h3><ul class="pts">
+      <li><b>연구 설비가 먼저</b>: ZPM 이후 Assembly Line 레시피 대부분이 Research Station(CWU) 연구입니다. Research Station 자체가 100,000 EU/t Assembly Line이라 ZPM 해치(또는 LuV 해치 2) Assembly Line이 필요합니다.</li>
+      <li>UV 회로 → <b>Fusion MK2</b> → <b>Argon 플라즈마</b>로 발전을 바꾸면 UV까지의 전력 문제가 풀립니다.</li>
+      <li>Stargate는 UV · Abydos 단계로 넘어가는 문입니다(5 탭).</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 1 ZPM 진입 · 연구 ---------- */
+function viewEntry() {
+  return `
+  <h2>1 · ZPM 진입 · 연구</h2>
+  <p class="lead">ZPM 해치(<code>energy_hatch_zpm</code> Assembly Line 122,880 · 600t): ZPM Hull · VG 케이블 4 · UHPIC 2 · ZPM 회로 · ZPM Voltage Coil 2 · NaK 8,000 · Solder 1,440. 그리고 ZPM부터는 <b>연구(CWU)</b>가 진행을 막습니다.</p>
+  ${flow({
+    label: '연구 설비', h: 280,
+    nodes: [
+      { id: 'db', x: 20, y: 30, w: 170, t: 'Data Bank', s: 'LuV 퀘스트 · Assembly Line 6,000', k: 'IV' },
+      { id: 'rs', x: 230, y: 30, w: 190, t: 'Research Station', s: 'Assembly Line 100,000 · 1200t', k: 'ZPM', tip: 'Data Bank · LuV Sensor 8 · ZPM 회로 8 · LuV Field Gen 2 · ZPM Motor 2 · URhD 2x wire 32 · Trinium foil 32 · Solder 1152 · VG 1152' },
+      { id: 'hp', x: 230, y: 170, w: 190, t: 'HPCA', s: 'Computation · Heat Sink · Cooler', k: 'LuV', tip: 'hpca_computation_component 30720 · advanced는 122880' },
+      { id: 'ds', x: 470, y: 100, w: 190, t: 'Station 연구', s: 'Data Orb · CWU/t', k: 'ZPM' },
+      { id: 'al', x: 710, y: 100, w: 250, t: 'Assembly Line 레시피', s: 'Fusion MK2 · UV 회로 · Heat Chamber …', k: 'GOAL' },
+    ],
+    edges: [{ a: 'db', b: 'rs' }, { a: 'hp', b: 'rs', fs: 't', ts: 'b', l: 'CWU' }, { a: 'rs', b: 'ds' }, { a: 'ds', b: 'al' }],
+  })}
+  ${tierLegend(['IV', 'LuV', 'ZPM', 'GOAL'])}
+  <div class="grid2">
+    <div class="card"><h3>연구가 필요한 것 (팩 · CWU/t)</h3><div class="tscroll"><table>
+      <thead><tr><th>레시피</th><th class="n">CWU/t</th><th>연구 대상</th></tr></thead><tbody>
+        <tr><td>Fusion MK2 (<code>zpm_fusion_reactor</code>)</td><td class="n">16</td><td>LuV Fusion Reactor</td></tr>
+        <tr><td>Crystal Mainframe (UV 회로)</td><td class="n">16</td><td>Crystal Computer</td></tr>
+        <tr><td>Wetware Computer (UV 회로)</td><td class="n">64</td><td>Wetware Assembly</td></tr>
+        <tr><td>Heat Chamber</td><td class="n">16</td><td>ZPM Electric Furnace</td></tr>
+        <tr><td>Wetware Mainframe (UHV 회로)</td><td class="n">96</td><td>Wetware Computer</td></tr>
+      </tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">HPCA 부품 수 = 낼 수 있는 CWU/t. 64 CWU/t는 Computation 부품 여러 개 + 냉각 ${EMI}.</p></div>
+    <div class="card"><h3>ZPM 기계</h3><div class="tscroll"><table>
+      <thead><tr><th>기계</th><th>여는 것</th></tr></thead><tbody>
+        <tr><td><b>ZPM Circuit Assembler</b></td><td>Wetware Processor · Assembly · Neuro Processor(80,000)</td></tr>
+        <tr><td><b>ZPM Assembler</b></td><td>Trinium 코일 · Fusion Coil · ZPM Voltage Coil · Living SMD(61,440)</td></tr>
+        <tr><td><b>ZPM Cutter · CR</b></td><td>QRAM 웨이퍼(61,440) · Chip</td></tr>
+        <tr><td><b>EBF (ZPM 해치 2)</b></td><td><code>naquadria_sulfate_separation</code>(122,880) · Naquadria 9,000K</td></tr>
+      </tbody></table></div>
+      <p class="sub" style="margin:8px 0 0">Wetware 계열은 <b>Sterile Cleanroom</b>(Stem Cells) ${EMI}.</p></div>
+  </div>`;
+}
+
+/* ---------- 2 회로 ---------- */
+function viewCircuit() {
+  return `
+  <h2>2 · 회로</h2>
+  <p class="lead">팩은 Wetware를 크게 바꿨습니다. <b>UV 회로</b>는 두 길 모두 Assembly Line + 연구: <b>Crystal Mainframe</b>(LuV 페이지의 Crystal 계열 연장)과 <b>Wetware Computer</b>(Neuro Processing Unit · Living SMD · QRAM). Fusion MK2에 UV 회로 4개.</p>
+  <div class="card">
+    ${hbar(WET.map(c => ({ label: `${c.n} (${c.t})`, sub: c.id, value: c.eut, color: c.eut > 40000 ? 'var(--s4)' : 'var(--s8)', text: `${fmt(c.eut, 0)} EU/t · ${c.dur}t · ${c.out}개` })), { max: 140000, ref: { v: 131072, l: 'ZPM 한계 131,072V' }, cols: ['회로', 'EU/t'] })}
+    <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>회로</th><th>재료</th></tr></thead>
+      <tbody>${WET.map(c => `<tr><td><b>${c.n}</b> <code>${c.id}</code></td><td>${esc(c.in)}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Wetware 부품</h3><ul class="pts">
+      <li><b>Neuro Processing Unit</b> <code>neuro_processor</code>(ZPM 80,000 · 600t): Wetware Circuit Board · <b>Stem Cells 16</b> · PBI 작은 파이프 8 · Electrum plate 8 · Silicone Rubber foil 16 · HSS-E bolt 8 · Sterile Growth Medium 250.</li>
+      <li><b>Stem Cells</b>(LuV CR · Sterile Cleanroom): Osmiridium dust + Bacteria 500 + Sterile Growth Medium 500 → 32.</li>
+      <li><b>Living SMD</b>(팩 · ZPM Assembler 61,440): 예) Inductor 16 = Naquadah Alloy ring · Naquadria fine 4 · Ferrosilite dust · <b>Polyimide</b> 144.</li>
+      <li><b>QRAM</b>(팩): 웨이퍼 CR 61,440 → Cutter 30,720.</li>
+    </ul></div>
+    <div class="card"><h3>어느 쪽?</h3><ul class="pts">
+      <li><b>Crystal Mainframe</b>은 LuV에서 이미 돌리는 Crystal 라인에 ASMD만 더 — 연구 16 CWU로 가볍습니다. <b>먼저 이쪽</b>.</li>
+      <li><b>Wetware</b>는 Sterile Cleanroom · Bacteria · Polyimide · Naquadria가 필요하지만 <b>UHV 회로(Wetware Mainframe)</b>로 이어지는 길입니다 — UV 페이지.</li>
+      <li>Crystal Mainframe 한 개 = Crystal Computer 2 = Crystal Assembly 4 = Crystal Processor 8 = Crystal CPU 8.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 3 Fusion MK2 · 자원 ---------- */
+function viewResource() {
+  return `
+  <h2>3 · Fusion MK2 · 자원</h2>
+  <p class="lead">팩 <code>zpm_fusion_reactor</code>(Assembly Line ZPM · 1350t · 연구 16 CWU): <b>Fusion Coil</b> · <b>UV 회로 4</b> · Naquadria double plate · Europium double plate · LuV Field Generator 2 · <b>UHPIC 96</b> · Uranium Rhodium Dinaquadide wire 32 · Solder 1152 · Vanadium-Gallium 1152.</p>
+  <div class="card"><h3>반사판 티어 2 플라즈마 비교 (팩 값)</h3>
+    <p class="sub">순출력 = 플라즈마를 전부 터빈에 넣었을 때의 EU/t − 융합로 소비. 터빈 효율 · 시동 에너지 전.</p>
+    ${hbar(PL.map(p => ({ label: `${p.n} 플라즈마`, sub: p.in, value: p.net, color: p.k === 'argon' ? 'var(--good)' : 'var(--s4)', text: `${fmt(p.net / 1000, 0)}k EU/t` })), { cols: ['플라즈마', '순 EU/t'] })}
+    <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>플라즈마</th><th>원료 / 회</th><th class="n">회당</th><th class="n">융합 EU/t</th><th class="n">시동</th><th class="n">원료 / 시간</th></tr></thead>
+      <tbody>${PL.map(p => `<tr><td><b>${p.n}</b></td><td>${esc(p.in)}</td><td class="n">${p.out}mB · ${p.sec}초</td><td class="n">${fmt(p.eut, 0)}</td><td class="n">${p.start}M</td><td class="n">${fmt(p.runsH, 0)}회</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0"><b>Argon이 답</b>: 출력이 가장 높고 원료가 <b>Carbon · Magnesium dust</b>(시간당 각 500개)라 공급이 쉽습니다. Nitrogen은 Deuterium을 시간당 1,500B 먹어서 Liquid Ender Air 증류탑 1대(시간당 D 1,800B)를 통째로 씁니다.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>MK2 재료</h3><ul class="pts">
+      <li><b>Fusion Coil</b>(ZPM Assembler 122,880) ${EMI} 재료 — Superconducting Coil 계열.</li>
+      <li><b>Uranium Rhodium Dinaquadide</b>: Mixer ZPM U-238 · Rhodium · Naquadah 2 → 4. Superconducting Coil ZPM에도.</li>
+      <li><b>Naquadria</b>: LuV 페이지 3 탭 Impure Naquadria → Sulfate → <b>EBF ZPM(122,880)</b> 9,000K — Trinium 코일 + ZPM 해치 2 = 9,601K.</li>
+      <li><b>Europium</b> double plate: Fusion MK1.</li>
+    </ul></div>
+    <div class="card"><h3>ZPM Fusion으로 만드는 자원</h3><ul class="pts">
+      <li><b>Duranium</b>: Gallium 144 + Radon 1000 → 144 (16,384). <b>Tritanium</b>(티어 3): Titanium 288 + Duranium 144 → UV 코일 · 부품.</li>
+      <li><b>Darmstadtium</b>: Arsenic 288 + Ruthenium 144 → 144 (30,720).</li>
+      <li><b>Americium</b>(티어 3): Lutetium 144 + Chromium 144 → Neutronium · UV Fusion 컨트롤러.</li>
+      <li>Oxygen 플라즈마: Helium-3 필요(Ender Air 증류 · Void 가스 ${EMI}).</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 4 패시브 (Argon) ---------- */
+function viewPassiveFlow() {
+  const n = S.fzN, runs = AR.runsH * n;
+  return `
+  <h2>4 · 패시브 (Argon 플라즈마)</h2>${subnav()}
+  <p class="lead">ZPM의 패시브는 <b>발전소</b>입니다. Fusion MK2 ${n}대가 Argon 플라즈마를 계속 만들고 Plasma Large Turbine이 태웁니다. 원료는 Carbon · Magnesium dust뿐이라 기존 청크에서 받아오면 됩니다.</p>
+  ${flow({
+    label: 'Argon 발전', h: 330,
+    nodes: [
+      { id: 'c', x: 20, y: 30, w: 170, t: `Carbon ${fmt(runs, 0)}/h`, s: 'Coal · Charcoal 전해 / Coke', k: 'src' },
+      { id: 'mg', x: 20, y: 170, w: 170, t: `Magnesium ${fmt(runs, 0)}/h`, s: 'Magnesite · MgCl₂ 전해', k: 'src' },
+      { id: 'fx', x: 230, y: 100, w: 190, t: 'Fluid Extractor', s: 'dust → 액체 144mB', k: 'LuV', tip: 'Fusion 입력은 유체 144mB — dust를 녹여 넣음 (EMI 확인: Extractor/Fluid Extractor)' },
+      { id: 'fu', x: 470, y: 100, w: 200, t: `Fusion MK2 ×${n}`, s: `24,576 EU/t · 시동 180M · ${fmt(runs, 0)}회/h`, k: 'ZPM' },
+      { id: 'ar', x: 470, y: 240, w: 200, t: `Argon 플라즈마 ${fmt(runs * 1000 / 1000, 0)}B/h`, s: '5mB = 116t × 2,048', k: 'ZPM' },
+      { id: 'tb', x: 720, y: 100, w: 250, t: 'Plasma Large Turbine', s: '대수 · 로터 티어 EMI 확인', k: 'LuV' },
+      { id: 'out', x: 720, y: 240, w: 250, t: `순 ${fmt(AR.net * n / 1000, 0)}k EU/t`, s: `총 ${fmt(AR.gross * n / 1000, 0)}k − 융합 ${fmt(AR.eut * n / 1000, 1)}k`, k: 'GOAL' },
+    ],
+    edges: [
+      { a: 'c', b: 'fx' }, { a: 'mg', b: 'fx' }, { a: 'fx', b: 'fu' }, { a: 'fu', b: 'ar', fs: 'b', ts: 't' }, { a: 'ar', b: 'tb', fs: 'r', ts: 'l' }, { a: 'tb', b: 'out', fs: 'b', ts: 't' },
+    ],
+  })}
+  ${tierLegend(['LuV', 'ZPM', 'GOAL', 'src'])}
+  <div class="grid2">
+    <div class="card"><h3>수치 (Fusion ${n}대)</h3><div class="tscroll"><table><tbody>
+      <tr><td>회 / 시간</td><td class="n">${fmt(runs, 0)}</td></tr>
+      <tr><td>Carbon · Magnesium dust / 시간</td><td class="n">각 ${fmt(runs, 0)}</td></tr>
+      <tr><td>Argon 플라즈마 / 초</td><td class="n">${fmt(1000 / AR.sec * n, 0)}mB</td></tr>
+      <tr><td>총 발전 (터빈 효율 전)</td><td class="n">${fmt(AR.gross * n, 0)} EU/t</td></tr>
+      <tr><td>융합로 소비</td><td class="n">${fmt(AR.eut * n, 0)} EU/t</td></tr>
+      <tr><td><b>순</b></td><td class="n"><b>${fmt(AR.net * n, 0)} EU/t</b> (≈ ZPM ${fmt(AR.net * n / 131072, 1)}A)</td></tr>
+    </tbody></table></div></div>
+    <div class="card"><h3>운영</h3><ul class="pts">
+      <li><b>시동 180M EU</b>: 첫 가동 때 융합로 버퍼를 채워야 합니다 — Power Substation · Lapotronic 배터리로 저장해 두고 켭니다.</li>
+      <li>융합로 전력(24,576 EU/t)은 터빈 출력에서 되돌려 씁니다. 나머지는 Substation → 기지.</li>
+      <li>Plasma Large Turbine 대수는 로터 · Rotor Holder 티어로 정해집니다 — 홀더 한 단계마다 출력 2배 · 연료 1.8배(Power 챕터). 필요 대수 ${EMI}.</li>
+      <li>Hot 플라즈마 부산물(Argon 기체)은 회수 ${EMI}.</li>
+    </ul></div>
+  </div>`;
+}
+function viewPassive3d() {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `
+  <h2>4 · 패시브 (Argon 플라즈마)</h2>${subnav()}
+  <p class="lead">융합로는 크기가 커서(${EMI}) 옆 청크에 두고, 이 청크에는 <b>원료 준비 · 플라즈마 탱크 · 터빈 홀</b>을 넣었습니다. 터빈은 3×3×4 기준 4대를 자리로 잡았습니다.</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="Argon 발전 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${[['--s4', 'ZPM · 융합로 쪽'], ['--s8', 'Plasma Turbine'], ['--s1', '원료 준비'], ['--muted', '탱크'], ['--good', 'Substation']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>배치 원칙</h3><ul class="pts">
+      <li><b>터빈 4대는 Wall Sharing 없이 한 줄</b> — Rotor Holder 면이 서로 막지 않게 2칸 간격 ${EMI}.</li>
+      <li>플라즈마 탱크는 융합로 쪽 청크 경계에, 터빈과 LaserIO 한 줄로.</li>
+      <li>Substation은 남동쪽 — 기지 전력망과 이어지는 곳.</li>
+    </ul></div>
+    <div class="card"><h3>연결</h3><ul class="pts">
+      <li>Carbon · Magnesium: 기존 광석 · 전해 청크에서 ME로.</li>
+      <li>융합로 전력: Substation 출력 해치 → 융합로 에너지 해치(ZPM).</li>
+      <li>남는 전력: Substation → 기지 · 나중에 Dreamlink(Active Transformer).</li>
+    </ul></div>
+  </div>`;
+}
+const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
+function buildArgonChunk() {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  box({ x: -9, y: 0, z: 2, w: 8, h: 3, d: 12, ghost: true, col: '--s4', label: 'Fusion MK2 (옆 청크)', tip: 'ZPM Fusion Reactor|크기 EMI 확인 — 옆 청크에 배치' });
+  unit(1, 0, 1, { col: '--s1', label: 'C-Ext', tip: 'Extractor · Carbon|dust → 144mB' });
+  unit(2, 0, 1, { col: '--s1', label: 'Mg-Ext', tip: 'Extractor · Magnesium|dust → 144mB' });
+  unit(1, 0, 3, { col: '--muted', label: 'Carbon', tip: 'Super Tank · Carbon 액체|Fusion 입력' });
+  unit(2, 0, 3, { col: '--muted', label: 'Mg', tip: 'Super Tank · Magnesium 액체|Fusion 입력' });
+  unit(1, 0, 6, { col: '--s4', label: 'Ar-P', tip: 'Super Tank · Argon 플라즈마|Fusion 출력 → 터빈' });
+  unit(1, 0, 7, { col: '--s4', label: 'Ar-P', tip: 'Super Tank · Argon 플라즈마|버퍼' });
+  [0, 1, 2, 3].forEach(i => multi(4 + i * 3, 5, 3, 4, 3, '--s8', `Turbine ${i + 1}`, 'Plasma Large Turbine · 3×3×4|Rotor Holder · 로터 티어 EMI 확인'));
+  multi(10, 11, 5, 4, 2, '--good', 'Substation', 'Power Substation|시동 180M 저장 · 기지 송전');
+  unit(4, 0, 11, { col: '--muted', label: 'Ar gas', tip: 'Argon 회수|터빈 부산물 (EMI 확인)' });
+  const c = (x, z) => [x + 0.5, 3.4, z + 0.5];
+  [[[1, 1], [1, 3]], [[2, 1], [2, 3]], [[1, 3], [-1, 5]], [[-1, 7], [1, 6]], [[1, 6], [14, 6]], [[14, 9], [12, 11]]]
+    .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  return { boxes, pipes };
+}
+
+/* ---------- 5 UV 준비 ---------- */
+function viewNext() {
+  return `
+  <h2>5 · UV 준비</h2>
+  <p class="lead">UV 부품 8종이 Assembly Line <b>100,000 EU/t — ZPM 전압</b>이라 ZPM에서 만듭니다. 동시에 팩의 <b>Stargate</b>(Making the Classic Stargate)로 Abydos에 가는 준비가 UV 단계의 문입니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>코일 · 온도</h3><ul class="pts">
+      <li><b>Trinium 코일</b>(ZPM Assembler 122,880): HSS-E Frame · Trinium 2x wire 8 · Enriched Naquadah foil 8 · Niobium Nitride foil 16 · Naquadah 144 → ZPM 해치 2 = <b>9,601K</b>.</li>
+      <li>Naquadria(9,000K) · Naquadah Alloy · Trinium(7,200K)이 전부 녹습니다. UV에서는 Tritanium 코일(10,800K).</li>
+      <li>전 티어 표: <a href="common.html#coil">공용 › 코일 사다리</a>.</li>
+    </ul></div>
+    <div class="card"><h3>Stargate (팩)</h3><ul class="pts">
+      <li><code>stargate_component_assembly</code>(Assembly Line 61,440) → Classic Stargate 링 · 셰브론 · 베이스 블록.</li>
+      <li><b>Weapon Grade Naquadah</b>(팩 61,440) · Large Rotor Machine · Runic Wave Generator · Laser Casing · Dimensional Finder → <b>Abydos Coordinate Crystal</b>.</li>
+      <li>CSG 부품(Field Stabiliser · Energy Modulator · Stellar Dialer · DPU · Computational Matrix …)과 Classic DHD.</li>
+      <li>Abydos(Adventures in Abydos 챕터)에서 UHV 이후 재료(Akreyrium 등)가 나옵니다.</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>ZPM 동안 모아 둘 것</h3><div class="tscroll"><table>
+    <thead><tr><th>재료</th><th>어디에</th><th>공급</th></tr></thead><tbody>
+      <tr><td>Tritanium · Duranium</td><td>UV 코일 · UV 부품 · Trinaquadalloy</td><td>ZPM Fusion (3 탭)</td></tr>
+      <tr><td>Americium</td><td>UV Fusion 컨트롤러 double plate</td><td>Fusion 티어 3 (Lutetium + Chromium)</td></tr>
+      <tr><td>Naquadria · Enriched Naquadah</td><td>Living SMD · UV 부품 · 회로</td><td>LuV 페이지 Naquadah 정제</td></tr>
+      <tr><td>Enriched Naquadah Trinium Europium Duranide</td><td>UV 초전도 · UV Fusion 컨트롤러 wire</td><td>Mixer UV</td></tr>
+      <tr><td>Polyimide · Bacteria</td><td>Living SMD · Wetware</td><td>팩 라인 ${EMI}</td></tr>
+    </tbody></table></div></div>`;
+}
+
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d }, next: viewNext };
+
+/* ---------- page wiring ---------- */
+startPage({
+  key: 'zpm-web',
+  save: () => ({ fzN: S.fzN }),
+  load: o => { if ([1, 2, 3].includes(o.fzN)) S.fzN = o.fzN; },
+  layouts: [[viewPassive3d, buildArgonChunk]],
+  afterRender: () => document.querySelectorAll('#fzn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.fz === S.fzN)),
+});
+document.getElementById('fzn').addEventListener('click', e => {
+  const b = e.target.closest('button[data-fz]'); if (!b) return;
+  S.fzN = +b.dataset.fz; render();
+});
+</script>
+</body>
+</html>
