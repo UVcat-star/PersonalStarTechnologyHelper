@@ -81,17 +81,6 @@ const TOPICS = [
 ];
 
 /* 멀티블럭 에너지 해치 한도 (GTCEu autoAbilities = 최소 1 · 최대 2, 팩은 P.ability(PA.euIn, {max})) */
-const HATCH1 = [
-  ['Super EBF', 'electric_blast_furnace'], ['Super Vacuum Freezer', 'vacuum_freezer'], ['Super Electric Ore Factory', 'electric_ore_processing'],
-  ['Super Cutter', 'cutter'], ['Super Implosion Compressor', 'implosion_compressor'], ['Super Pyrolyse', 'pyrolyse_oven'], ['Super Cracker', 'cracker'],
-  ['Super ABS', 'alloy_blast_smelter'], ['Distillery Column', 'distillery'], ['Industrial Extraction Chamber', 'extractor'], ['Industrial Brewing Station', 'brewery'],
-  ['Rock Filtrator', 'rock_filtrator'], ['Mechanical Sieve', 'mechanical_sieve'],
-];
-const HATCH2 = [
-  ['Electric Blast Furnace', 'GTCEu'], ['Large Chemical Reactor', 'GTCEu'], ['Distillation Tower', 'GTCEu'], ['Vacuum Freezer', 'GTCEu'], ['Implosion Compressor', 'GTCEu'],
-  ['Pyrolyse Oven', 'GTCEu'], ['GCYM 대형 기계 전부 (Large Cutter · Assembler · Mixer …)', 'GTCEu · 컨트롤러가 IV 부품'],
-  ['Electric Ore Factory', '팩'], ['Ore Processing Plant', '팩'], ['Void Extractor', '팩'], ['Large Sieve', '팩'], ['Rock Sifter', '팩'], ['Molten Destabiliser', '팩 (LuV)'],
-];
 
 /* ---------- 로드맵 ---------- */
 function viewOverview() {
@@ -219,21 +208,7 @@ function viewEntry() {
   </div>
   <div class="card">
     <h3>멀티블럭 에너지 해치 한도</h3>
-    <p class="sub">GTCEu 멀티블럭은 <code>autoAbilities</code>로 에너지 해치 최소 1 · <b>최대 2</b>(jar 확인). 팩 멀티블럭은 <code>P.ability(PA.euIn, { max })</code>로 각자 정합니다(startup 스크립트 확인). 해치 2개 = 한 티어 위 전압(암페어 합이 4의 거듭제곱일 때).</p>
-    <div class="grid2">
-      <div>
-        <h4 style="margin:0 0 6px">해치 1개만 — 진짜 EV 해치가 필요</h4>
-        <div class="tscroll"><table><thead><tr><th>멀티블럭</th><th>레시피 종류</th></tr></thead>
-          <tbody>${HATCH1.map(([a, b]) => `<tr><td>${esc(a)}</td><td><code>${b}</code></td></tr>`).join('')}</tbody></table></div>
-        <p class="sub" style="margin:8px 0 0">Super 계열은 빠르지만 해치가 1개라 <b>EV 레시피엔 EV 해치</b>(HV 2개 불가). Super EOF로 EV 티어 광석을 돌리려면 EV 해치.</p>
-      </div>
-      <div>
-        <h4 style="margin:0 0 6px">해치 2개까지 — HV 2개로 EV 레시피</h4>
-        <div class="tscroll"><table><thead><tr><th>멀티블럭</th><th>출처</th></tr></thead>
-          <tbody>${HATCH2.map(([a, b]) => `<tr><td>${esc(a)}</td><td>${esc(b)}</td></tr>`).join('')}</tbody></table></div>
-        <p class="sub" style="margin:8px 0 0">이쪽은 EV 해치 2개면 <b>IV 레시피</b>까지 돕니다 — IV 준비(5 탭)의 지름길. Cleanroom의 해치 한도는 ${EMI}.</p>
-      </div>
-    </div>
+    <p class="sub" style="margin:0">해치 2개 = 한 티어 위라서 <b>EBF · LCR · Distillation Tower · Vacuum Freezer · GCYM 대형 기계(Large Assembler · Circuit Assembler 제외) · 팩 Ore Factory · Void Extractor</b>는 HV 해치 2개로 EV 레시피를 돌리고, EV 해치 2개면 IV 레시피까지 돕니다. <b>Super 계열 · Distillery Column · Rock Filtrator</b> 등은 해치 1개라 진짜 EV 해치가 필요합니다. 전체 목록은 <a href="common.html#hatch">공용 › 에너지 해치 · 멀티블럭</a>.</p>
   </div>
   <div class="card">
     <h3>EV 해치를 어디에 몇 개</h3>
@@ -499,17 +474,17 @@ function viewPassive3d() {
 function viewNext() {
   const n = S.veN, r = runsH(n);
   const temps = [
-    ['Titanium 추출', 2141, 'Kanthal', 2700], ['Nichrome', 2700, 'Kanthal', 2700], ['RTM Alloy', 3000, 'Nichrome', 3600],
-    ['Tungstensteel', 3000, 'Nichrome', 3600], ['Tungsten', 3600, 'Nichrome', 3600], ['HSS-G', 4200, 'RTM', 4500],
+    ['Titanium 추출', 2141, 'Kanthal · HV 해치 2', 2900], ['Nichrome', 2700, 'Kanthal · HV 해치 2', 2900], ['RTM Alloy', 3000, 'Nichrome · HV 해치 2', 3800],
+    ['Tungstensteel', 3000, 'Nichrome · HV 해치 2', 3800], ['Tungsten', 3600, 'Nichrome · HV 해치 2', 3800], ['HSS-G', 4200, 'RTM · EV 해치 2', 4800],
   ];
   return `
   <h2>5 · IV 준비</h2>
   <p class="lead">IV로 가려면 <b>Tungstensteel</b>(IV Hull · IV 부품)과 <b>IV 에너지 해치</b>(HPIC)가 필요합니다. HPIC를 자르는 <code>cut_hpic</code>이 IV(7,680 EU/t)라, EV에서 준비할 것은 Tungsten · 코일 · IV 전압을 만드는 방법입니다.</p>
   <div class="card">
     <h3>코일과 blast 온도</h3>
-    <p class="sub">jar의 재료 정의에서 읽은 blast 온도. EBF 실효 온도 = 코일 + 100K × (에너지 티어 − MV). EV 전압이면 +200K.</p>
-    ${hbar(temps.map(([a, t, c, ct]) => ({ label: a, sub: `${c} 코일 (${ct}K)`, value: t, color: t > 2900 ? 'var(--s8)' : 'var(--s4)', text: `${fmt(t, 0)}K` })), { max: 4800, ref: { v: 2900, l: 'Kanthal + EV 보너스 = 2,900K' }, cols: ['재료', 'K'] })}
-    <p class="sub" style="margin:10px 0 0"><b>Tungstensteel(3000K)과 Tungsten(3600K)은 Nichrome 코일이 필요</b>합니다. 팩 Nichrome 코일: Nichrome 2x wire 8 + Stainless foil 8 + <b>Borosilicate Glass foil 4</b> + Aluminium 144 (HV Assembler). 1700K가 넘는 금속은 Hot ingot → Vacuum Freezer.</p>
+    <p class="sub">jar의 재료 정의에서 읽은 blast 온도. EBF 실효 온도 = 코일 + 100K × (멀티블럭 티어 − MV). 해치 2개면 한 티어 위라 HV 해치 2개 +200K, EV 해치 2개 +300K. 아래 줄 = 그 재료를 녹이는 코일과 실효 온도. 전 티어 표는 <a href="common.html#coil">공용 › 코일 사다리</a>.</p>
+    ${hbar(temps.map(([a, t, c, ct]) => ({ label: a, sub: `${c} = ${fmt(ct, 0)}K`, value: t, color: t > 3800 ? 'var(--s8)' : t > 2900 ? 'var(--s7)' : 'var(--s4)', text: `${fmt(t, 0)}K` })), { max: 4800, ref: { v: 3800, l: 'Nichrome + HV 해치 2개 = 3,800K' }, cols: ['재료', 'K'] })}
+    <p class="sub" style="margin:10px 0 0"><b>Tungstensteel(3000K)과 Tungsten(3600K)은 Nichrome 코일</b>로 녹습니다 — Nichrome 코일은 <b>HV에서 만들고 HV 해치 2개로 바로 씁니다</b>(3,800K). EV에서는 <b>RTM 코일</b>(EV Assembler)을 만들어 EV 해치 2개로 4,800K → HSS-G(4,200K)까지 여는 것이 IV 준비입니다. 팩 Nichrome 코일: Nichrome 2x wire 8 + Stainless foil 8 + <b>Borosilicate Glass foil 4</b> + Aluminium 144 (HV Assembler). 1700K가 넘는 금속은 Hot ingot → Vacuum Freezer.</p>
   </div>
   <div class="grid2">
     <div class="card">
@@ -525,7 +500,7 @@ function viewNext() {
       <h3>IV 전압 만들기 (HPIC)</h3>
       <ul class="pts">
         <li><b>경로 A · 단일 블록</b>: EV 트랜스포머(승압 EV 4A → IV 1A) + IV Cutter. IV 기계를 만들려면 IV 부품(Tungstensteel · IV 회로).</li>
-        <li><b>경로 B · 해치 2개</b>: GCYM Large Cutter에 <b>EV 해치 2개</b> = IV. 다만 GCYM 컨트롤러가 IV Robot Arm · IV Conveyor · IV 회로라 결국 IV 부품이 먼저.</li>
+        <li><b>경로 B · 해치 2개</b>: GCYM Large Cutter에 <b>EV 해치 2개</b> = IV(Large Assembler · Circuit Assembler는 해치 2개로 형성되지 않으니 Cutter 쪽만 — Mechanics). 다만 GCYM 컨트롤러가 IV Robot Arm · IV Conveyor · IV 회로라 결국 IV 부품이 먼저.</li>
         <li><b>IV 회로는 이미 됨</b>: Nano Supercomputer(EV 조립기) · Micro Mainframe(HV). LuV 회로도 Nano Mainframe.</li>
         <li>IV 에너지 해치: <code>energy_hatch_iv</code> — IV Hull · Tungsten 케이블 2 · <b>HPIC 2</b> · IV Voltage Coil · NaK 3000 (IV).</li>
       </ul>

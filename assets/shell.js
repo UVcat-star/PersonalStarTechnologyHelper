@@ -4,6 +4,10 @@
    A page names its tier with <body data-tier="HV">. Adding a tier means adding a row to
    TIERS and a page next to hv.html; mark it `soon` until it has content. */
 (function () {
+  const COMMON = [
+    { id: '공용', href: 'common.html', name: 'Mechanics · 코일 · 해치 · 발전', color: '#5a6b7d', short: '공' },
+    { id: 'gCrops', href: 'gcrops.html', name: '자원 작물', color: '#3f8f4a', short: 'gC' },
+  ];
   const TIERS = [
     { id: 'HV', href: 'hv.html', name: 'High Voltage', color: '#c98500', now: true },
     { id: 'EV', href: 'ev.html', name: 'Extreme Voltage', color: '#9b4fc4', next: true },
@@ -56,6 +60,12 @@
   function build() {
     const current = document.body.dataset.tier;
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const link = t => `
+      <a href="${t.href}" ${t.id === current ? 'aria-current="page"' : ''} title="${esc(t.id + ' · ' + t.name)}">
+        <span class="tier" style="--tc:${t.color}">${esc(t.short || t.id)}</span>
+        <span class="lbl"><span class="row">${esc(t.id)}</span><small>${esc(t.name)}</small></span>
+      </a>`;
+    const common = COMMON.map(link).join('');
     const items = TIERS.map(t => `
       <a href="${t.href}" class="${t.soon ? 'soon' : ''}" ${t.id === current ? 'aria-current="page"' : ''} title="${esc(t.id + ' · ' + t.name)}">
         <span class="tier" style="--tc:${t.color}">${esc(t.id)}</span>
@@ -67,6 +77,8 @@
     side.setAttribute('aria-label', '전력 티어');
     side.innerHTML = `
       <div class="brand"><b>Star Technology</b><span>Theta 2 · 자동화 라인 정리</span><div class="mark" aria-hidden="true">ST</div></div>
+      <div class="group">공용</div>
+      <nav>${common}</nav>
       <div class="group">전력 티어</div>
       <nav>${items}</nav>
       <div class="foot">

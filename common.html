@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공용 정리</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="공용">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · 공용 정리</h1>
+        <div class="meta">모든 전력 단계에 쓰는 규칙과 표 · Theta 2 (GTCEu 1.7.1b) · 퀘스트 Mechanics 챕터와 jar에서 확인</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
+<script>
+const S = { topic: 'mech', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+const TN = ['ULV', 'LV', 'MV', 'HV', 'EV', 'IV', 'LuV', 'ZPM', 'UV', 'UHV'];
+const V = [8, 32, 128, 512, 2048, 8192, 32768, 131072, 524288, 2097152];
+const VA = [7, 30, 120, 480, 1920, 7680, 30720, 122880, 491520, 1966080];
+
+const TOPICS = [
+  { id: 'mech', name: 'Mechanics' },
+  { id: 'coil', name: '코일 사다리' },
+  { id: 'hatch', name: '에너지 해치 · 멀티블럭' },
+  { id: 'cable', name: '케이블 · 전력 전달' },
+  { id: 'power', name: '발전 · 플라즈마 전환' },
+  { id: 'method', name: '조사 방법' },
+];
+
+/* ---------- Mechanics ---------- */
+const MECH = [
+  ['Overclocking (해치 2개)', '처음부터', '에너지 해치 2개를 단 멀티블럭은 한 티어 위 전압으로 동작합니다(암페어 합이 4의 거듭제곱 → 한 티어 위 1A). EBF는 이걸로 다음 티어 재료를 녹이고, 대부분의 멀티블럭에 똑같이 적용됩니다. <b>예외: Assembler · Circuit Assembler 멀티블럭은 해치 2개로 형성되지 않음</b>(진행 건너뛰기 방지). 팩의 Super 계열은 해치 1개만 받음.'],
+  ['Multiblock Wall Sharing', '처음부터', '이미 있는 멀티블럭의 한 면을 다른 멀티블럭이 같이 씁니다. 코일, 입출력 버스 · 해치까지 공유 가능하고, 공유가 안 되는 블록은 툴팁에 표시됩니다. EBF 두 대가 코일 벽 하나를 나눠 쓰면 코일이 절약됩니다.'],
+  ['Parallelization', 'Parallel Hatch부터', 'Parallel Hatch는 그 티어의 최대 암페어를 써서 병렬 수를 정합니다. <b>4A 해치 두 개로 8A를 만드는 건 버퍼만 늘릴 뿐 효과 없음.</b> 병렬 4배마다 효율 2배. 확률 출력은 병렬 수만큼 굴리는 게 아니라 합산.'],
+  ['Perfect Overclocking', '단일 블록의 멀티블럭판', '단일 블록의 멀티블럭 버전은 시간을 1/4로 줄이는 완전 오버클럭이 가능. EMI에서 전압 버튼을 Shift+클릭하면 속도가 보임.'],
+  ['Throughput Boosting', '해당 기계', '재료를 여러 레시피분 넣으면 한 번에 처리. 예: 4배분 → 시간 +60% · EU/t −5% → 효율 2.5배.'],
+  ['Bulking', '해당 기계', 'Throughput과 비슷하지만 EU/t 그대로. 예: 16배분 → 시간 13배 → 효율 +23%.'],
+  ['Steam Parallels', '스팀 시대', '스팀 멀티블럭은 추가 비용 · 시간 없이 같은 레시피를 병렬로. 초반 대량 가공용.'],
+  ['LCR Skips (circuit 24)', 'LCR부터', 'LCR 레시피 중 <b>circuit 24</b>는 기초 화학물질만으로 긴 체인을 한 번에 — 산(황산 · 질산), 액체 에폭시 등. HV 페이지 패시브 라인이 이걸로 산소를 없앰.'],
+  ['Distinct Buses', '멀티블럭', '입력 버스마다 Distinct를 켜면 버스끼리 재료가 섞이지 않습니다. 멀티블럭 Extruder의 틀(cast)처럼 한 기계로 여러 레시피를 돌릴 때.'],
+  ['Lockable Fluid Hatches', '멀티블럭', '출력 해치를 특정 유체로 잠금. LCR · Distillation Tower처럼 출력이 여러 개인 기계에서 엉뚱한 탱크로 가는 걸 막음.'],
+  ['Layered Inputs', '해당 기계', '층(layer)마다 필요한 재료만 넣는 레시피. 너무 많이 넣으면 막힘. 자동화는 컨트롤러에 Layered Step Detector 커버(층 번호를 레드스톤으로).'],
+  ['Machine Modes · Ghost Circuits', '처음부터', '왼쪽 창에서 모드 전환(바꾼 뒤 재료를 뺐다 넣기). 회로 설정은 레시피에 적힌 번호로.'],
+  ['Cheaper Circuit Recipes', '티어마다 다시 확인', '새 부품(SMD → ASMD) · 새 웨이퍼(Silicon → Phosphorus → Naquadah → Neutronium)가 열리면 예전 회로의 싼 레시피가 생깁니다. 수량도 더 많이 나옴.'],
+  ['Threading', '후반', '"스탯 포인트" 방식의 기계 강화: Velocitas(시간) · Efficienta(EU/t) · Parallelismus(병렬) · Filum(멀티스레드) · Generalis(자유). Helix를 기계에 달아 포인트를 얻음.'],
+  ['Wireless Power (Dreamlink)', 'LuV Active Transformer부터', '레이저만 받음(Active Transformer로 생성). Node 16칸/16연결 → Oneiric Relay 32/64 → Daydream Spire 64/무제한 → Beacon of Lucidity 무제한 → Paragon of the Veil 차원 간.'],
+];
+function viewMech() {
+  return `
+  <h2>Mechanics</h2>
+  <p class="lead">퀘스트 <b>Mechanics</b> 챕터의 기술 팁을 "언제부터 · 어디에 쓰나"와 함께 정리했습니다. 전력 단계와 상관없이 계속 쓰는 규칙들입니다.</p>
+  ${callout('info', 'i', '<b>가장 자주 쓰는 두 가지</b> — ① 해치 2개 = 한 티어 위 (EBF 코일 · 다음 티어 재료를 한 단계 일찍), ② Wall Sharing (멀티블럭 벽을 나눠 코일 · 케이싱 절약).')}
+  <div class="card"><div class="tscroll"><table>
+    <thead><tr><th>기술</th><th>언제부터</th><th>내용 · 쓰는 곳</th></tr></thead>
+    <tbody>${MECH.map(([a, b, c]) => `<tr><td><b>${esc(a)}</b></td><td>${esc(b)}</td><td>${c}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
+/* ---------- 코일 사다리 ---------- */
+// GTCEu CoilBlock$CoilType 온도(jar). 조립 전압은 팩 coils.js. EBF 실효 온도 = 코일 + 100 × max(0, 멀티블럭 티어 − MV)
+const COILS = [
+  { t: 1, n: 'Cupronickel', k: 1800, make: 'Cupronickel 2x wire 8 · Bronze foil 8 · Tin Alloy 144' },
+  { t: 2, n: 'Kanthal', k: 2700, make: 'Kanthal 2x wire 8 · Aluminium foil 8 · Copper 144' },
+  { t: 3, n: 'Nichrome', k: 3600, make: 'Nichrome 2x wire 8 · Stainless foil 8 · Borosilicate Glass foil 4 · Aluminium 144' },
+  { t: 4, n: 'RTM Alloy', k: 4500, make: 'RTM 2x wire 8 · Vanadium Steel foil 8 · Borosilicate Glass foil 8 · Nichrome 144' },
+  { t: 5, n: 'HSS-G', k: 5400, make: 'HSS-G 2x wire 8 · Tungsten Carbide foil 8 · Borosilicate Glass foil 16 · Tungsten 144' },
+  { t: 6, n: 'Naquadah', k: 7200, make: 'HSS-G Frame · Naquadah 2x wire 8 · Osmium foil 8 · Niobium Nitride foil 8 · Tungstensteel 144' },
+  { t: 7, n: 'Trinium', k: 9001, make: 'HSS-E Frame · Trinium 2x wire 8 · Enriched Naquadah foil 8 · Niobium Nitride foil 16 · Naquadah 144' },
+  { t: 8, n: 'Tritanium', k: 10800, make: 'Trinaquadalloy Frame · Tritanium 2x wire 8 · Naquadria foil 8 · Niobium Nitride foil 32 · Trinium 144' },
+];
+// jar 재료 정의의 blast 온도 (blast.mjs)
+const BLAST = [['Stainless Steel', 1700], ['Kanthal', 1800], ['Titanium', 1941], ['Titanium 추출(TiCl4)', 2141], ['Silicon Boule', 1784], ['Phosphorus Boule', 2484], ['Nichrome', 2700], ['Niobium', 2750],
+  ['Tungstensteel', 3000], ['RTM Alloy', 3000], ['Tungsten Carbide', 3058], ['Tungsten', 3600], ['HSS-G', 4200], ['Iridium · Osmium · Osmiridium', 4500], ['Niobium-Titanium · Vanadium-Gallium · YBCO', 4500],
+  ['HSS-E · HSS-S', 5000], ['Naquadah', 5000], ['Naquadah Boule', 5400], ['Samarium', 5400], ['Europium', 6000], ['Neutronium Boule', 6484], ['Enriched Naquadah', 7000], ['Naquadah Alloy · Trinium', 7200], ['Naquadria', 9000]];
+const effTemp = c => c.k + 100 * Math.max(0, (c.t + 1) - 2);   // 그 티어 해치 2개 = 한 티어 위
+function viewCoil() {
+  const rows = COILS.map((c, i) => {
+    const max = effTemp(c), prev = i ? effTemp(COILS[i - 1]) : 0;
+    const newly = BLAST.filter(([, k]) => k <= max && k > prev).map(([n]) => n);
+    return { c, max, newly };
+  });
+  return `
+  <h2>코일 사다리</h2>
+  <p class="lead"><b>해치 2개 = 한 티어 위</b>라서, 각 전력 단계에서 <b>한 단계 위 코일을 만들고 바로 씁니다</b> — MV에서 Kanthal, HV에서 Nichrome, EV에서 RTM. 코일 조립기의 전압이 그 단계 전압이고, 코일 재료의 blast 온도는 바로 아래 코일 + 해치 2개 보너스로 녹습니다.</p>
+  ${callout('info', 'i', 'EBF 실효 온도 = 코일 온도 + <b>100K × (멀티블럭 티어 − MV)</b> — jar의 <code>CoilWorkableElectricMultiblockMachine</code>에서 확인. 멀티블럭 티어는 해치 합산 전압이라 해치 2개면 한 티어 위로 계산됩니다. 코일 온도: Cupronickel 1800 · Kanthal 2700 · Nichrome 3600 · RTM 4500 · HSS-G 5400 · Naquadah 7200 · Trinium 9001 · Tritanium 10800 (<code>CoilBlock$CoilType</code>).')}
+  <div class="card">
+    <h3>단계별 코일과 녹일 수 있는 온도</h3>
+    <p class="sub">해치 2개 기준. 막대 = 그 단계에서 만든 코일로 낼 수 있는 최고 온도.</p>
+    ${hbar(rows.map(r => ({ label: `${TN[r.c.t]} → ${r.c.n}`, sub: `조립 ${TN[r.c.t]} · 멀티블럭 ${TN[r.c.t + 1]}`, value: r.max, color: 'var(--s8)', text: `${fmt(r.max, 0)}K` })), { cols: ['단계 → 코일', '최고 온도'] })}
+  </div>
+  <div class="card">
+    <div class="tscroll"><table>
+      <thead><tr><th>단계</th><th>만들 코일</th><th class="n">코일</th><th class="n">최고 (해치 2개)</th><th>새로 녹는 것</th><th>코일 재료 (팩 <code>coils.js</code>)</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td><b>${TN[r.c.t]}</b></td><td>${r.c.n}</td><td class="n">${fmt(r.c.k, 0)}K</td><td class="n"><b>${fmt(r.max, 0)}K</b></td><td>${esc(r.newly.join(' · ') || '—')}</td><td>${esc(r.c.make)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">1,750K가 넘는 금속은 Hot ingot으로 나와 Vacuum Freezer가 필요합니다(Kanthal은 Chemical Bath로 식힘). 팩 코일 <code>molybdenum_disilicide_coil_block</code>(EV 조립)은 GCYM · 팩 멀티블럭 전용 케이싱.</p>
+  </div>
+  <div class="card">
+    <h3>같은 규칙이 적용되는 곳</h3>
+    <ul class="pts">
+      <li><b>해치 2개를 받는 멀티블럭 전부</b>: EBF · Distillation Tower · LCR · Vacuum Freezer · Implosion Compressor · Pyrolyse Oven · GCYM 대형 기계 · 팩 Ore Factory · Void Extractor · Large Sieve 등(에너지 해치 탭) — 전압이 한 단계 위라 다음 티어 레시피가 한 단계 일찍 됩니다.</li>
+      <li><b>안 되는 곳</b>: 단일 블록 기계, <b>Assembler · Circuit Assembler 멀티블럭</b>(Mechanics), 팩 <b>Super</b> 계열(해치 1개).</li>
+    </ul>
+  </div>`;
+}
+
+/* ---------- 에너지 해치 · 멀티블럭 ---------- */
+const HATCH_PARTS = [
+  ['LV', '—', 'Tin 케이블 2 · LV Voltage Coil', '—'], ['MV', 'ULPIC 1', 'Copper 케이블 2 · MV Voltage Coil', 'ULPIC: Silicon · Blue 렌즈 → Cutter MV (클린룸 X)'],
+  ['HV', 'LPIC 2', 'Gold 케이블 2 · HV Voltage Coil · NaK 1000', 'LPIC: Orange 렌즈 → Cutter <b>HV · 클린룸</b>'], ['EV', 'PIC 2', 'Aluminium 케이블 2 · EV Voltage Coil(Pt fine 16) · NaK 2000', 'PIC: Phosphorus · Brown 렌즈 → Cutter <b>EV · 클린룸</b>'],
+  ['IV', 'HPIC 2', 'Tungsten 케이블 2 · IV Voltage Coil · NaK 3000', 'HPIC: Cutter <b>IV · 클린룸</b>'], ['LuV', 'HPIC 2 + LuV 회로', 'NbTi 케이블 4 · LuV Voltage Coil 2 · NaK 6000 · Solder 720 (Assembly Line)', 'UHPIC 절단은 LuV'],
+  ['ZPM', 'UHPIC 2 + ZPM 회로', 'Vanadium-Gallium 케이블 4 · ZPM Voltage Coil 2 · NaK 8000 · Solder 1440 (Assembly Line)', '—'], ['UV', 'UHPIC 2 + UV 회로', 'YBCO 케이블 4 · UV Voltage Coil 2 · NaK 10000 · Solder 2880 (Assembly Line)', '—'],
+];
+const H1 = ['Super EBF', 'Super Vacuum Freezer', 'Super Electric Ore Factory', 'Super Cutter', 'Super Implosion Compressor', 'Super Pyrolyse', 'Super Cracker', 'Super ABS', 'Distillery Column', 'Industrial Extraction Chamber', 'Industrial Brewing Station', 'Rock Filtrator', 'Mechanical Sieve'];
+const H2 = ['Electric Blast Furnace', 'Large Chemical Reactor', 'Distillation Tower', 'Vacuum Freezer', 'Implosion Compressor', 'Pyrolyse Oven', 'GCYM 대형 기계 (Large Cutter · Mixer · Centrifuge …) — Large Assembler · Circuit Assembler 제외', 'Electric Ore Factory · Ore Processing Plant (팩)', 'Void Extractor (팩)', 'Large Sieve · Rock Sifter (팩)', 'Molten Destabiliser (팩 · LuV)'];
+function viewHatch() {
+  return `
+  <h2>에너지 해치 · 멀티블럭</h2>
+  <p class="lead">멀티블럭이 에너지 해치를 몇 개 받는지가 "그 레시피를 언제 돌릴 수 있나"를 정합니다. GTCEu 멀티블럭은 <code>autoAbilities</code>로 <b>최소 1 · 최대 2</b>(jar), 팩 멀티블럭은 <code>P.ability(PA.euIn, { max })</code>로 각자 정합니다(startup 스크립트).</p>
+  <div class="grid2">
+    <div class="card"><h3>해치 1개만 — 같은 티어 해치가 필요</h3><ul class="pts">${H1.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="sub" style="margin:10px 0 0">팩의 <b>Super</b> 계열은 전부 1개. 빠르지만 한 티어 위 레시피를 앞당겨 쓸 수 없습니다.</p></div>
+    <div class="card"><h3>해치 2개까지 — 한 티어 아래 해치 2개로 대체</h3><ul class="pts">${H2.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="sub" style="margin:10px 0 0">여기 없는 팩 멀티블럭은 컨트롤러 툴팁 ${EMI}. <b>예외</b>: Assembler · <b>Circuit Assembler</b> 멀티블럭은 해치 2개로 형성되지 않습니다(Mechanics). Cleanroom의 한도는 ${EMI}.</p></div>
+  </div>
+  <div class="card">
+    <h3>티어별 에너지 해치 부품</h3>
+    <p class="sub">해치는 그 티어 Assembler(LuV부터 Assembly Line)로 만들고, 부품 칩의 절단 전압이 한 단계씩 올라갑니다 — <b>HV 해치부터 클린룸이 필요</b>합니다.</p>
+    <div class="tscroll"><table><thead><tr><th>해치</th><th>칩</th><th>나머지</th><th>칩 만드는 곳</th></tr></thead>
+      <tbody>${HATCH_PARTS.map(r => `<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>웨이퍼 사다리</h3>
+    <div class="tscroll"><table><thead><tr><th>Boule</th><th>EBF</th><th class="n">온도</th><th>실제로 녹는 단계 (해치 2개)</th><th>여는 것</th></tr></thead>
+      <tbody>
+        <tr><td>Silicon</td><td>MV</td><td class="n">1,784K</td><td>LV→MV Cupronickel (1,800)</td><td>CPU · RAM · ULPIC · LPIC · ILC · SSoC (MV 각인)</td></tr>
+        <tr><td>Phosphorus</td><td>HV</td><td class="n">2,484K</td><td>MV Kanthal (2,800)</td><td>NAND · NOR · PIC · SoC (HV · 클린룸) · 각인 수량 ×4</td></tr>
+        <tr><td>Naquadah</td><td>EV</td><td class="n">5,400K</td><td><b>IV</b> HSS-G (5,800) — EV 레시피지만 온도 때문에 IV</td><td>ASoC · 각인 수량 ×8</td></tr>
+        <tr><td>Neutronium</td><td>IV</td><td class="n">6,484K</td><td><b>LuV</b> Naquadah (7,700)</td><td>각인 수량 ×16</td></tr>
+      </tbody></table></div>
+  </div>`;
+}
+
+/* ---------- 케이블 · 전력 전달 ---------- */
+const SC = [['LV', 'Soul Infused'], ['MV', 'Signalum'], ['HV', 'Lumium'], ['EV', 'Enderium'], ['IV', 'Shellite'], ['LuV', 'Twinite'], ['ZPM', 'Dragonsteel'], ['UV', 'Prismalium · Melodium'], ['UHV', 'Stellarium'], ['UEV', 'Ancient Runicalium · Enriched Pallarovium Alloy'], ['UIV', 'Rhenium Super-Composite Alloy']];
+function viewCable() {
+  return `
+  <h2>케이블 · 전력 전달</h2>
+  <div class="grid2">
+    <div class="card"><h3>티어별 초전도 케이블 (Mechanics)</h3><p class="sub">손실 0 · 암페어 더 많이. GTCEu 자체 초전도체보다 만들기 쉬워서 이쪽을 씁니다.</p>
+      <div class="tscroll"><table><thead><tr><th>티어</th><th>재료</th></tr></thead><tbody>${SC.map(([a, b]) => `<tr><td><b>${a}</b></td><td>${esc(b)}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="card"><h3>전압 올리기 · 옮기기</h3><ul class="pts">
+      <li><b>트랜스포머 승압</b>: 한 단계 아래 4A → 위 1A. <code>&lt;tier&gt;_transformer</code>는 그 티어와 한 단계 위를 잇습니다(HV 트랜스포머 = HV ↔ EV). Assembler: Hull + 한 단계 위 케이블 1 + 그 티어 케이블 4 ${EMI} 개수.</li>
+      <li><b>컨버터</b>(<code>enableFEConverters: true</code>): FE ↔ EU, <b>4 FE = 1 EU</b>(<code>gtceu.yaml</code>). 기지는 LaserIO 에너지 카드 → <code>mv_16a</code> 컨버터 방식.</li>
+      <li><b>해치 2개 = 한 티어 위</b>라 멀티블럭은 승압 없이 한 단계 위 전압을 씁니다(해치 탭).</li>
+      <li><b>Dreamlink</b>(LuV Active Transformer부터): 레이저만 받는 무선 전력. 범위 · 연결 수는 Mechanics 탭.</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 발전 · 플라즈마 전환 ---------- */
+// 공급: 한 대(한 기)당 대략 EU/t — 팩 · jar 값. 수요: 상시 가동 기계 10대 × 그 티어 VA (가정)
+const GEN = [
+  { n: 'Lapidary Dynamo (EV 킷)', t: 'HV~EV', ti: 3, eu: 1080, note: '40 RF/t × BaseMod 27 × DynamoPower 4 = 4,320 RF/t ÷ 4. Diatron으로 시간당 다이아몬드 ~140개/대', col: 'var(--s4)' },
+  { n: 'Large Combustion Engine', t: 'EV', ti: 4, eu: 2048, note: 'Gasoline 1,600 EU/mB → 1.28 mB/t. 산소 부스트 ×2', col: 'var(--s2)' },
+  { n: 'Extreme Combustion Engine', t: 'IV', ti: 5, eu: 8192, note: 'Liquid Oxygen 부스트 ×2. High Octane 3,200 EU/mB', col: 'var(--s2)' },
+  { n: 'Fusion LuV + Plasma (Helium)', t: 'LuV', ti: 6, eu: 72700, note: 'D 1000 + T 1000 → He 플라즈마 1000 / 7.2초. 5mB당 27t × 2048. 순출력 (터빈 효율 전)', col: 'var(--s5)' },
+  { n: 'Fusion ZPM + Plasma (Nitrogen)', t: 'ZPM', ti: 7, eu: 296000, note: 'Be 144 + D 3000 → N 플라즈마 1000 / 7.2초. 5mB당 110t × 2048', col: 'var(--s5)' },
+  { n: 'Fusion ZPM + Plasma (Argon)', t: 'ZPM', ti: 7, eu: 305000, note: 'C 144 + Mg 144 → Ar 플라즈마 1000 / 7.2초. 5mB당 116t × 2048', col: 'var(--s5)' },
+  { n: 'Fusion UV + Plasma (Nickel)', t: 'UV', ti: 8, eu: 338000, note: 'K 144 + F 1000 → Ni 플라즈마 144 / 7.2초. 1mB당 180t × 2048', col: 'var(--s5)' },
+];
+const LOAD = 10;   // 상시 가동 기계 수 가정
+function viewPower() {
+  const tiers = [3, 4, 5, 6, 7, 8];
+  const demand = t => LOAD * VA[t];
+  const logw = v => Math.max(2, Math.log10(v) / Math.log10(3e6) * 100);
+  return `
+  <h2>발전 · 플라즈마 전환</h2>
+  <p class="lead">Power 챕터가 의도한 경로는 <b>Thermal Dynamo(증강은 EV까지) → Large · Extreme · Modular Combustion → Fusion + Plasma Turbine</b>입니다. 보석 발전으로 버틸 수 있는 한계와 플라즈마로 넘어갈 시점을 수요 · 공급으로 추정했습니다.</p>
+  ${callout('ok', '✓', `<b>결론 (추정)</b> — 보석 발전은 <b>EV 중반(~10k EU/t, Dynamo 10대 · 다이아몬드 시간당 ~1,400개)</b>이 한계입니다. <b>IV 진입 때 Extreme Combustion</b>으로 넘어가고, <b>플라즈마 터빈은 LuV Fusion(헬륨)부터 가능하지만 한 기 7만 EU/t라 LuV 수요(~30만)를 못 채우므로 본격 전환은 ZPM Fusion(질소 · 아르곤, 기당 ~30만)</b>입니다. LuV 동안은 Extreme Combustion 여러 대 + Fusion LuV를 병행하세요.`)}
+  ${callout('info', 'i', '<b>보석 발전을 늘리는 길</b> — 다이아몬드를 체질 대신 <a href="gcrops.html#plan">gCrops</a>로 키우면(Diamond = 작물 티어 1, LV Harvester) 한계가 다이아몬드 공급이 아니라 Dynamo 수로 바뀝니다. 그래도 증강 킷이 EV까지라 한 대 1,080 EU/t는 그대로여서, IV부터는 Combustion으로 넘어가는 결론은 같습니다.')}
+  <div class="card">
+    <h3>티어별 수요 vs 발전원 한 기</h3>
+    <p class="sub">수요 = 상시 가동 기계 ${LOAD}대 × 그 티어 VA (가정 · 로그 막대). 실제 수요는 각 티어 페이지의 청크 전력을 합해 보정하세요.</p>
+    <div class="tscroll"><table><thead><tr><th>티어</th><th class="n">수요 (가정)</th><th style="width:45%">규모</th><th>그 티어까지 쓸 수 있는 발전원 (필요 대수)</th></tr></thead>
+      <tbody>${tiers.map(t => {
+        const d = demand(t);
+        const fit = GEN.filter(g => g.ti <= t && d / g.eu <= 40).map(g => `${g.n} ${fmt(Math.ceil(d / g.eu), 0)}기`).join(' · ');
+        return `<tr><td><b>${TN[t]}</b></td><td class="n">${fmt(d, 0)} EU/t</td><td><div style="height:10px;border-radius:3px;background:var(--s8);width:${logw(d)}%"></div></td><td>${fit || '—'}</td></tr>`;
+      }).join('')}</tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>발전원 한 기(대)의 출력</h3>
+    ${hbar(GEN.map(g => ({ label: g.n, sub: g.t, value: Math.log10(g.eu), color: g.col, text: `${fmt(g.eu, 0)} EU/t`, tip: `${fmt(g.eu, 0)} EU/t|${g.note}` })), { cols: ['발전원', 'EU/t (로그 막대)'], noAxis: true })}
+    <div class="tscroll" style="margin-top:12px"><table><thead><tr><th>발전원</th><th class="n">EU/t</th><th>근거</th></tr></thead>
+      <tbody>${GEN.map(g => `<tr><td>${esc(g.n)}</td><td class="n">${fmt(g.eu, 0)}</td><td>${esc(g.note)}</td></tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>보석 발전의 한계</h3><ul class="pts">
+      <li>Lapidary Dynamo 출력 = 40 RF/t × <b>BaseMod</b>(업그레이드 킷 LV 6 · MV 9 · HV 15 · EV 27) × <b>DynamoPower</b>(1 + Arc 킷 0.5/1/2/3) — Thermal jar <code>DynamoBlockEntity</code>.</li>
+      <li>연료 에너지 × DynamoEnergy(Arc 0.95→0.8 × MCI 1.15→1.6). Diatron 750k RF · Flawless ×2.5 · Exquisite ×6.25(보석 4개).</li>
+      <li>EV 킷 1대 = 1,080 EU/t. Exquisite로 태우면 시간당 보석 ~210개 = 다이아몬드 dust ~140 + Energium ~70. <b>10대(10.8k EU/t)면 다이아몬드 시간당 ~1,400개</b> — Rock Filter · Sand 체질로는 여기서 막힙니다.</li>
+      <li>증강 킷이 EV까지만 있어서(<code>thermal_augments.js</code>) IV부터는 출력이 더 오르지 않습니다.</li>
+    </ul></div>
+    <div class="card"><h3>플라즈마 준비</h3><ul class="pts">
+      <li>팩이 Fusion을 자체 레시피(<code>fusion_scaling.js</code>, <code>reflector_fusion_reactor</code>)로 바꿨습니다. 반사판 티어 1 = LuV Fusion(Helium · Lutetium …), 2 = ZPM(Nitrogen · Oxygen · Argon · Tin), 3 = UV(Nickel · Iron), 4 = Americium.</li>
+      <li>플라즈마 연료값도 팩 값(<code>plasma_turbines.js</code>): 기체 플라즈마 5mB · 액체 1mB당 Helium 27t · Oxygen 98 · Nitrogen 110 · Argon 116 · Tin 84 · Iron 135 · Nickel 180 · Americium 984 (× 2,048 EU/t).</li>
+      <li><b>Deuterium · Tritium</b>(헬륨 플라즈마 원료)을 LuV 전에 모아 두세요 — 기당 각 500B/시간.</li>
+      <li>Plasma Large Turbine → Supreme(UHV) → Nyinsane(UIV). 로터 홀더 티어가 오를수록 출력 2배 · 연료 1.8배(Power 챕터 "Rotor Holder OCs").</li>
+    </ul></div>
+  </div>`;
+}
+
+/* ---------- 조사 방법 ---------- */
+function viewMethod() {
+  return `
+  <h2>조사 방법</h2>
+  <p class="lead">각 티어 페이지의 수치는 모두 팩 파일에서 직접 뽑았습니다. 다음 티어를 조사할 때 같은 방법을 씁니다.</p>
+  <div class="card"><ul class="pts">
+    <li><b>티어 = 회로 조립기 · 기계가 돌릴 수 있는 EU/t 상한.</b> 그 티어에 새로 열리는 것 = <code>VA[t−1] &lt; EU/t ≤ V[t]</code>인 레시피. 해치 2개 멀티블럭은 한 단계 일찍.</li>
+    <li><b>GTCEu jar</b>(<code>mods/gtceu-st-*.jar</code>)를 <code>javap -c -p -constants</code>로 풀어 레시피 ID · 재료 · EU/t · 시간 · 클린룸을 읽습니다. 컨트롤러 제작법은 <code>MetaTileEntityLoader</code>, 재료 blast 온도는 재료 클래스.</li>
+    <li><b>팩 KubeJS</b>(<code>kubejs/server_scripts/</code>): 로드되는 스크립트는 <code>logs/kubejs/server.log</code>로 확인. 멀티블럭 해치 한도는 <code>startup_scripts</code>의 <code>P.ability(PA.euIn, {max})</code>.</li>
+    <li><b>팩 코어 모드</b>(<code>Star-Technology-Core-*.jar</code>): gCrops · Fusion 기계 같은 팩 전용 시스템.</li>
+    <li><b>퀘스트</b>: <code>config/ftbquests/quests/</code> + 영문 로컬라이저. Mechanics · Power 챕터가 공용 규칙의 출처.</li>
+    <li>확인 못 한 값은 페이지에 ${EMI} 또는 "가정"으로 표시합니다.</li>
+  </ul></div>`;
+}
+
+const VIEWS = { mech: viewMech, coil: viewCoil, hatch: viewHatch, cable: viewCable, power: viewPower, method: viewMethod };
+startPage({ key: 'common-web' });
+</script>
+</body>
+</html>

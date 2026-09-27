@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gCrops 정리</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="gCrops">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · gCrops</h1>
+        <div class="meta">형질(trait)로 자원을 키우는 팩 전용 작물 · <code>Star-Technology-Core-1.8.1b.jar</code>의 작물 · 형질 · 기계 로직에서 확인</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/page.js"></script>
+<script>
+const S = { topic: 'overview', sub: {}, cropTier: 'all', layGhost: true, layPipes: true, layLabels: true };
+Object.assign(TIER, {
+  LVc: { c: 'var(--s3)', name: 'LV 기계' }, HVc: { c: 'var(--s2)', name: 'HV 기계' },
+  G: { c: 'var(--s5)', name: 'gCrop 기계' }, GOAL: { c: 'var(--s8)', name: '결과물' },
+});
+const TN = ['ULV', 'LV', 'MV', 'HV', 'EV', 'IV', 'LuV', 'ZPM', 'UV', 'UHV', 'UEV'];
+// StarTGCropItems.tierVoltages: 작물 티어 → 전압 (7 → UV, 8 → UEV)
+const TV = [0, 1, 2, 3, 4, 5, 6, 8, 10];
+const HAVE = 3;   // 지금 기지 = HV
+
+/* StarTTraitData: [id, 티어, 가중치] — 가중치가 낮을수록 돌연변이로 잘 안 나옴 */
+const RES = [['Charred', 0, 3000], ['Vibrant', 0, 3000], ['Tough', 0, 3000], ['Fluorescent', 0, 3000], ['Metallic', 1, 2500], ['Crystalline', 1, 2500], ['Dusty', 1, 2500], ['Woody', 1, 500],
+  ['Coarse', 2, 2000], ['Shiny', 2, 2000], ['Illuminating', 3, 2000], ['Mineralic', 3, 2000], ['Sulfuric', 4, 1500], ['Aetheric', 4, 1500], ['Energetic', 5, 1000], ['Adaptive', 5, 1000],
+  ['Apothic', 6, 500], ['Siliceous', 7, 200], ['Decaying', 7, 200], ['Infernal', 8, 200]];
+const TT = Object.fromEntries(RES.map(([n, t]) => [n, t]));
+// 수확 로직(GCropHarvesterLogic)에서 읽은 효과
+const PROD = [
+  ['Quickened', 1, '시간 ×0.9'], ['Thirsty', 1, '유체 ×1.2 (나쁨)'], ['Speedy', 2, '시간 ×0.9'], ['Slow', 2, '시간 ×1.2 (나쁨)'],
+  ['Fast', 3, '시간 ×0.9'], ['Stunted', 3, '시간 ×1.2 (나쁨)'], ['Gluttonous', 3, '비료 · 유체 ×1.2 (나쁨)'], ['Enormous', 4, '60% 확률로 최대 +2'],
+  ['Shriveled', 4, '최대 −3 · 최소 −2 (나쁨)'], ['Branching', 5, '60% ×3번 최대 +2 · 70% ×2번 최소 +1'], ['Proliferating', 5, '최소 +4 · 최대 +2 / 비료 · 유체 ×2 · 시간 ×1.15'],
+  ['Empowered', 6, '필요 전압 −1 티어'], ['Sprawling', 7, '열매 ×8 / 비료 · 유체 ×10 · 시간 ×1.6'], ['Autotroph', 7, '열매 ×4 / 비료 · 유체 ×3 · 시간 ×5'],
+];
+const AUX = [['Nocturnal', 2, '밤에만 수확'], ['Diurnal', 4, '낮 · 밤 무관'], ['Early', 4, '꽃 수확 · 시간 ×0.7']];
+const CLIM = ['Frosty', 'Scorching', 'Tropical', 'Desertic', 'Damp'];
+// GCropMutatorLogic.findTraitTier: 아이템 = 목록 순서 + 1, 유체 = 목록 순서 + 2
+const MUTAGEN = [
+  [1, 'Ender Pearl dust', '—'], [2, 'Thorium dust', 'Arsenic 1000mB'], [3, 'Caesium dust', 'Fluorine 1000mB'], [4, 'Tantalum dust', 'Radon 1000mB'],
+  [5, 'Uranium-235 dust', 'Indium Gallium Phosphide 1000mB'], [6, 'Purified Naquadah dust', 'Naquadria 1000mB'], [7, 'Fermium dust', 'Echo-R 1000mB'], [8, 'Polonium dust', 'BEC-Og 1000mB'],
+];
+
+/* StarTGCropData: [자원, 형태, 형질] — 형태 D=dust, G=gem, O=raw ore, L=fluid */
+const CROPS = `iron D Fluorescent+Metallic|copper D Vibrant+Tough+Metallic|zinc D Vibrant+Metallic|tin D Metallic|lead D Charred+Metallic|nether_quartz G Crystalline|diamond G Vibrant+Crystalline|amethyst G Charred+Vibrant+Fluorescent+Crystalline|lapis G Charred+Vibrant+Crystalline|emerald G Tough+Fluorescent+Crystalline|redstone D Charred+Vibrant+Tough+Dusty|sulfur D Vibrant+Tough+Dusty|glowstone D Dusty|ender_pearl G Charred+Fluorescent+Crystalline|gold D Tough+Metallic+Shiny|silver D Fluorescent+Metallic+Shiny|coal G Charred+Crystalline+Coarse|sodalite O Charred+Vibrant+Metallic+Coarse|pentlandite O Vibrant+Tough+Metallic+Coarse|realgar G Charred+Vibrant+Tough+Crystalline+Coarse|ruby G Charred+Vibrant+Tough+Crystalline+Shiny|sapphire G Vibrant+Crystalline+Shiny|spessartine G Vibrant+Tough+Crystalline+Illuminating|apatite G Vibrant+Crystalline+Illuminating|monazite G Charred+Tough+Fluorescent+Crystalline+Illuminating|topaz G Vibrant+Tough+Crystalline+Shiny+Illuminating|certus_quartz G Charred+Vibrant+Tough+Fluorescent+Crystalline+Shiny+Illuminating|lepidolite O Charred+Vibrant+Tough+Metallic+Coarse+Mineralic|pyrochlore O Vibrant+Metallic+Coarse+Mineralic|pyrolusite O Charred+Fluorescent+Metallic+Coarse+Mineralic|magnesite O Metallic+Coarse+Mineralic|cobaltite O Charred+Vibrant+Metallic+Shiny+Mineralic|vanadium_magnetite O Charred+Metallic+Shiny+Mineralic|chromite O Tough+Fluorescent+Metallic+Shiny+Mineralic|rare_earth D Vibrant+Fluorescent+Dusty+Shiny+Illuminating+Mineralic|zavaritskite O Charred+Metallic+Shiny+Mineralic+Sulfuric|beryllium O Vibrant+Metallic+Coarse+Mineralic+Aetheric|barite O Tough+Metallic+Coarse+Mineralic+Sulfuric|chalcopyrite O Fluorescent+Metallic+Coarse+Mineralic+Sulfuric|bornite O Vibrant+Metallic+Shiny+Mineralic+Sulfuric|pollucite O Fluorescent+Metallic+Shiny+Mineralic+Aetheric|cassiterite O Tough+Metallic+Coarse+Mineralic+Aetheric|tantalite O Charred+Metallic+Shiny+Mineralic+Aetheric|nether_air L Charred+Crystalline+Illuminating+Sulfuric|ender_air L Fluorescent+Crystalline+Illuminating+Aetheric|tungstate O Vibrant+Tough+Fluorescent+Metallic+Coarse+Mineralic+Aetheric+Adaptive|ilmenite O Charred+Tough+Metallic+Coarse+Mineralic+Sulfuric+Energetic|sheldonite O Tough+Metallic+Shiny+Mineralic+Sulfuric+Adaptive|molybdenite O Vibrant+Fluorescent+Dusty+Shiny+Mineralic+Sulfuric+Adaptive|bauxite O Vibrant+Tough+Metallic+Coarse+Mineralic+Sulfuric+Adaptive|pitchblende O Charred+Vibrant+Dusty+Coarse+Mineralic+Sulfuric+Energetic|bastnasite O Charred+Metallic+Coarse+Mineralic+Aetheric+Adaptive|blaze L Charred+Dusty+Shiny+Illuminating+Aetheric+Energetic|blizz L Vibrant+Dusty+Shiny+Illuminating+Aetheric+Energetic|basalz L Tough+Dusty+Shiny+Illuminating+Aetheric+Energetic|blitz L Fluorescent+Dusty+Shiny+Illuminating+Aetheric+Energetic|naquadah O Charred+Tough+Metallic+Crystalline+Shiny+Mineralic+Sulfuric+Energetic+Apothic|debris D Charred+Tough+Metallic+Coarse+Mineralic+Sulfuric+Adaptive+Apothic|titanite L Metallic+Shiny+Mineralic+Aetheric+Energetic+Siliceous|xenotime L Vibrant+Tough+Crystalline+Shiny+Illuminating+Sulfuric+Energetic+Apothic+Siliceous|zapolite D Charred+Vibrant+Fluorescent+Metallic+Coarse+Mineralic+Sulfuric+Adaptive+Apothic+Siliceous|lautarite O Charred+Vibrant+Dusty+Coarse+Illuminating+Aetheric+Energetic+Apothic+Siliceous|crookesite O Tough+Fluorescent+Dusty+Shiny+Mineralic+Sulfuric+Adaptive+Siliceous|kitkaite O Fluorescent+Dusty+Coarse+Mineralic+Aetheric+Adaptive+Siliceous|celestine O Vibrant+Fluorescent+Dusty+Coarse+Mineralic+Aetheric+Adaptive+Siliceous|neptunium D Charred+Vibrant+Dusty+Shiny+Illuminating+Sulfuric+Adaptive+Apothic+Decaying|fermium D Vibrant+Dusty+Shiny+Illuminating+Aetheric+Adaptive+Decaying|einsteinium_253 D Tough+Dusty+Shiny+Illuminating+Sulfuric+Energetic+Decaying|plutonium_241 D Charred+Vibrant+Tough+Dusty+Shiny+Illuminating+Sulfuric+Energetic+Apothic+Decaying|ancient_netherite D Charred+Tough+Metallic+Coarse+Mineralic+Sulfuric+Adaptive+Apothic+Siliceous+Infernal|mythril D Charred+Tough+Metallic+Shiny+Illuminating+Sulfuric+Adaptive+Apothic+Siliceous+Infernal|adamantine D Charred+Fluorescent+Metallic+Shiny+Illuminating+Sulfuric+Energetic+Siliceous+Infernal|estalt D Charred+Vibrant+Tough+Metallic+Shiny+Mineralic+Sulfuric+Energetic+Siliceous+Infernal|isovol D Charred+Vibrant+Metallic+Shiny+Illuminating+Aetheric+Adaptive+Decaying+Infernal|calamatium D Charred+Metallic+Shiny+Illuminating+Aetheric+Adaptive+Apothic+Decaying+Infernal|atomic_nether_sludge D Charred+Vibrant+Tough+Dusty+Coarse+Mineralic+Sulfuric+Energetic+Apothic+Decaying+Infernal`
+  .split('|').map(r => { const [id, f, tr] = r.split(' '); const traits = tr.split('+'); return { id, f, traits, tier: Math.max(0, ...traits.map(t => TT[t])) }; });
+const FORM = { D: 'dust', G: 'gem', O: 'raw ore', L: 'fluid' };
+const nice = id => id.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+// 지금 기지의 병목(HV · EV 페이지)과 겹치는 작물
+const WANT = { diamond: '보석 발전 연료 (Diatron)', glowstone: 'HV 병목 · Glowstone', sulfur: '황산 · 과황산', redstone: '회로 · Redstone', pentlandite: 'Nickel · Platinum 부산물', sheldonite: 'Platinum 그룹 (Cooperite)', tungstate: 'Tungsten (IV 준비)', ilmenite: 'Titanium', bauxite: 'Aluminium · Titanium', pitchblende: 'Uranium (핵분열)', naquadah: 'Naquadah (LuV 이후)', rare_earth: 'Neodymium 등' };
+
+const TOPICS = [
+  { id: 'overview', name: '개요' },
+  { id: 'crops', name: '작물 목록' },
+  { id: 'mutate', name: '돌연변이 · 교배' },
+  { id: 'harvest', name: '수확 · 가공' },
+  { id: 'plan', name: '지금 할 것' },
+];
+
+function viewOverview() {
+  const byT = [1, 2, 3, 4, 5, 6, 7, 8].map(t => CROPS.filter(c => c.tier === t).length);
+  return `
+  <h2>gCrops 개요</h2>
+  <p class="lead">gCrops는 두 작물을 교배해 정해진 결과를 얻는 방식이 아니라, <b>형질(trait) 조합</b>으로 무엇을 키울지가 정해지는 팩 전용 작물입니다. 필요한 <b>Resource 형질</b>이 모두 발현되면 그 자원이 열리고, 조합이 어느 자원과도 맞지 않으면 <b>malformed</b>가 되어 교배는 되지만 수확은 안 됩니다.</p>
+  <div class="tiles">
+    ${tile('작물', CROPS.length + 16, '종', '염료 16 + 자원 76')}
+    ${tile('Resource 형질', RES.length, '개', '티어 0~8')}
+    ${tile('LV~HV로 수확', CROPS.filter(c => c.tier <= HAVE).length, '종', '작물 티어 3 이하')}
+    ${tile('수확 기본', '8', '초', '160틱 × 작물 티어')}
+  </div>
+  ${flow({
+    label: 'gCrops 흐름', h: 300,
+    nodes: [
+      { id: 'seed', x: 20, y: 30, w: 160, t: '씨앗', s: 'gCrop Seeds (퀘스트 "Any seeds")', k: 'src' },
+      { id: 'mut', x: 220, y: 30, w: 170, t: 'gCrop Mutator', s: '돌연변이원 + 400t · 형질 추가', k: 'G' },
+      { id: 'br', x: 430, y: 30, w: 170, t: 'gCrop Breeder', s: '교배 · 자가수분으로 복제', k: 'G' },
+      { id: 'hv', x: 640, y: 30, w: 170, t: 'gCrop Harvester', s: '비료 + 유체 → 열매', k: 'G' },
+      { id: 'pr', x: 640, y: 170, w: 170, t: '열매 가공', s: '작물 티어마다 다른 라인', k: 'HVc' },
+      { id: 'out', x: 850, y: 176, w: 130, h: 44, t: '자원', k: 'GOAL' },
+      { id: 'mg', x: 220, y: 170, w: 170, t: '돌연변이원', s: 'Ender Pearl · Thorium · Caesium …', k: 'src' },
+      { id: 'air', x: 20, y: 170, w: 160, t: 'Void Mesh', s: 'Mystical Essence → Mystical Air', k: 'src' },
+    ],
+    edges: [
+      { a: 'seed', b: 'mut' }, { a: 'mut', b: 'br' }, { a: 'br', b: 'hv' }, { a: 'hv', b: 'pr', l: '열매' }, { a: 'pr', b: 'out' },
+      { a: 'mg', b: 'mut', fs: 't', ts: 'b' }, { a: 'air', b: 'mg' },
+    ],
+  })}
+  <div class="grid2">
+    <div class="card"><h3>형질 네 종류</h3><ul class="pts">
+      <li><b>Resource</b> — 무엇이 열리는지. 조합이 자원을 정하고, 가장 높은 형질 티어가 <b>작물 티어</b>가 됩니다.</li>
+      <li><b>Production</b> — 수확 시간 · 열매 수 · 비료 소모. 좋은 것과 나쁜 것이 섞여 있습니다.</li>
+      <li><b>Auxiliary</b> — 수확 조건(낮 · 밤) · 꽃 수확.</li>
+      <li><b>Climate</b> — 멀티블럭 Harvester의 Climate Hatch와 맞으면 ×1.2 / ×0.8 보정(선택).</li>
+    </ul></div>
+    <div class="card"><h3>유전 규칙 (퀘스트 "Traits &amp; you")</h3><ul class="pts">
+      <li>작물은 <b>모든 형질의 유전자</b>를 갖고, 유전자마다 대립유전자가 기본 2개입니다.</li>
+      <li>대립유전자 중 하나라도 그 형질이면 발현 — 우성처럼 동작합니다.</li>
+      <li>형질의 존재는 돌연변이로만 생기고, 드문 형질(가중치 낮음)은 Mutator를 오래 돌려야 나옵니다.</li>
+      <li>형질 설명은 EMI에서 <b>DNA Strand</b>를 보면 나옵니다.</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>작물 티어별 수</h3>
+    ${hbar(byT.map((n, i, _a, t = i + 1) => ({ label: `티어 ${t}`, sub: `수확 ${TN[TV[t]]}`, value: n, color: t <= HAVE ? 'var(--s3)' : 'var(--s9, var(--muted))', text: `${n}종` })), { cols: ['작물 티어', '작물 수'] })}
+    <p class="sub" style="margin:8px 0 0">염료(티어 0) 16종은 제외. 초록 막대 = 지금(HV) 수확 가능.</p>
+  </div>`;
+}
+
+function viewCrops() {
+  const f = S.cropTier;
+  const list = CROPS.filter(c => f === 'all' || (f === 'now' ? c.tier <= HAVE : c.tier === +f));
+  const btn = (v, n) => `<button data-ct="${v}" aria-pressed="${f === v}">${n}</button>`;
+  return `
+  <h2>작물 목록</h2>
+  <p class="lead">자원 작물 ${CROPS.length}종과 필요한 Resource 형질입니다. <b>작물 티어</b> = 형질 중 가장 높은 티어이고, 그 티어의 전압으로 돌연변이 · 수확합니다(Empowered면 한 단계 아래).</p>
+  <div class="seg" id="ctf" role="group" aria-label="작물 티어">${btn('all', '전체')}${btn('now', 'HV까지')}${[1, 2, 3, 4, 5, 6, 7, 8].map(t => btn(String(t), 'T' + t)).join('')}</div>
+  <div class="card"><div class="tscroll"><table>
+    <thead><tr><th>자원</th><th>형태</th><th class="n">티어</th><th>수확 전압</th><th>필요 형질</th><th>쓰임</th></tr></thead>
+    <tbody>${list.map(c => `<tr><td><b>${esc(nice(c.id))}</b></td><td>${FORM[c.f]}</td><td class="n">${c.tier}</td><td>${TN[TV[c.tier]]}</td>
+      <td>${c.traits.map(t => `<span style="white-space:nowrap">${esc(t)}<small style="color:var(--muted)">${TT[t]}</small></span>`).join(' · ')}</td><td>${esc(WANT[c.id] || '')}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">Sheldonite 작물의 결과물은 Cooperite로 처리됩니다(jar). Nether · Ender Air는 한 번에 10배, Atomic Nether Sludge는 8배.</p></div>`;
+}
+
+function viewMutate() {
+  return `
+  <h2>돌연변이 · 교배</h2>
+  <p class="lead">새 형질은 <b>Mutator</b>에서만 생깁니다. 넣은 돌연변이원의 티어까지의 형질이 나올 수 있고, 레시피는 <b>400틱 · 그 형질 티어의 전압</b>입니다(<code>GCropMutatorLogic</code>). 원하는 형질이 나오면 <b>Breeder</b>로 교배 · 자가수분해 늘립니다.</p>
+  <div class="card"><h3>돌연변이원 → 형질 티어</h3>
+    <p class="sub">아이템(dust 1개) 또는 유체(1000mB). 둘 다 넣으면 높은 쪽. Mystical Air 1000mB를 함께 쓰는 변형 레시피도 있습니다.</p>
+    <div class="tscroll"><table><thead><tr><th class="n">형질 티어</th><th>아이템</th><th>유체</th><th>Mutator 전압</th><th>이 티어에 열리는 Resource 형질</th></tr></thead>
+    <tbody>${MUTAGEN.map(([t, i, fl]) => `<tr${t <= HAVE ? ' style="background:color-mix(in srgb, var(--good) 8%, transparent)"' : ''}><td class="n"><b>${t}</b></td><td>${esc(i)}</td><td>${esc(fl)}</td><td>${TN[TV[t]]}</td><td>${RES.filter(r => r[1] === t).map(r => r[0]).join(' · ')}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">티어 0 형질(Charred · Vibrant · Tough · Fluorescent)은 돌연변이원 없이 나옵니다. 초록 줄 = 지금 쓸 수 있음.</p></div>
+  <div class="grid2">
+    <div class="card"><h3>형질 가중치 (나오기 쉬운 정도)</h3>
+      ${hbar(RES.map(([n, t, w]) => ({ label: n, sub: 'T' + t, value: w, color: t <= HAVE ? 'var(--s3)' : 'var(--s7)', text: fmt(w, 0) })), { cols: ['형질', '가중치'] })}
+    </div>
+    <div class="card"><h3>기계</h3><ul class="pts">
+      <li><b>단일 블록</b> Mutator · Breeder · Harvester: LV~UIV. 작업대 제작 — Hull + 그 티어 회로 · Motor · Robot Arm · Conveyor(Mutator는 Field Generator · Pump) (<code>gcrop_machines.js</code>).</li>
+      <li><b>멀티블럭</b> gCrop Mutator · Breeder · Harvester: EV 단일 블록 + IV 회로 + Tungstensteel / Titanium Tungsten Carbide 판. 멀티블럭 Harvester는 열매를 전부 거두고 Climate Hatch를 받습니다.</li>
+      <li><b>Climate Hatch</b>: Assembly Line(LuV). Climate 형질과 맞으면 보정.</li>
+      <li><b>Genome Operator</b>(UHV Assembly Line): 게놈을 뽑아 직접 편집.</li>
+      <li><b>Void Mesh</b>: Steel 판 + String Mesh + MV 회로. Mystical Essence → Mystical Air.</li>
+    </ul></div>
+  </div>`;
+}
+
+function viewHarvest() {
+  const dur = t => 160 * Math.max(1, t) / 20;
+  return `
+  <h2>수확 · 가공</h2>
+  <p class="lead">Harvester 레시피는 작물마다 형질로 바뀝니다(퀘스트: "JEI 레시피에 속지 말 것"). 기본값은 <code>GCropHarvesterLogic</code>에서 읽었습니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>기본 수확</h3><ul class="pts">
+      <li>시간 = <b>160틱 × 작물 티어</b>(티어 0은 160틱). 전압 = 작물 티어 전압(티어 7 → UV, 8 → UEV).</li>
+      <li>열매 <b>1~4개</b>(범위 출력). 작물 자체는 확률로 소모 — 티어마다 7.5%(추정, <code>chancedInput 750 × 티어</code>).</li>
+      <li>비료 · 유체: 작물 티어보다 낮은 등급 비료를 쓰면 <b>한 단계마다 ×4</b>(아이템 1 → 4 → 16, 유체 100mB → 400 → …). 비료는 NPK Solution → Nutrient Rich Fertilizer → Biostimulating Mixture ${EMI}.</li>
+      <li>Diurnal이 없으면 낮에만, Nocturnal이면 밤에만 동작 ${EMI}.</li>
+    </ul></div>
+    <div class="card"><h3>작물 티어별 기본 주기</h3>
+      ${hbar([1, 2, 3, 4, 5, 6, 7, 8].map(t => ({ label: `티어 ${t}`, sub: TN[TV[t]], value: dur(t), color: t <= HAVE ? 'var(--s3)' : 'var(--s7)', text: `${fmt(dur(t), 0)}초` })), { cols: ['작물 티어', '초'] })}
+    </div>
+  </div>
+  <div class="card"><h3>Production 형질 효과</h3>
+    <div class="tscroll"><table><thead><tr><th>형질</th><th class="n">티어</th><th>효과</th></tr></thead>
+    <tbody>${PROD.map(([n, t, e]) => `<tr><td><b>${n}</b></td><td class="n">${t}</td><td>${esc(e)}</td></tr>`).join('')}
+    ${AUX.map(([n, t, e]) => `<tr><td><b>${n}</b> <small style="color:var(--muted)">Auxiliary</small></td><td class="n">${t}</td><td>${esc(e)}</td></tr>`).join('')}
+    <tr><td><b>${CLIM.join(' · ')}</b> <small style="color:var(--muted)">Climate</small></td><td class="n">1</td><td>Climate Hatch와 맞으면 항목별 ×1.2 / ×0.8</td></tr></tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">시간 형질은 곱연산이라 Quickened + Speedy + Fast = ×0.73. Sprawling · Autotroph는 열매가 크게 늘지만 비료 소모도 같이 늘어 비료 라인이 먼저 필요합니다.</p></div>
+  <div class="card"><h3>열매 가공 라인 (작물 티어별)</h3>
+    <p class="sub">결과물 형태는 작물의 형태를 따릅니다 — dust 작물은 dust, gem은 gem, ore는 <b>raw ore</b>(기존 광석 라인으로), fluid는 유체. 열매 하나당 수율은 ${EMI}.</p>
+    <div class="tscroll"><table><thead><tr><th class="n">티어</th><th>라인 (<code>GCropRecipes.runRecipeGen</code>)</th><th>부산물</th></tr></thead><tbody>
+      <tr><td class="n">0</td><td>Extractor(pigment) → Fluid Solidifier(dilution) → 염료</td><td>—</td></tr>
+      <tr><td class="n">1</td><td>Extractor → <b>extract 4000mB</b> → Centrifuge(1000mB씩) → 자원</td><td>Poor Mineral-Rich Bio Waste → Chemical Reactor</td></tr>
+      <tr><td class="n">2</td><td>Forge Hammer → Fruit Pulp ×4 → Polarizer(charging) → EM Separator → 자원</td><td>Poor Charged Bio Waste → Electrolyzer</td></tr>
+      <tr><td class="n">3</td><td>Cutter(slicing) → Brewery → Tincture → Distillation → Concentrated Extract → Fluid Solidifier</td><td>Chemical Reactor</td></tr>
+      <tr><td class="n">4</td><td>Brewery 계열 + Chemical Reactor</td><td>—</td></tr>
+      <tr><td class="n">5</td><td>Fruit Popping → Concentrate Separation</td><td>—</td></tr>
+      <tr><td class="n">6</td><td>Shredding → Pulp Compression → Tincture Separation</td><td>—</td></tr>
+      <tr><td class="n">7~8</td><td>Fruit Compression → Composite Extraction · Crystallization</td><td>—</td></tr>
+    </tbody></table></div></div>`;
+}
+
+function viewPlan() {
+  const now = CROPS.filter(c => c.tier <= HAVE && WANT[c.id]);
+  return `
+  <h2>지금 할 것 (HV)</h2>
+  ${callout('ok', '✓', `<b>다이아몬드 작물이 보석 발전의 답입니다.</b> Diamond = <b>Vibrant(0) + Crystalline(1)</b> → 작물 티어 1, <b>LV Harvester</b>로 8초마다 열매 1~4개. 돌연변이원은 <b>Ender Pearl dust</b> 하나면 됩니다. 발전 · 플라즈마 전환 추정(<a href="common.html#power">공용 › 발전</a>)의 한계였던 "다이아몬드 시간당 ~1,400개"를 Harvester 몇 대로 채울 수 있습니다(열매 수율 ${EMI}).`)}
+  <div class="card"><h3>순서</h3><ol class="pts">
+    <li><b>LV~HV 단일 블록 3종</b>(Mutator · Breeder · Harvester)과 Void Mesh를 만듭니다.</li>
+    <li>씨앗 → Mutator(Ender Pearl dust)로 <b>Crystalline</b>을 띄우고, Vibrant가 나올 때까지 반복 → Diamond 작물.</li>
+    <li>Breeder 자가수분으로 여러 개 복제 → Harvester 여러 대. 좋은 Production 형질(Quickened · Speedy · Fast)도 같은 방식으로 붙입니다.</li>
+    <li>티어 1 가공 라인(Extractor → Centrifuge) + Chemical Reactor로 부산물 처리 → Diamond → Diatron(Mixer · Autoclave) → Lapidary Dynamo.</li>
+    <li>같은 설비로 <b>Glowstone</b>(Dusty 하나, 티어 1)과 <b>Sulfur</b>(티어 1)도 — HV 페이지의 병목 자원입니다.</li>
+    <li>HV Mutator + <b>Caesium dust 또는 Fluorine</b>으로 티어 3 형질(Illuminating · Mineralic)까지 → <b>Rare Earth</b>(Neodymium 자석용)까지 HV에서 가능. Platinum 그룹(Sheldonite)은 티어 5라 IV.</li>
+  </ol></div>
+  <div class="card"><h3>HV까지 키울 수 있는 쓸모 있는 작물</h3><div class="tscroll"><table>
+    <thead><tr><th>작물</th><th class="n">티어</th><th>형질</th><th>쓰임</th></tr></thead>
+    <tbody>${now.map(c => `<tr><td><b>${nice(c.id)}</b></td><td class="n">${c.tier}</td><td>${c.traits.join(' + ')}</td><td>${esc(WANT[c.id])}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">나중에: Tungstate(티어 5 · IV) · Ilmenite(5) · Pitchblende(5) · Naquadah(6 · LuV) — 각 티어 페이지의 자원 탭에서 광석 라인과 비교합니다.</p></div>`;
+}
+
+const VIEWS = { overview: viewOverview, crops: viewCrops, mutate: viewMutate, harvest: viewHarvest, plan: viewPlan };
+startPage({
+  key: 'gcrops-web',
+  save: () => ({ cropTier: S.cropTier }),
+  load: o => { if (typeof o.cropTier === 'string') S.cropTier = o.cropTier; },
+  mainClick: e => {
+    const b = e.target.closest('#ctf button'); if (!b) return false;
+    S.cropTier = b.dataset.ct; render(); return true;
+  },
+});
+</script>
+</body>
+</html>
