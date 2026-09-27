@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HV 자동화 라인</title>
+<title>HV 할 일</title>
 <link rel="stylesheet" href="assets/site.css">
 <script src="assets/shell.js"></script>
 <style>
@@ -120,6 +120,11 @@ ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 6px; }
   .controls { margin-left: 0; }
   .tile .v { font-size: 24px; }
 }
+.subnav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.subnav button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.subnav button[aria-selected="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+ol.steps { margin: 0; padding-left: 22px; } ol.steps li + li { margin-top: 8px; }
+.src { color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body data-tier="HV">
@@ -127,14 +132,15 @@ ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 6px; }
   <div class="wrap">
     <div class="top">
       <div>
-        <h1>Star Technology · HV 자동화 라인</h1>
-        <div class="meta">packmode default · 2026-09-26 · Theta 1 (GTCEu 1.7.0b) 기준으로 팩 KubeJS와 jar에서 확인</div>
+        <h1>Star Technology · HV 할 일</h1>
+        <div class="meta">Theta 2 (GTCEu 1.7.1b) 기준 재확인 · 2026-09-27 · 레시피는 팩 KubeJS와 jar에서 확인</div>
       </div>
       <div class="controls">
-        <span class="ctl-label">Void Extractor 에너지 해치</span>
-        <div class="seg" id="hatch">
-          <button data-v="LV">LV (640t)</button>
-          <button data-v="HV">HV (160t)</button>
+        <span class="ctl-label">Void Extractor · MV 해치</span>
+        <div class="seg" id="ven">
+          <button data-n="2">2대</button>
+          <button data-n="3">3대</button>
+          <button data-n="4">4대</button>
         </div>
       </div>
     </div>
@@ -146,23 +152,38 @@ ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 6px; }
 
 <script>
 /* ---------- state ---------- */
-const S = { hatch: 'HV', tab: 'overview', layN: 1, layGhost: true, layPipes: true, layLabels: true, layMode: 'laser' };
+// topic = 위쪽 탭, sub = 주제 안의 하위 탭. 주소는 #topic 또는 #topic/sub.
+const S = { veN: 4, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
 try {
   const saved = JSON.parse(localStorage.getItem('hv-web') || '{}');
-  if (saved.hatch === 'LV' || saved.hatch === 'HV') S.hatch = saved.hatch;
-  if (saved.tab) S.tab = saved.tab;
+  if ([2, 3, 4].includes(saved.veN)) S.veN = saved.veN;
+  if (saved.topic) S.topic = saved.topic;
+  if (saved.sub) S.sub = saved.sub;
   if (saved.lay) Object.assign(S, saved.lay);
 } catch (e) {}
-const hashTab = location.hash.slice(1);
-if (hashTab) S.tab = hashTab;
+// 예전 탭 주소(ev.html 등에서 링크)를 새 구조로 옮긴다
+const ALIAS = { void: 'resource/void', crushed: 'resource/crushed', persulfate: 'resource/persulfate', layout: 'resource/chunk', c2f4: 'ptfe/lcr' };
+function readHash() {
+  let h = decodeURIComponent(location.hash.slice(1));
+  if (ALIAS[h]) h = ALIAS[h];
+  const [t, s] = h.split('/');
+  if (t) S.topic = t;
+  if (t && s) S.sub[t] = s;
+}
+readHash();
 function persist() {
-  if (location.hash.slice(1) !== S.tab) history.replaceState(null, '', '#' + S.tab);
-  try { localStorage.setItem('hv-web', JSON.stringify({ hatch: S.hatch, tab: S.tab, lay: { layN: S.layN, layGhost: S.layGhost, layPipes: S.layPipes, layLabels: S.layLabels, layMode: S.layMode } })); } catch (e) {}
+  const sub = TOPICS.find(t => t.id === S.topic)?.subs ? '/' + curSub() : '';
+  const want = '#' + S.topic + sub;
+  if (location.hash !== want) history.replaceState(null, '', want);
+  try { localStorage.setItem('hv-web', JSON.stringify({ veN: S.veN, topic: S.topic, sub: S.sub, lay: { layGhost: S.layGhost, layPipes: S.layPipes, layLabels: S.layLabels } })); } catch (e) {}
 }
 
-/* ---------- constants (문서 01~04와 같은 값) ---------- */
-const CYCLE = { LV: 640, HV: 160 };
-const cph = () => 72000 / CYCLE[S.hatch];            // cycles per hour
+/* ---------- constants (Theta 2에서 재확인한 값) ---------- */
+// Void Extractor: void_excavation/mining — LV 30 EU/t · 640t. MV 해치 = 1단계 OC → 120 EU/t · 320t.
+const CYC = 320;
+const CPH1 = 72000 / CYC;                             // VE 1대의 시간당 사이클
+const cph = () => CPH1 * S.veN;                       // 전체 시간당 사이클
+const VE_EUT = 120;
 const PER_CYCLE = {
   mvCrushed: 2.8, hvCrushed: 4.2, molten: 175, silver: 1.6, calcite: 3.2, sludgeDust: 3.2,
   drilling: 5000, water: 4980, lubricant: 20, distilled: 280, persulfate: 420,
@@ -171,7 +192,7 @@ const ORES = [
   { n: 'Lepidolite', t: 'MV', c: 0.7, from: 'D', by: ['Lithium', 'Lithium', 'Caesium'], use: 'Lithium, Fluorine 원료' },
   { n: 'Pyrochlore', t: 'MV', c: 0.7, from: 'D', by: ['Apatite', 'Apatite', 'Calcium'], use: 'Niobium, Fluorine 원료' },
   { n: 'Pyrolusite', t: 'MV', c: 0.7, from: 'D', by: ['Manganese', 'Manganese', 'Tantalite'], use: 'Manganese' },
-  { n: 'Magnesite', t: 'MV', c: 0.7, from: 'D', by: ['Magnesium', 'Magnesium', 'Cobaltite'], use: 'Magnesium' },
+  { n: 'Magnesite', t: 'MV', c: 0.7, from: 'D', by: ['Magnesium', 'Magnesium', 'Cobaltite'], use: 'Magnesium (Titanium 환원제)' },
   { n: 'Beryllium', t: 'HV', c: 0.525, from: 'E', by: ['Emerald', 'Emerald', 'Beryllium'], use: 'Beryllium' },
   { n: 'Zavaritskite', t: 'HV', c: 0.525, from: 'E', by: ['Topaz', 'Blue Topaz', 'Bismuth'], use: 'Bismuth, Topaz류는 Fluorine 원료' },
   { n: 'Barite', t: 'HV', c: 0.42, from: 'F', by: ['Pyrite', 'Pyrite', 'Chalcopyrite'], use: 'Barium' },
@@ -181,7 +202,7 @@ const ORES = [
   { n: 'Pollucite', t: 'HV', c: 0.63, from: 'G', by: ['Caesium', 'Aluminium', 'Aluminium'], use: 'Caesium' },
   { n: 'Cassiterite', t: 'HV', c: 0.63, from: 'G', by: ['Tin', 'Tin', 'Bismuth'], use: 'Tin' },
 ];
-// Fluorine per cycle: Ore Factory 기대 산출 1.5 dust/crushed, 부산물 확률 25% / 12.5%
+// Fluorine per VE cycle: Ore Factory 기대 산출 1.5 dust/crushed, 부산물 확률 25% / 12.5%
 const FLUORINE = [
   { n: 'Lepidolite', v: 0.7 * 1.5 / 20 * 2000, how: '1.05 dust ÷ 20 × 2000mB' },
   { n: 'Pyrochlore', v: 0.7 * 1.5 / 11 * 1000, how: '1.05 dust ÷ 11 × 1000mB' },
@@ -189,9 +210,10 @@ const FLUORINE = [
 ];
 const F_PER_CYCLE = FLUORINE.reduce((a, b) => a + b.v, 0);
 
-/* 처리 단계: 레시피 티어 기계에 놓았을 때의 값 (runs = 사이클당 실행 횟수, dur/eut = 그 기계에서) */
+/* 처리 단계: 청크에 두는 기계 기준 (runs = VE 사이클당 실행 횟수, dur/eut = 그 기계에서).
+   A는 LV 레시피지만 전선을 MV · HV 두 계통으로 줄이려고 MV 기계에 둔다 (1단계 OC → 60t · 120 EU/t). */
 const STAGES = [
-  { id: 'A', m: 'Electrolyzer', t: 'LV', runs: 0.4, dur: 120, eut: 30, r: 'rare_ore_residue', what: 'Rare Ore Residue' },
+  { id: 'A', m: 'Electrolyzer', t: 'MV', runs: 0.4, dur: 60, eut: 120, r: 'rare_ore_residue', what: 'Rare Ore Residue', note: 'LV 레시피 · MV 기계에서 60t' },
   { id: 'B', m: 'Centrifuge', t: 'MV', runs: 1.6, dur: 50, eut: 64, r: '*_sludge ×4', what: 'Sludge ×4' },
   { id: 'C', m: 'Electrolyzer', t: 'MV', runs: 1.6, dur: 50, eut: 120, r: 'rare_metallic_residue', what: 'Rare Metallic Residue' },
   { id: 'D', m: 'Centrifuge', t: 'MV', runs: 0.7, dur: 240, eut: 120, r: 'raw_ore_slurry', what: 'Raw Ore Slurry' },
@@ -200,23 +222,49 @@ const STAGES = [
   { id: 'G', m: 'Centrifuge', t: 'HV', runs: 0.63, dur: 230, eut: 480, r: 'oxygenous_mineral_mixture', what: 'Oxygenous Mineral Mixture' },
 ];
 STAGES.forEach(s => { s.busy = s.runs * s.dur; s.eu = s.busy * s.eut; });
-const MIXER_BUSY = 64;                                // drilling_fluid (Water), EU/t는 EMI 확인
-const VE_EUT = { LV: 30, HV: 480 };                   // 30 EU/t 레시피, HV 해치 = 2단계 OC
-const VE_TIERS_ABOVE = { LV: 0, HV: 2 };
-const veEU = () => CYCLE[S.hatch] * VE_EUT[S.hatch];
-// clusters.js: chancedOutput(개수, 기본 확률, 티어당 부스트) — 부스트가 OC 티어 기준인지는 EMI 확인
+const stage = id => STAGES.find(s => s.id === id);
+const LIMIT = 0.95;                                   // 가동률 95%를 넘으면 한 대 더
+const need = (busy, n) => Math.max(1, Math.ceil(busy * n / (CYC * LIMIT) - 1e-9));
+const MIXER_BUSY = 64;                                // drilling_fluid (Water) 64t — VE 쪽 청크
+// clusters.js: chancedOutput(개수, 기본 확률, 티어당 부스트). MV 해치 = OC 1단계
 const RAW_ORES = [
-  { n: 'Raw Coal', q: 2, base: 40, boost: 10 },
-  { n: 'Raw Gold', q: 2, base: 40, boost: 7.5 },
-  { n: 'Raw Sodalite', q: 1, base: 30, boost: 10 },
-  { n: 'Raw Pentlandite', q: 3, base: 30, boost: 5 },
-  { n: 'Raw Realgar', q: 1, base: 60, boost: 12 },
-  { n: 'Raw Silver', q: 2, base: 35, boost: 7.5 },
+  { n: 'Raw Coal', q: 2, base: 40, boost: 10 }, { n: 'Raw Gold', q: 2, base: 40, boost: 7.5 },
+  { n: 'Raw Sodalite', q: 1, base: 30, boost: 10 }, { n: 'Raw Pentlandite', q: 3, base: 30, boost: 5 },
+  { n: 'Raw Realgar', q: 1, base: 60, boost: 12 }, { n: 'Raw Silver', q: 2, base: 35, boost: 7.5 },
 ];
-const rawOrePerCycle = hatch => RAW_ORES.reduce((a, o) => a + o.q * Math.min(100, o.base + o.boost * VE_TIERS_ABOVE[hatch]) / 100, 0);
-const MAX_VE = 4;                                     // 배치도가 자리를 잡아 두는 Void Extractor 수
-const need = (busy, n) => Math.max(1, Math.ceil(busy * n / CYCLE[S.hatch] - 1e-9));
+const rawOrePerCycle = tiers => RAW_ORES.reduce((a, o) => a + o.q * Math.min(100, o.base + o.boost * tiers) / 100, 0);
 
+/* 청크 전력: mv_16a_energy_converter 4대 = MV 64A (8,192 EU/t).
+   C1~C3 → hv_transformer_16a(승압) → HV 12A, C4 → MV 16A. 단일 블록은 돌 때 자기 전압 1A. */
+const POWER = { hvA: 12, mvA: 16, totalA: 64 };
+const machinesAt = (n, tier) => STAGES.filter(s => s.t === tier).reduce((a, s) => a + need(s.busy, n), 0);
+const chainEU = STAGES.reduce((a, s) => a + s.eu, 0);            // VE 1사이클당
+const chainEUt = n => chainEU * n / CYC;
+// Distillation Tower: molten_ore_mixture — 10,000mB · 1200t · 1920 EU/t (EV). HV 에너지 해치(2A) 2개 = 4A → EV 1A로 인식
+const TOWER = { in: 10000, dur: 1200, eut: 1920, hvA: 4 };
+const towerRuns = n => PER_CYCLE.molten * CPH1 * n / TOWER.in;   // 시간당 증류 횟수
+
+/* Titanium: Molten Ore Mixture 10,000mB → Molten Ilmenite 1000 · Molten Bauxite 1500 (+5종)
+   Autoclave(HV): Molten X 500 + Stone Dust → Raw X. 이후는 가정: Raw 1 → Crushed 1, Ore Factory(EV 티어) 기대 1.5 dust + 4차 Rutile 7.5% */
+const TI = {
+  ilmRaw: 1000 / 500, bauRaw: 1500 / 500, dustPer: 1.5, quat: 0.075,
+};
+TI.ilmDust = TI.ilmRaw * TI.dustPer; TI.bauDust = TI.bauRaw * TI.dustPer;
+TI.rutIlm = TI.ilmDust * 2 / 10 + TI.ilmRaw * TI.quat;          // rutile_from_ilmenite_fix: 10 Ilmenite + 2 Carbon → 2 Rutile
+TI.rutBau = TI.bauDust / 15 + TI.bauRaw * TI.quat;              // bauxite_electrolysis: 15 Bauxite → 6 Aluminium + 1 Rutile
+TI.per10k = TI.rutIlm + TI.rutBau;                              // Rutile 1 → TiCl4 1000 → Titanium 1
+TI.al10k = TI.bauDust / 15 * 6;
+const tiPerHour = n => towerRuns(n) * TI.per10k;
+
+/* PTFE: 첫 LCR에 들어가는 양 (GT 재료량: plate 1 · large pipe 6 · normal pipe 3 · frame 2 ingot). 해치 8개 가정 */
+const LCR_PTFE = [
+  { n: 'PTFE Large Fluid Pipe ×2', s: '컨트롤러 (CRC / PMP / CHC)', mb: 2 * 6 * 144 },
+  { n: 'PTFE Pipe Casing ×1', s: 'plate 4 + frame 1 + normal pipe 4', mb: (4 + 2 + 4 * 3) * 144 },
+  { n: 'Chemically Inert Casing ×16', s: 'casing_ptfe_inert: PTFE 216 + Solid Steel Casing', mb: 16 * 216 },
+];
+const LCR_PTFE_MB = LCR_PTFE.reduce((a, b) => a + b.mb, 0);
+</script>
+<script>
 /* ---------- helpers ---------- */
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n, d = 1) => Number(n).toLocaleString('ko-KR', { maximumFractionDigits: d });
@@ -360,137 +408,202 @@ const tile = (l, v, u, d) => `<div class="tile"><div class="l">${esc(l)}</div><d
 const callout = (kind, icon, html) => `<div class="callout ${kind}"><span class="ic" aria-hidden="true">${icon}</span><div>${html}</div></div>`;
 const EMI = '<span class="emi">EMI 확인</span>';
 
-/* ---------- tabs ---------- */
-const TABS = [
-  { id: 'overview', name: '개요' },
-  { id: 'void', name: 'Void Extractor 체인' },
-  { id: 'crushed', name: 'Crushed Ore 분류' },
-  { id: 'persulfate', name: 'Sodium Persulfate' },
-  { id: 'c2f4', name: 'C2F4 · PTFE (LCR)' },
-  { id: 'layout', name: '3D 배치도' },
-];
 
+/* ---------- topics ---------- */
+TIER.EV = { c: 'var(--s5)', name: 'EV 레시피 (HV 해치 2개)' };
+TIER.GOAL = { c: 'var(--good)', name: '목표' };
+const TOPICS = [
+  { id: 'overview', name: '개요' },
+  { id: 'power', name: '1 · 전력' },
+  { id: 'resource', name: '2 · 자원', subs: [['void', 'Void 체인'], ['chunk', '한 청크 배치 · 3D'], ['crushed', 'Crushed Ore'], ['persulfate', 'Sodium Persulfate']] },
+  { id: 'ptfe', name: '3 · PTFE → LCR', subs: [['boot', '첫 LCR 만들기'], ['lcr', 'LCR 이후 C2F4 양산']] },
+  { id: 'circuit', name: '4 · 클린룸 · 회로' },
+  { id: 'next', name: '5 · 다음 티어' },
+  { id: 'misc', name: '6 · 기타', subs: [['multi', '멀티블럭'], ['epoxy', '에폭시']] },
+];
+const curTopic = () => TOPICS.find(t => t.id === S.topic) || TOPICS[0];
+function curSub() {
+  const t = curTopic(); if (!t.subs) return null;
+  const s = S.sub[t.id];
+  return t.subs.some(x => x[0] === s) ? s : t.subs[0][0];
+}
+const subnav = () => {
+  const t = curTopic(); if (!t.subs) return '';
+  return `<div class="subnav" role="tablist" id="subnav">${t.subs.map(([id, n]) => `<button role="tab" data-sub="${id}" aria-selected="${id === curSub()}">${esc(n)}</button>`).join('')}</div>`;
+};
+const src = (s) => `<span class="src">${s}</span>`;
+
+/* ---------- 개요 ---------- */
 function viewOverview() {
-  const h = cph();
-  const c2f4 = F_PER_CYCLE * h / 4;
-  const ptfeIngot = c2f4 * 1.5 / 144;
-  const newCount = S.hatch === 'HV' ? 4 : 3;
+  const n = S.veN;
+  const avgA = chainEUt(n) / 128;
   return `
   <h2>개요</h2>
-  <p class="lead">Void Extractor 출력을 끝까지 처리하는 체인과 거기에 딸린 Sodium Persulfate 라인, LCR로 돌리는 C2F4 → PTFE 라인을 한눈에 봅니다.
-  위쪽 <b>에너지 해치</b> 토글로 Void Extractor를 LV 해치(640t)와 HV 해치(160t) 중 어느 쪽으로 운용할지 바꾸면 모든 탭의 수치가 따라 바뀝니다.</p>
+  <p class="lead">HV에서 할 일을 주제별로 묶었습니다. 위쪽 <b>Void Extractor</b> 토글(MV 해치 2~4대)을 바꾸면 모든 탭의 수치가 따라 바뀝니다.
+  순서는 <b>자원 청크 → PTFE로 LCR → 클린룸과 EV · IV 회로 → HV 해치 2개로 EV 레시피를 돌려 첫 Titanium</b>입니다.</p>
+  ${callout('ok', '✓', `<b>Theta 2에서 레시피를 다시 가져왔습니다.</b> 이 페이지가 쓰는 레시피는 바뀐 것이 없습니다. KubeJS는 파일 구조가 통째로 바뀌었지만(<code>default/</code> · <code>hardmode/</code> 분리 폐지) Void 체인 · Ore Factory · Chemical Plant 레시피를 ID별로 비교하면 같고, GTCEu jar(1.7.0b → 1.7.1b)는 화학 · 회로 레시피 클래스와 재료 정의가 그대로입니다.`)}
   <div class="tiles">
-    ${tile('HV Crushed Ore / 시간', fmt(PER_CYCLE.hvCrushed * h, 0), '개', 'Ore Factory B로 가는 8종 합계')}
-    ${tile('Sodium Persulfate 수요 / 시간', fmt(PER_CYCLE.persulfate * h / 1000, 1), 'B (1000mB)', 'Crushed 1개당 100mB')}
-    ${tile('PTFE / 시간 (예상)', fmt(ptfeIngot, 0), 'ingot', 'Void 체인 Fluorine만으로, ptfe_from_oxygen 기준')}
-    ${tile('새로 지을 기계', newCount, '대', S.hatch === 'HV' ? 'HV Electrolyzer 1 · HV Centrifuge 2 · LCR 1' : 'HV Electrolyzer 1 · HV Centrifuge 1 · LCR 1')}
+    ${tile('Void Extractor', n, '대 · MV', `사이클 ${CYC}t · 시간당 ${fmt(cph(), 0)}사이클`)}
+    ${tile('처리 청크 평균 전력', fmt(avgA, 1), `A / ${POWER.totalA}A`, `${fmt(chainEUt(n), 0)} EU/t · MV 기준`)}
+    ${tile('첫 LCR에 필요한 PTFE', fmt(LCR_PTFE_MB / 144, 0), 'ingot', `${fmt(LCR_PTFE_MB, 0)}mB · 단일 CR로 만듦`)}
+    ${tile('Titanium / 시간 (예상)', fmt(tiPerHour(n), 0), 'ingot', 'Molten Ore Mixture 증류 경로')}
   </div>
   <div class="card">
-    <h3>세 라인의 연결</h3>
-    <p class="sub">노드와 화살표에 마우스를 올리면 설명이 나옵니다. 왼쪽 색 띠는 기계 종류입니다.</p>
+    <h3>로드맵</h3>
+    <p class="sub">왼쪽에서 오른쪽으로 진행합니다. 노드에 마우스를 올리면 설명이 나옵니다. 번호는 위쪽 탭과 같습니다.</p>
     ${flow({
-      label: '세 라인 연결도', h: 560,
+      label: 'HV 로드맵', h: 430,
       nodes: [
-        { id: 've', x: 20, y: 170, w: 140, t: 'Void Extractor', s: 'Drilling Fluid 5000', k: 'LV', tip: 'Void Extractor · 사이클당 Rare Ore Residue 400 + Raw Ore Slurry 600' },
-        { id: 'ch', x: 270, y: 170, w: 160, t: '처리 체인 A~G', s: 'Electrolyzer · Centrifuge', k: 'HV', tip: '01 문서: 7단계. HV 전용은 E, F, G' },
-        { id: 'ofa', x: 540, y: 50, w: 140, t: 'Ore Factory A', s: 'Distilled Water', k: 'OF', tip: 'MV 티어 Crushed 4종' },
-        { id: 'tk', x: 540, y: 170, w: 140, t: 'Super Tank', s: 'Molten Ore Mixture', k: 'tank', tip: 'EV Distillation Tower까지 보관' },
-        { id: 'ofb', x: 540, y: 290, w: 140, t: 'Ore Factory B', s: 'Sodium Persulfate', k: 'OF', tip: 'HV 티어 Crushed 8종. HV 에너지 해치 필수' },
-        { id: 'sp', x: 270, y: 410, w: 160, t: 'Persulfate 라인', s: 'Salt 경로 5단', k: 'MV', tip: '03 문서' },
-        { id: 'fl', x: 810, y: 50, w: 170, t: 'Fluorine 분해', s: 'Lepidolite · Pyrochlore', k: 'MV', tip: 'dust 전해 분해 (EMI 확인)' },
-        { id: 'c2', x: 810, y: 410, w: 170, t: 'C2F4', s: 'LCR · Chloroform 경로', k: 'LCR', tip: '04 문서' },
-        { id: 'pt', x: 810, y: 500, w: 170, h: 44, t: 'PTFE', k: 'MV', tip: 'ptfe_from_oxygen: C2F4 1 → PTFE 1.5' },
+        { id: 'pw', x: 20, y: 30, w: 170, t: '1 전력', s: 'Create Steam · MV 64A', k: 'MV', tip: 'Create Steam PowerGen → LaserIO → mv_16a 컨버터. 보석 발전은 나중에' },
+        { id: 've', x: 20, y: 170, w: 170, t: `Void Extractor ×${n}`, s: 'MV 해치 · VE 청크', k: 'LV', tip: 'Residue와 Slurry만 처리 청크로 보냄' },
+        { id: 'ch', x: 250, y: 170, w: 170, t: '2 처리 청크', s: 'A~G · MV 64A', k: 'HV', tip: '16×16 청크 하나. HV 기계는 트랜스포머로 승압' },
+        { id: 'pt', x: 480, y: 60, w: 170, t: '3 PTFE → LCR', s: `단일 CR · PTFE ${fmt(LCR_PTFE_MB / 144, 0)} ingot`, k: 'LCR', tip: 'HF · Chloroform · C2F4(HV CR) · PTFE를 단일 블록으로 → LCR 1대' },
+        { id: 'cr', x: 480, y: 280, w: 170, t: '4 클린룸', s: 'Workstation · Mainframe', k: 'HV', tip: 'EV 회로(Workstation, 120 EU/t)와 IV 회로(Mainframe, 480 EU/t)는 HV에서 됨' },
+        { id: 'ds', x: 720, y: 170, w: 170, t: '5 Distillation Tower', s: 'HV 해치 2개 → EV', k: 'EV', tip: '컨트롤러에 EV 회로 4개. HV 2A 해치 2개 = 4A → EV 레시피' },
+        { id: 'ti', x: 720, y: 310, w: 170, t: 'Titanium', s: 'Kanthal EBF · Vacuum Freezer', k: 'GOAL', tip: 'TiCl4 + Magnesium → EBF 2141K → Vacuum Freezer' },
+        { id: 'ev', x: 905, y: 316, w: 75, h: 44, t: 'EV', k: 'GOAL' },
       ],
       edges: [
+        { a: 'pw', b: 'ch', l: 'MV 64A', fs: 'r', ts: 't', lt: 0.35 },
         { a: 've', b: 'ch', l: 'Residue · Slurry', amt: 1000 },
-        { a: 'ch', b: 'ofa', l: 'MV crushed 4종', lt: 0.55, lx: -18 },
-        { a: 'ch', b: 'tk', l: 'Molten Ore' },
-        { a: 'ch', b: 'ofb', l: 'HV crushed 8종', lt: 0.55, lx: -18 },
-        { a: 'sp', b: 'ofb', l: 'Sodium Persulfate', fs: 'r', ts: 'b', lt: 0.8, anchor: 'start', lx: 10, ly: 0 },
-        { a: 'sp', b: 'c2', l: 'HCl (염소 보충)', lt: 0.62 },
-        { a: 'ofa', b: 'fl', l: 'Lepidolite\nPyrochlore dust', ly: -22 },
-        { a: 'fl', b: 'c2', l: 'Fluorine' },
-        { a: 'c2', b: 'pt' },
+        { a: 'ch', b: 'pt', l: 'Lepidolite · Pyrochlore\n→ Fluorine', lt: 0.5, ly: -14 },
+        { a: 'ch', b: 'cr', l: 'crushed → dust', lt: 0.5, ly: 16 },
+        { a: 'pt', b: 'ds', l: 'LCR로 에폭시 · 화학 단축', lt: 0.55, ly: -12 },
+        { a: 'cr', b: 'ds', l: 'EV 회로', lt: 0.5, ly: 14 },
+        { a: 'ch', b: 'ds', l: 'Molten Ore Mixture', fs: 'r', ts: 'l', lt: 0.5 },
+        { a: 'ds', b: 'ti', l: 'Ilmenite · Bauxite' },
+        { a: 'ti', b: 'ev' },
       ],
     })}
-    ${tierLegend(['LV', 'MV', 'HV', 'LCR', 'OF', 'tank'])}
+    ${tierLegend(['LV', 'MV', 'HV', 'LCR', 'EV', 'GOAL'])}
   </div>
   <div class="grid2">
     <div class="card">
-      <h3>새로 지을 기계</h3>
-      <p class="sub">세이브 스캔 결과 없는 기계만. 나머지는 기존 LV/MV 기계를 재배정합니다.</p>
+      <h3>기지에 아직 없는 것 (세이브 스캔)</h3>
+      <p class="sub">Theta 2 인스턴스 세이브를 읽기 전용으로 스캔했습니다.</p>
       <div class="tscroll"><table>
-        <thead><tr><th>기계</th><th class="n">LV 해치</th><th class="n">HV 해치</th><th>용도</th></tr></thead>
+        <thead><tr><th>기계</th><th class="n">지금</th><th>어디에 필요</th></tr></thead>
         <tbody>
-          <tr><td>HV Electrolyzer</td><td class="n">1</td><td class="n">1</td><td>Mixed Mineral Residue</td></tr>
-          <tr><td>HV Centrifuge</td><td class="n">1</td><td class="n">2</td><td>Sulfuric / Oxygenous Mineral Mixture</td></tr>
-          <tr><td>Large Chemical Reactor</td><td class="n">1</td><td class="n">1</td><td>C2F4</td></tr>
-          <tr><td>Super Tank 이상</td><td class="n">1</td><td class="n">1</td><td>Molten Ore Mixture 보관</td></tr>
+          <tr><td>HV Electrolyzer · HV Centrifuge</td><td class="n">0</td><td>2 처리 청크 E · F · G</td></tr>
+          <tr><td>HV 에너지 해치</td><td class="n">0</td><td>5 Distillation Tower · EBF (EV 레시피용 2개씩)</td></tr>
+          <tr><td>Large Chemical Reactor</td><td class="n">0</td><td>3 · 이후 화학 단축 레시피</td></tr>
+          <tr><td>Cleanroom · HV Circuit Assembler</td><td class="n">0</td><td>4 Workstation · Mainframe</td></tr>
+          <tr><td>Distillation Tower · Vacuum Freezer</td><td class="n">0</td><td>5 Titanium</td></tr>
+          <tr><td>Kanthal Coil</td><td class="n">?</td><td>Titanium 추출 2141K ${EMI} 지금 EBF 코일 종류</td></tr>
         </tbody></table></div>
     </div>
     <div class="card">
-      <h3>기지 현황 (세이브 스캔)</h3>
-      <p class="sub">관련 기계만. 읽기 전용으로 스캔.</p>
+      <h3>이미 있는 것</h3>
+      <p class="sub">새로 짓지 않고 재배정합니다.</p>
       ${hbar([
+        { label: 'Electric Blast Furnace', sub: '에너지 해치는 전부 MV', value: 28, color: 'var(--s8)', text: '28대' },
         { label: 'Electric Ore Factory', value: 21, color: 'var(--s4)', text: '21대' },
-        { label: 'Electrolyzer', sub: 'LV 20 · MV 10', value: 30, color: 'var(--s1)', text: '30대' },
-        { label: 'Chemical Reactor', sub: 'LV 6 · MV 14 · HV 1', value: 21, color: 'var(--s1)', text: '21대' },
-        { label: 'Centrifuge', sub: 'LV 5 · MV 6', value: 11, color: 'var(--s1)', text: '11대' },
-        { label: 'Void Extractor', value: 1, color: 'var(--s3)', text: '1대' },
-        { label: 'HV Electrolyzer · HV Centrifuge · LCR', value: 0, color: 'var(--s2)', text: '없음' },
+        { label: 'MV Chemical Reactor', sub: 'LV 6 · HV 1 별도', value: 19, color: 'var(--s1)', text: '19대' },
+        { label: 'MV Mixer', value: 15, color: 'var(--s1)', text: '15대' },
+        { label: 'MV Electrolyzer · Centrifuge', sub: 'LV 20 · 5 별도', value: 16, color: 'var(--s1)', text: '10 · 6대' },
+        { label: 'mv_16a_energy_converter', sub: 'hv_16a 5대 별도', value: 15, color: 'var(--s1)', text: '15대' },
+        { label: 'MV Laser Engraver · Circuit Assembler', value: 7, color: 'var(--s1)', text: '5 · 2대' },
       ], { cols: ['기계', '대수'], noAxis: true })}
     </div>
   </div>
   <div class="card">
-    <h3>확인하지 못한 항목</h3>
-    <p class="sub">jar의 레시피 클래스에 없어서 확인하지 못한 항목입니다. 게임 안에서 EMI로 확인해 주세요.</p>
+    <h3>게임에서 확인할 것</h3>
+    <p class="sub">jar의 레시피 클래스에 없거나 설정 · 구조에 따라 달라서 확인하지 못한 항목입니다. 페이지 곳곳에 ${EMI}로 표시했습니다.</p>
     <ul class="pts">
-      <li>${EMI} HCl 전해 레시피의 소요 시간 (비율은 분해 핸들러 기준 HCl 1000 → H 1000 + Cl 1000)</li>
-      <li>${EMI} Lepidolite · Pyrochlore · Topaz · Blue Topaz dust의 분해 레시피가 있는지, Electrolyzer인지 Centrifuge인지 (없으면 Fluorine 예상치가 달라짐)</li>
-      <li>${EMI} Electric Ore Factory의 병렬 수 (병렬이 있으면 필요 대수가 줄어듦)</li>
+      <li>Lepidolite · Pyrochlore · Topaz · Blue Topaz · MgCl2 · HCl의 분해 레시피가 있는지와 소요 시간 (Fluorine · 염소 · 마그네슘 순환의 전제)</li>
+      <li>Raw 광석 1개를 Macerator에 넣으면 Crushed가 몇 개인지 (Titanium 예상치는 1개로 계산 — 2개면 두 배)</li>
+      <li>Electric Ore Factory의 병렬 수, LCR · Cleanroom 구조(케이싱 최소 개수, 크기 범위)는 게임 안 미리보기로</li>
     </ul>
   </div>`;
 }
 
-function viewVoid() {
-  const cyc = CYCLE[S.hatch], h = cph();
-  const machines = [
-    { label: 'Mixer', sub: 'Drilling Fluid · 64t', busy: MIXER_BUSY, t: 'LV' },
-    ...STAGES.map(s => ({ label: `${s.id} ${s.m} (${s.t})`, sub: `${s.what} · ${s.runs}회`, busy: s.busy, t: s.t })),
-  ];
-  const euRows = [
-    { label: 'Void Extractor', sub: `${S.hatch} 해치 · ${VE_EUT[S.hatch]} EU/t`, value: veEU(), color: TIER.LV.c },
-    ...STAGES.map(s => ({ label: `${s.id} ${s.m}`, sub: `${s.t} · ${s.eut} EU/t`, value: s.eu, color: TIER[s.t].c })),
-  ].map(r => ({ ...r, text: fmt(r.value, 0) + ' EU' }));
-  const euTotal = euRows.reduce((a, r) => a + r.value, 0);
-  const oreLV = rawOrePerCycle('LV'), oreNow = rawOrePerCycle(S.hatch);
-  const mrows = machines.map(m => {
-    const v = m.busy / cyc, n = Math.max(1, Math.ceil(v - 1e-9));
-    return { label: m.label, sub: m.sub, value: v, color: TIER[m.t].c,
-      text: `${fmt(v * 100, 0)}% → ${n}대`,
-      tip: `${fmt(v * 100, 0)}% · ${n}대 필요|${m.label}: 사이클당 ${fmt(m.busy)}t / ${cyc}t` };
-  });
+/* ---------- 1 전력 ---------- */
+function viewPower() {
+  const ns = [2, 3, 4];
+  const hvPeak = (n, tower) => machinesAt(n, 'HV') + (tower ? TOWER.hvA : 0);
+  const mvPeak = n => machinesAt(n, 'MV');
+  const totA = (n, tower) => mvPeak(n) + hvPeak(n, tower) * 4;
+  const red = bad => bad ? ' style="color:var(--critical);font-weight:600"' : '';
+  const towerAvg = n => towerRuns(n) * TOWER.dur * TOWER.eut / 72000;
   return `
-  <h2>Void Extractor 체인</h2>
-  <p class="lead"><code>Rare Ore Residue</code> → <code>Raw Ore Slurry</code> → <code>Mixed Mineral Residue</code> 퀘스트 라인을 한 번에 자동화하는 구성입니다.
-  화살표 굵기는 사이클당 유체량(mB)에 비례합니다.</p>
-  ${callout('info', 'i', `<b>Void Extractor에는 HV 해치를 다세요.</b> 30 EU/t 레시피라 HV 해치에서 2단계 오버클럭(640t → 160t)이 걸리고, Raw Ore 확률 출력에 <b>티어 부스트</b>가 붙어 사이클당 Raw Ore가 ${fmt(oreLV, 2)} → ${fmt(rawOrePerCycle('HV'), 2)}개(+${fmt((rawOrePerCycle('HV') / oreLV - 1) * 100, 0)}%)로 늘어납니다. LV 해치 4대로 나누면 에너지는 아끼지만 같은 Drilling Fluid에서 Raw Ore가 덜 나오고 멀티블록이 3개 더 필요합니다. ${EMI} 부스트가 해치 티어 기준인지.`)}
+  <h2>1 · 전력</h2>
+  <p class="lead">지금 전력은 <b>Create Steam PowerGen</b>(웨이포인트 8, 65, 247)에서 나옵니다. 증기 엔진으로 SU를 만들고, Create New Age 코일로 FE를 뽑아 LaserIO로 보내고, 컨버터에서 EU로 바꿉니다.
+  더 늘리기보다는 <b>보석 발전으로 넘어갈 차례</b>이고, 보석 발전은 나중에 따로 정리합니다. 이 탭은 지금 전력으로 새 처리 청크를 돌리는 예산입니다.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>지금 발전 설비 (세이브 스캔)</h3>
+      <p class="sub">웨이포인트에서 48칸 안의 블록 엔티티</p>
+      ${hbar([
+        { label: 'Steam Engine', sub: 'create:steam_engine', value: 153, color: 'var(--s2)', text: '153' },
+        { label: 'Basic Heater', sub: 'createlowheated', value: 153, color: 'var(--s2)', text: '153' },
+        { label: 'Generator Coil', sub: 'create_new_age', value: 75, color: 'var(--s4)', text: '75' },
+        { label: 'Carbon Brushes', sub: 'create_new_age', value: 9, color: 'var(--s4)', text: '9' },
+        { label: 'Large Water Wheel', value: 12, color: 'var(--s1)', text: '12' },
+        { label: 'LaserIO Node', value: 170, color: 'var(--s8)', text: '170' },
+      ], { cols: ['블록', '개수'], noAxis: true })}
+      <p class="sub" style="margin:10px 0 0">Fluid Tank 630개가 보일러를 이룹니다. 기지 전체의 컨버터는 <code>mv_16a_energy_converter</code> 15대 · <code>hv_16a_energy_converter</code> 5대입니다. 실제 발전량(FE/t)은 게임에서 컨버터 툴팁으로 확인하세요.</p>
+    </div>
+    <div class="card">
+      <h3>처리 청크 전력 예산 · MV 64A</h3>
+      <p class="sub">컨버터 4대(MV 16A × 4). C1~C3은 <code>hv_transformer_16a</code>(승압)에 바로 붙여 HV 12A, C4는 MV 16A. HV 1A = MV 4A.</p>
+      <div class="tscroll"><table>
+        <thead><tr><th>Void Extractor</th>${ns.map(n => `<th class="n">${n}대</th>`).join('')}</tr></thead>
+        <tbody>
+          <tr><td>MV 기계 (한도 ${POWER.mvA}A)</td>${ns.map(n => `<td class="n"${red(mvPeak(n) > POWER.mvA)}>${mvPeak(n)}A</td>`).join('')}</tr>
+          <tr><td>HV 기계 (한도 ${POWER.hvA}A)</td>${ns.map(n => `<td class="n"${red(hvPeak(n) > POWER.hvA)}>${hvPeak(n)}A</td>`).join('')}</tr>
+          <tr><td>+ Distillation Tower (HV 4A)</td>${ns.map(n => `<td class="n"${red(hvPeak(n, 1) > POWER.hvA)}>${hvPeak(n, 1)}A</td>`).join('')}</tr>
+          <tr><td>피크 합계 (MV 환산)</td>${ns.map(n => `<td class="n"${red(totA(n, 1) > POWER.totalA)}>${totA(n, 1)}A / 64A</td>`).join('')}</tr>
+          <tr><td>평균 (체인 + 증류탑)</td>${ns.map(n => `<td class="n">${fmt((chainEUt(n) + towerAvg(n)) / 128, 1)}A</td>`).join('')}</tr>
+        </tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">피크는 모든 기계가 동시에 도는 최악의 경우입니다. VE 4대에 증류탑까지 붙여도 64A 안이라 <b>발전을 더 늘리지 않아도 됩니다.</b> VE와 Drilling Fluid Mixer는 VE 청크에서 따로 받습니다.</p>
+    </div>
+  </div>
+  ${hbar(ns.map(n => ({ label: `VE ${n}대`, sub: '체인 평균 + 증류탑 평균', value: (chainEUt(n) + towerAvg(n)) / 128, color: n === S.veN ? 'var(--s2)' : 'var(--axis)', text: `${fmt((chainEUt(n) + towerAvg(n)) / 128, 1)}A (${fmt((chainEUt(n) + towerAvg(n)) / 128 / 64 * 100, 0)}%)` })), { max: 64, ref: { v: 64, l: 'MV 64A 한도' }, cols: ['Void Extractor', '평균 MV A'] }).replace('<div class="chart">', '<div class="card" style="margin-top:16px"><h3>평균 사용량</h3><p class="sub">MV 암페어 환산. 지금 고른 대수가 주황색.</p><div class="chart">') + '</div>'}
   <div class="card">
-    <h3>체인 흐름 (Void Extractor 1사이클 기준)</h3>
-    <p class="sub">사이클 = ${cyc}t (${cyc / 20}초). 아이템 화살표는 굵기 고정.</p>
+    <h3>다음: 보석 발전 <span class="emi" style="border-color:var(--axis);background:none">나중에</span></h3>
+    <p class="sub">조사한 사실만 적어 둡니다. 설계는 따로 합니다.</p>
+    <ul class="pts">
+      <li><b>Thermal <code>Lapidary Dynamo</code></b>에 보석을 태워 RF를 만들고, 컨버터에서 <b>4 FE = 1 EU</b>(<code>gtceu.yaml</code> <code>feToEuRatio: 4</code>)로 바꿉니다. 팩이 Dynamo 제작법을 GT Assembler로 바꿨습니다(<code>thermal:rf_coil</code> + <code>Cobalt Brass Gear</code> + LV Hull).</li>
+      <li>연료(<code>modifications/thermal.js</code>): <code>Diatron</code> 750,000 RF · Flawless ×2.5 · Exquisite ×6.25, 다이아몬드 300,000 RF. 보석 2개 → Flawless(Laser Engraver 240 EU/t)라 Flawless · Exquisite로 올리면 보석 1개당 에너지가 1.25배 · 1.56배.</li>
+      <li><code>Diatron</code>: Mixer <code>Energium</code> dust 1 + <code>Diamond</code> dust 2 → 3 (<b>480 EU/t</b>, 120t), Autoclave Distilled Water 50 → 보석(600t). 다이아몬드는 Rock Filter(<code>lv_geodes</code>)에서.</li>
+      <li>증강은 팩 아이템(<code>*_upgrade_kit</code> · <code>*_arc_kit</code> · <code>*_mci_kit</code>)으로 바뀌었습니다. Dynamo의 기본 RF/t는 ${EMI}.</li>
+    </ul>
+  </div>`;
+}
+
+/* ---------- 2 자원 · Void 체인 ---------- */
+function viewVoid() {
+  const n = S.veN, h = cph();
+  const oreNow = rawOrePerCycle(1), oreHV = rawOrePerCycle(2);
+  const mrows = [
+    ...STAGES.map(s => ({ s, v: s.busy * n / CYC })),
+  ].map(({ s, v }) => {
+    const k = need(s.busy, n);
+    return { label: `${s.id} ${s.t} ${s.m}`, sub: `${s.what} · ${fmt(s.runs * n, 2)}회`, value: v, color: TIER[s.t].c,
+      text: `${fmt(v * 100, 0)}% → ${k}대`, tip: `${fmt(v * 100, 0)}% · ${k}대|${s.id}: 사이클당 ${fmt(s.busy * n)}t / ${CYC}t` };
+  });
+  const euRows = STAGES.map(s => ({ label: `${s.id} ${s.m}`, sub: `${s.t} · ${s.eut} EU/t`, value: s.eu * n, color: TIER[s.t].c, text: fmt(s.eu * n, 0) + ' EU' }));
+  return `
+  <h2>2 · 자원</h2>${subnav()}
+  <p class="lead">Void Extractor를 <b>MV 해치로 ${n}대</b> 돌리고, 나온 <code>Raw Ore Slurry</code>와 <code>Rare Ore Residue</code>만 다른 청크로 옮겨 A~G를 처리합니다.
+  화살표 굵기는 VE 1사이클당 유체량(mB)입니다.</p>
+  ${callout('info', 'i', `<b>MV 해치 = 1단계 오버클럭.</b> 30 EU/t 레시피가 120 EU/t · ${CYC}t가 됩니다. HV 해치(160t) 1대보다 MV 2대가 같은 양을 내고, Raw Ore 확률 부스트는 1단계만 붙어 사이클당 Raw Ore ${fmt(oreNow, 2)}개(HV 해치면 ${fmt(oreHV, 2)}개)입니다. ${EMI} 부스트가 해치 티어 기준인지.`)}
+  <div class="card">
+    <h3>체인 흐름 (Void Extractor 1사이클)</h3>
+    <p class="sub">점선 왼쪽은 VE 청크, 오른쪽이 처리 청크입니다. 아이템 화살표는 굵기 고정.</p>
     ${flow({
       label: 'Void Extractor 체인', h: 560,
       nodes: [
-        { id: 'mx', x: 20, y: 30, w: 130, t: 'Mixer', s: 'Drilling Fluid', k: 'LV', tip: 'Stone Dust 1 + Lubricant 20 + Water 4980 → Drilling Fluid 5000 (64t, distilled 48t)' },
-        { id: 've', x: 20, y: 230, w: 130, t: 'Void Extractor', s: `LV 30 EU/t · ${cyc}t`, k: 'LV' },
-        { id: 'a', x: 230, y: 80, w: 130, t: 'A Electrolyzer', s: 'LV · 120t', k: 'LV', tip: 'Rare Ore Residue 1000 → Sludge dust 4종 각 1 + Raw Ore Slurry 250' },
+        { id: 'mx', x: 20, y: 30, w: 130, t: 'Mixer', s: 'Drilling Fluid', k: 'MV', tip: 'Stone Dust 1 + Lubricant 20 + Water 4980 → Drilling Fluid 5000 (64t) · VE 청크' },
+        { id: 've', x: 20, y: 230, w: 130, t: `Void Extractor ×${n}`, s: `MV 해치 · ${CYC}t`, k: 'LV', tip: 'void_excavation/mining · 사이클당 Rare Ore Residue 400 + Raw Ore Slurry 600' },
+        { id: 'a', x: 230, y: 80, w: 130, t: 'A Electrolyzer', s: 'MV · 60t', k: 'MV', tip: 'Rare Ore Residue 1000 → Sludge dust 4종 각 1 + Raw Ore Slurry 250 (LV 레시피를 MV 기계에서)' },
         { id: 'd', x: 230, y: 330, w: 130, t: 'D Centrifuge', s: 'MV · 240t', k: 'MV', tip: 'Raw Ore Slurry 1000 → MV crushed 4종 + Mixed Mineral Residue 750 + Molten Ore Mixture 250' },
         { id: 'b', x: 440, y: 20, w: 130, t: 'B Centrifuge', s: 'MV · 50t ×4종', k: 'MV', tip: 'Sludge dust → 2x 본 광물 dust + Rare Metallic Residue' },
         { id: 'c', x: 650, y: 20, w: 130, t: 'C Electrolyzer', s: 'MV · 50t', k: 'MV', tip: 'Rare Metallic Residue → 2 Calcite + 1 Silver' },
         { id: 'o1', x: 860, y: 20, w: 120, t: 'Silver 1.6', s: 'Calcite 3.2', k: 'tank' },
-        { id: 'o2', x: 650, y: 115, w: 160, t: '본 광물 dust 각 0.8', s: 'Chromite · Rare Earth 등', k: 'tank', tip: 'Chromite, Rare Earth, Vanadium Magnetite, Cobaltite dust 각 0.8' },
+        { id: 'o2', x: 650, y: 115, w: 160, t: '본 광물 dust 각 0.8', s: 'Chromite · Rare Earth 등', k: 'tank', tip: 'Chromite(→ Kanthal의 Chromium), Rare Earth, Vanadium Magnetite, Cobaltite dust 각 0.8' },
         { id: 'ofa', x: 440, y: 215, w: 130, t: 'Ore Factory A', s: 'MV crushed 2.8', k: 'OF' },
-        { id: 'tk', x: 650, y: 290, w: 130, t: 'Super Tank', s: 'Molten Ore 175', k: 'tank', tip: 'Molten Ore Mixture: EV 전까지 사용처 없음. 출구가 없으면 D가 멈춤' },
+        { id: 'tk', x: 650, y: 290, w: 150, t: 'Molten Super Tank', s: 'Molten Ore 175', k: 'tank', tip: 'Molten Ore Mixture → 5 탭의 Distillation Tower (HV 해치 2개)' },
         { id: 'e', x: 440, y: 400, w: 130, t: 'E Electrolyzer', s: 'HV · 240t', k: 'HV', tip: 'Mixed Mineral Residue 1000 → Beryllium, Zavaritskite crushed + Sulfuric 400 + Oxygenous 600' },
         { id: 'f', x: 650, y: 385, w: 130, t: 'F Centrifuge', s: 'HV · Sulfuric', k: 'HV', tip: 'Sulfuric Mineral Mixture 500 → Barite, Chalcopyrite, Bornite' },
         { id: 'g', x: 650, y: 485, w: 130, t: 'G Centrifuge', s: 'HV · Oxygenous', k: 'HV', tip: 'Oxygenous Mineral Mixture 500 → Tantalite, Pollucite, Cassiterite' },
@@ -514,77 +627,230 @@ function viewVoid() {
         { a: 'f', b: 'ofb', l: '1.26' },
         { a: 'g', b: 'ofb', l: '1.89' },
       ],
-    })}
+    }).replace('</svg>', '<line x1="195" y1="10" x2="195" y2="550" stroke="var(--axis)" stroke-dasharray="6 5"/><text x="188" y="548" text-anchor="end" class="elabel">VE 청크</text><text x="202" y="548" class="elabel">처리 청크 →</text></svg>')}
     ${tierLegend(['LV', 'MV', 'HV', 'OF', 'tank'])}
   </div>
   <div class="grid2">
     <div class="card">
-      <h3>기계 가동률 · 필요 대수</h3>
-      <p class="sub">사이클당 가동 시간 ÷ 사이클 ${cyc}t. 100%를 넘으면 한 대로 못 따라갑니다.</p>
-      ${hbar(mrows, { max: 2, ref: { v: 1, l: '100% (1대 한계)' }, cols: ['단계', '가동률 → 대수'], noAxis: false })}
-      <p class="sub" style="margin-top:10px">모든 단계를 <b>레시피 티어 기계</b>에 둔 값입니다. 오버클럭 1단계마다 작업당 에너지가 2배라서, D를 HV 1대로 돌리면 대수는 줄지만 사이클당 ${fmt(STAGES[3].eu, 0)} EU를 더 씁니다. F와 G는 전용 기계로 나눕니다.</p>
+      <h3>가동률 · 필요 대수 (VE ${n}대)</h3>
+      <p class="sub">사이클당 가동 시간 × ${n} ÷ ${CYC}t. ${fmt(LIMIT * 100, 0)}%를 넘으면 한 대 더 둡니다.</p>
+      ${hbar(mrows, { max: 3, ref: { v: LIMIT, l: `${fmt(LIMIT * 100, 0)}% (1대 한계)` }, cols: ['단계', '가동률 → 대수'] })}
     </div>
     <div class="card">
       <h3>시간당 산출</h3>
-      <p class="sub">${S.hatch} 해치 기준 · 시간당 ${fmt(h)}사이클</p>
+      <p class="sub">VE ${n}대 · 시간당 ${fmt(h, 0)}사이클</p>
       ${hbar([
         { label: 'HV crushed', sub: '8종 합 → Ore Factory B', value: PER_CYCLE.hvCrushed * h, color: 'var(--s2)', text: fmt(PER_CYCLE.hvCrushed * h, 0) + '개' },
         { label: 'MV crushed', sub: '4종 합 → Ore Factory A', value: PER_CYCLE.mvCrushed * h, color: 'var(--s1)', text: fmt(PER_CYCLE.mvCrushed * h, 0) + '개' },
         { label: '본 광물 dust', sub: 'Chromite 등 4종 합', value: PER_CYCLE.sludgeDust * h, color: 'var(--s3)', text: fmt(PER_CYCLE.sludgeDust * h, 0) + '개' },
         { label: 'Calcite dust', value: PER_CYCLE.calcite * h, color: 'var(--s3)', text: fmt(PER_CYCLE.calcite * h, 0) + '개' },
         { label: 'Silver dust', value: PER_CYCLE.silver * h, color: 'var(--s3)', text: fmt(PER_CYCLE.silver * h, 0) + '개' },
-      ], { cols: ['산출물', '개수 / 시간'], legend: [{ n: 'Ore Factory A행', c: 'var(--s1)' }, { n: 'Ore Factory B행', c: 'var(--s2)' }, { n: '바로 쓰는 dust', c: 'var(--s3)' }] })}
+        { label: 'Molten Ore Mixture', sub: '→ Distillation Tower', value: PER_CYCLE.molten * h / 1000, color: 'var(--s5)', text: fmt(PER_CYCLE.molten * h / 1000, 0) + 'B' },
+      ], { cols: ['산출물', '시간당'], noAxis: true })}
     </div>
   </div>
   <div class="card">
-    <h3>사이클당 에너지</h3>
-    <p class="sub">합계 ${fmt(euTotal, 0)} EU / ${CYCLE[S.hatch]}t = 평균 <b>${fmt(euTotal / CYCLE[S.hatch], 0)} EU/t</b> (Void Extractor 1대, Mixer 제외 ${EMI})</p>
-    ${hbar(euRows, { cols: ['단계', 'EU / 사이클'], legend: [{ n: 'LV', c: TIER.LV.c }, { n: 'MV', c: TIER.MV.c }, { n: 'HV', c: TIER.HV.c }] })}
+    <h3>사이클당 에너지 (처리 청크)</h3>
+    <p class="sub">합계 ${fmt(chainEU * n, 0)} EU / ${CYC}t = 평균 <b>${fmt(chainEUt(n), 0)} EU/t</b> (MV ${fmt(chainEUt(n) / 128, 1)}A). VE와 Mixer는 VE 청크 쪽이라 제외.</p>
+    ${hbar(euRows, { cols: ['단계', 'EU / 사이클'], legend: [{ n: 'MV', c: TIER.MV.c }, { n: 'HV', c: TIER.HV.c }] })}
   </div>
-  ${callout('warn', '!', `<b>Molten Ore Mixture에 반드시 출구를 두세요.</b> 사용처(Distillation Tower, Molten Destabilizer)가 EV/LuV라 HV에서는 쓸 곳이 없습니다.
-    출구가 없으면 D의 출력 해치가 차서 체인 전체가 멈춥니다. 시간당 <b>${fmt(PER_CYCLE.molten * h, 0)}mB</b>가 쌓이므로 HV Super Tank(16,000,000mB)면 약 ${fmt(16e6 / (PER_CYCLE.molten * h), 0)}시간 버팁니다. EV에서 Bauxite · Tungstate · Cooperite 등 7종으로 나뉘는 귀한 자원이니 버리지 마세요.`)}
   <div class="grid2">
     <div class="card">
-      <h3>필요한 액체</h3>
-      <p class="sub">체인 A~G 자체는 외부 화학 액체가 필요 없습니다. 필요한 건 전부 입력과 Ore Factory 쪽입니다.</p>
-      ${hbar([
-        { label: 'Drilling Fluid', sub: 'Void Extractor', value: PER_CYCLE.drilling * h, color: 'var(--s3)', text: fmt(PER_CYCLE.drilling * h / 1000, 0) + 'B' },
-        { label: 'Water', sub: 'Drilling Fluid 원료', value: PER_CYCLE.water * h, color: 'var(--s3)', text: fmt(PER_CYCLE.water * h / 1000, 0) + 'B' },
-        { label: 'Sodium Persulfate', sub: 'Ore Factory B', value: PER_CYCLE.persulfate * h, color: 'var(--s2)', text: fmt(PER_CYCLE.persulfate * h / 1000, 1) + 'B' },
-        { label: 'Distilled Water', sub: 'Ore Factory A', value: PER_CYCLE.distilled * h, color: 'var(--s1)', text: fmt(PER_CYCLE.distilled * h / 1000, 1) + 'B' },
-        { label: 'Lubricant', sub: 'Drilling Fluid 원료', value: PER_CYCLE.lubricant * h, color: 'var(--s3)', text: fmt(PER_CYCLE.lubricant * h / 1000, 2) + 'B' },
-      ], { cols: ['액체', '시간당 (B = 1000mB)'], noAxis: true })}
-      <p class="sub" style="margin:10px 0 0">물이 압도적입니다. HV 해치 기준 약 31mB/t → 무한 물 공급원을 직결하세요.</p>
+      <h3>VE 청크에 남는 것</h3>
+      <ul class="pts">
+        <li><b>Drilling Fluid</b>: VE ${n}대면 Mixer ${Math.ceil(MIXER_BUSY * n / CYC - 1e-9)}대, 물 ${fmt(PER_CYCLE.water * n / CYC, 0)}mB/t, Lubricant 시간당 ${fmt(PER_CYCLE.lubricant * h / 1000, 1)}B.</li>
+        <li><b>VE 유체 출력 해치 2개를 유체별 전용으로</b> 두면 필터 없이 Residue · Slurry를 각각의 채널로 보냅니다.</li>
+        <li><b>Raw Ore</b>(Coal · Gold · Sodalite · Pentlandite · Realgar · Silver) 시간당 약 ${fmt(oreNow * h, 0)}개는 지금처럼 Super Chest → Macerator → Ore Factory(LV 티어).</li>
+      </ul>
     </div>
     <div class="card">
-      <h3>최적화 포인트</h3>
+      <h3>청크 사이 운반</h3>
       <ul class="pts">
-        <li><b>A의 Raw Ore Slurry 250을 D로 합류.</b> 사이클당 슬러리가 600 → 700이 되어 체인 산출이 약 17% 늘어납니다.</li>
-        <li><b>HV 전용은 E, F, G 세 단계뿐.</b> 나머지는 기존 LV/MV 기계를 재배정.</li>
-        <li><b>단계 사이 버퍼 탱크.</b> E의 두 출력이 40:60이라 F/G 소모 속도가 다릅니다.</li>
-        <li><b>유체 출력 해치 2개를 유체별 전용으로.</b> Void Extractor는 유체 출력 해치 최대 2개 → Residue / Slurry를 나눠 받으면 필터가 필요 없습니다.</li>
-        <li><b>Raw Ore 출력</b>(Coal · Gold · Sodalite · Pentlandite · Realgar · Silver)은 Macerator → Ore Factory A. Realgar · Pentlandite의 Sulfur는 Persulfate 라인 원료입니다.</li>
+        <li>VE ${n}대가 내는 양: Residue ${fmt(400 * n / CYC, 1)}mB/t, Slurry ${fmt(600 * n / CYC, 1)}mB/t. 둘 다 작아서 채널 하나씩이면 충분합니다.</li>
+        <li>LaserIO 노드는 8칸까지라 청크 사이는 <b>Laser Connector로 중계</b>하거나, 두 청크를 같은 ME 네트워크에 두고 storage bus로 옮깁니다.</li>
+        <li>처리 청크 입구에 버퍼 탱크 두 개(T-Res · T-Slu)를 두면 운반이 잠깐 끊겨도 처리 쪽이 계속 돕니다.</li>
       </ul>
     </div>
   </div>`;
 }
 
+/* ---------- 2 자원 · 한 청크 배치 ---------- */
+// 청크 좌표: x = 동(0~15), z = 남(0~15), y = 위. 기계 열은 아래 기계 · 노드 · 위 기계 샌드위치.
+const PIPE = {
+  beam: { c: '--s8', n: 'LaserIO 레이저', w: 0.05 }, me: { c: '--s7', n: 'ME 케이블', w: 0.11 },
+  hv: { c: '--s2', n: 'HV 케이블', w: 0.16 }, mv: { c: '--s1', n: 'MV 케이블', w: 0.16 },
+  in: { c: '--s4', n: 'VE 청크에서 오는 레이저', w: 0.07 },
+};
+const ROWS = { A: 1, B: 1, C: 1, D: 4, E: 7, F: 10, G: 13 };
+const CARDS = {
+  A: ['유체 IN f1', '아이템 OUT i1', '유체 OUT f2'], B: ['아이템 IN i1', '아이템 OUT i2 (필터 Rare Metallic Residue 허용)', '아이템 OUT i3 (같은 필터 거부)'],
+  C: ['아이템 IN i2', '아이템 OUT i3'], D: ['유체 IN f3', '유체 OUT f4 (Mixed Mineral Residue)', '유체 OUT f9 (Molten Ore Mixture)', '아이템 OUT i4'],
+  E: ['유체 IN f5', '유체 OUT f6 (Sulfuric)', '유체 OUT f7 (Oxygenous)', '아이템 OUT i5'], F: ['유체 IN f8', '아이템 OUT i5'], G: ['유체 IN f10', '아이템 OUT i5'],
+};
+const firstN = (busy, j) => { for (let n = 1; n <= 8; n++) if (need(busy, n) > j) return n; return 99; };
+
+function buildChunk(N) {
+  const boxes = [], pipes = [];
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const cable = (type, pts) => pipes.push({ type, pts: pts.map(([x, y, z]) => [x + 0.5, y + 0.5, z + 0.5]) });
+  const node = (x, y, z, ghost, what, cards) => box({ x: x + 0.15, y: y + 0.15, z: z + 0.15, w: 0.7, h: 0.7, d: 0.7, col: '--s8', ghost, node: true, tip: `LaserIO Node · ${what}|${cards.join(' · ')}` });
+  const plate = (x, y, z, face, what) => {
+    const t = 0.14, o = { x: x + 0.2, y: y + 0.2, z: z + 0.2, w: 0.6, h: 0.6, d: 0.6, col: '--s7', tip: `AE2 Storage Bus|${what} — ME 터미널에서 잔량이 보임` };
+    if (face === 'w') Object.assign(o, { x: x - t, w: t }); if (face === 'n') Object.assign(o, { z: z - t, d: t }); if (face === 's') Object.assign(o, { z: z + 1, d: t });
+    box(o);
+  };
+  // 청크 경계 (항상 보임)
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  // 단계 탱크 (x = 1) + 노드 + storage bus
+  [['T-Res', 'Rare Ore Residue', 1, 'f0 IN (VE 청크에서)', 'f1 OUT → A'], ['T-Slu', 'Raw Ore Slurry', 4, 'f0\' IN (VE) · f2 IN (A)', 'f3 OUT → D'],
+   ['T-MMR', 'Mixed Mineral Residue', 7, 'f4 IN', 'f5 OUT → E'], ['T-Sul', 'Sulfuric Mineral Mixture', 10, 'f6 IN', 'f8 OUT → F'], ['T-Oxy', 'Oxygenous Mineral Mixture', 13, 'f7 IN', 'f10 OUT → G']]
+    .forEach(([lab, n, z, fin, fout]) => {
+      unit(1, 0, z, { col: '--muted', label: lab, tip: `LV Super Tank · ${n}|단계 버퍼. 잔량으로 병목을 찾음` });
+      node(1, 1, z, false, lab, [`↓ ${fin}`, `${fout} (round robin)`]);
+      plate(1, 0, z, 'w', lab);
+    });
+  // 기계 열
+  const colsOf = {};
+  const row = (id, x0) => {
+    const s = stage(id), slots = need(s.busy, 4), live = need(s.busy, N), z = ROWS[id], cols = Math.ceil(slots / 2);
+    for (let c = 0; c < cols; c++) {
+      [0, 1].forEach(k => {
+        const j = c * 2 + k; if (j >= slots) return;
+        unit(x0 + c, k * 2, z, { col: TIER[s.t].c.slice(4, -1), ghost: j >= live, label: `${id}${j + 1}`,
+          tip: `${id}${j + 1} · ${s.t} ${s.m}|${s.r}${s.note ? ' · ' + s.note : ''}${j >= live ? ` · VE ${firstN(s.busy, j)}대부터` : ''}` });
+      });
+      node(x0 + c, 1, z, c * 2 >= live, `${id} 열 ${c + 1}`, [`↓↑ ${id}${c * 2 + 1}${c * 2 + 1 < slots ? `/${id}${c * 2 + 2}` : ''}`, ...CARDS[id]]);
+    }
+    colsOf[id] = cols; return cols;
+  };
+  const a = row('A', 2), b = row('B', 2 + a), c = row('C', 2 + a + b);
+  row('D', 2); row('E', 2); row('F', 2); row('G', 2);
+  const abcEnd = 2 + a + b + c;
+
+  // 입구: VE 청크에서 오는 레이저 (서쪽 경계)
+  unit(0, 2, 2, { col: '--s4', label: '입구', tip: 'Laser Connector · VE 청크에서|Residue · Slurry 두 채널. 8칸마다 Connector로 중계' });
+  cable('in', [[-6, 2, 2], [0, 2, 2]]);
+
+  // 출구
+  unit(7, 0, 1, { col: '--s4', label: 'Dust', tip: 'Functional Storage · dust|Chromite · Rare Earth · Vanadium Magnetite · Cobaltite · Calcite · Silver' });
+  node(7, 1, 1, false, 'dust 창고', ['↓ 아이템 IN i3']); plate(7, 0, 1, 'n', 'dust 창고');
+  unit(7, 0, 4, { col: '--s4', label: '→OF-A', tip: 'MV crushed 출구|→ ME → Ore Factory A (Distilled Water)' });
+  node(7, 1, 4, false, 'MV crushed', ['↓ 아이템 IN i4']);
+  unit(7, 0, 10, { col: '--s4', label: '→OF-B', tip: 'HV crushed 출구|→ ME → Ore Factory B (Sodium Persulfate)' });
+  node(7, 1, 10, false, 'HV crushed', ['↓ 아이템 IN i5']);
+
+  // Molten Ore Mixture 탱크 + Distillation Tower 자리 (HV 해치 2개)
+  unit(10, 0, 4, { col: '--s5', label: 'Molten', tip: 'Super Tank · Molten Ore Mixture|D에서 f9. 증류탑 입력' });
+  node(10, 1, 4, false, 'Molten', ['↓ 유체 IN f9', '→ 증류탑 입력 해치 f11']); plate(10, 0, 4, 'n', 'Molten Ore Mixture');
+  box({ x: 11, y: 0, z: 3, w: 3, h: 8, d: 3, ghost: true, label: 'Distillation Tower', tip: 'Distillation Tower · 3×3 · 8층|HV 에너지 해치(2A) 2개 → EV 레시피. 출력 7종 = 층마다 출력 해치 1개. 5 탭' });
+  unit(10, 0, 5, { col: '--s2', ghost: true, tip: 'HV Energy Hatch ×2 (증류탑 서쪽 면)|HV 간선에서 4A' });
+
+  // 변전: 컨버터 4대. C1~C3 → hv_transformer_16a(승압), C4 → MV
+  const conv = (x, z, n2, what) => unit(x, 0, z, { col: '--s1', label: n2, tip: `mv_16a_energy_converter · ${n2}|FE → EU, MV 16A. ${what}` });
+  unit(12, 0, 9, { col: '--s2', label: 'HV 16A', tip: 'hv_transformer_16a (승압)|MV 48A 입력 → HV 12A 출력. 서쪽 면이 간선' });
+  conv(13, 9, 'C1', '트랜스포머에 직결'); conv(12, 8, 'C2', '트랜스포머에 직결'); conv(12, 10, 'C3', '트랜스포머에 직결');
+  conv(9, 1, 'C4', 'MV 기계 전용. 출력면은 서쪽');
+  node(13, 1, 9, false, '변전 (전력 네트워크)', ['↓ C1 에너지 IN', '레이저 → C2 · C3']);
+  node(9, 1, 1, false, 'C4 (전력 네트워크)', ['↓ 에너지 IN']);
+
+  // HV: 트랜스포머 → 간선 x = 9 → E · F · G 행 남쪽 면(두 층) + 증류탑
+  cable('hv', [[11, 0, 9], [9, 0, 9]]);
+  cable('hv', [[9, 0, 5], [9, 0, 14]]);
+  cable('hv', [[9, 0, 5], [10, 0, 5]]);
+  [['E', 8], ['F', 11], ['G', 14]].forEach(([id, z]) => {
+    const xr = 2 + colsOf[id];
+    cable('hv', [[9, 0, z], [2, 0, z]]); cable('hv', [[xr, 0, z], [xr, 2, z], [2, 2, z]]);
+  });
+  // MV: C4 → A~C 행 남쪽(z 2), D 행 남쪽(z 5)
+  cable('mv', [[8, 0, 2], [2, 0, 2]]); cable('mv', [[abcEnd, 0, 2], [abcEnd, 2, 2], [2, 2, 2]]);
+  cable('mv', [[8, 0, 2], [8, 0, 5], [2, 0, 5]]); cable('mv', [[2 + colsOf.D, 0, 5], [2 + colsOf.D, 2, 5], [2, 2, 5]]);
+  // ME: 탱크 서쪽 storage bus → 북쪽 경계를 따라 출구 창고
+  cable('me', [[0, 0, 13], [0, 0, 0], [7, 0, 0]]); cable('me', [[7, 0, 0], [10, 0, 0], [10, 0, 3]]);
+
+  // 레이저: 같은 네트워크 노드끼리 최소 신장 트리 (8칸 넘으면 점선 = Connector 필요)
+  const lz = boxes.filter(q => q.node && !q.ghost && !/전력/.test(q.tip));
+  const cen = q => [q.x + q.w / 2, q.y + q.h / 2, q.z + q.d / 2];
+  const inT = new Set([0]);
+  while (lz.length && inT.size < lz.length) {
+    let best = null;
+    inT.forEach(i => lz.forEach((q, j) => { if (inT.has(j)) return; const d = Math.hypot(...cen(lz[i]).map((v, k) => v - cen(q)[k])); if (!best || d < best.d) best = { i, j, d }; }));
+    inT.add(best.j);
+    pipes.push({ type: 'beam', pts: [cen(lz[best.i]), cen(lz[best.j])], long: best.d > 8 });
+  }
+  return { boxes, pipes };
+}
+
+function viewChunk() {
+  const N = S.veN, ns = [2, 3, 4];
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `
+  <h2>2 · 자원</h2>${subnav()}
+  <p class="lead">처리 단계 A~G를 <b>16×16 청크 하나</b>에 넣은 배치입니다. VE와 Drilling Fluid는 다른 청크에 두고, 전력은 <b>컨버터 4대 = MV 64A</b>로 받습니다.
+  VE ${N}대 기준이고, 점선 상자는 VE를 4대까지 늘릴 때 채울 <b>예약 자리</b>입니다. 드래그로 회전, Shift+드래그로 이동, 휠로 확대합니다.</p>
+  <div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <span class="ctl-label">Void Extractor</span>
+      <div class="seg">${ns.map(n => `<button data-n="${n}" aria-pressed="${n === N}">${n}대</button>`).join('')}</div>
+      <div class="seg"><button data-act="ghost" ${pressed('layGhost')}>예약 자리</button><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="처리 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${[['--s1', 'MV 기계 · 컨버터'], ['--s2', 'HV 기계 · 트랜스포머'], ['--muted', 'Super Tank'], ['--s5', 'Molten Ore Mixture'], ['--s4', '입구 · 창고 · 출구'], ['--s8', 'LaserIO Node'], ['--s7', 'AE2 storage bus']].map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join('')}</div>
+    <div class="legend">${Object.keys(PIPE).map(k => `<span><i style="background:var(${PIPE[k].c});height:4px;border-radius:2px"></i>${esc(PIPE[k].n)}</span>`).join('')}</div>
+    <p class="sub" style="margin:10px 0 0">블록 한 칸 = 1m, 바닥 격자가 청크 경계입니다. 레이저 선은 노드끼리 가장 짧게 이은 예시이고, 8칸이 넘는 선(점선)은 Laser Connector로 중계합니다.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>VE 대수별 기계</h3>
+      <p class="sub">MV 해치 · 사이클 ${CYC}t · 가동률 ${fmt(LIMIT * 100, 0)}% 한계. 굵은 숫자가 지금 고른 ${N}대.</p>
+      <div class="tscroll"><table>
+        <thead><tr><th>단계</th>${ns.map(n => `<th class="n">${n}대</th>`).join('')}</tr></thead>
+        <tbody>${STAGES.map(s => `<tr><td><span class="chip"><i style="background:${TIER[s.t].c}"></i></span> ${s.id} ${s.t} ${esc(s.m)}</td>${ns.map(n => `<td class="n">${n === N ? `<b>${need(s.busy, n)}</b>` : need(s.busy, n)}</td>`).join('')}</tr>`).join('')}
+          <tr><td>MV · HV 기계 합</td>${ns.map(n => `<td class="n">${machinesAt(n, 'MV')} · ${machinesAt(n, 'HV')}</td>`).join('')}</tr>
+          <tr><td>평균 전력</td>${ns.map(n => `<td class="n">${fmt(chainEUt(n), 0)} EU/t</td>`).join('')}</tr>
+        </tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">새로 만들 HV 기계: Electrolyzer ${need(stage('E').busy, N)} · Centrifuge ${need(stage('F').busy, N) + need(stage('G').busy, N)}대. MV 기계는 기존 것을 옮깁니다.</p>
+    </div>
+    <div class="card">
+      <h3>배치 원칙</h3>
+      <ul class="pts">
+        <li><b>탱크는 서쪽 한 줄(x = 1)</b>, 위에 노드, 서쪽 면에 storage bus. 잔량만 훑으면 병목 단계가 보입니다.</li>
+        <li><b>행은 동쪽으로 자랍니다.</b> 한 열 = 아래 기계 · 노드 · 위 기계. 늘릴 때는 다음 열에 쌓고 카드를 복사합니다.</li>
+        <li><b>전선은 MV · HV 두 계통.</b> A도 MV 기계에 둬서 LV 선이 없습니다(LV 기계를 MV 선에 물리면 터짐).</li>
+        <li><b>HV 간선은 x = 9 한 줄.</b> 트랜스포머에서 E · F · G 행과 증류탑 해치로 갈라집니다. 케이블 재질별 암페어는 ${EMI}.</li>
+        <li><b>동쪽 절반은 증류탑과 변전 자리.</b> Distillation Tower는 3×3에 높이 8(출력 7종 + 바닥층). 5 탭의 Titanium 경로가 여기서 시작합니다.</li>
+        <li>남는 자리(남동쪽)는 PTFE 부트스트랩 CR이나 Persulfate 라인을 넣을 수 있습니다.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card">
+    <h3>채널 (LaserIO)</h3>
+    <p class="sub">생산 → 탱크와 탱크 → 소비를 다른 채널로 나눕니다. 탱크 OUT 카드는 round robin. 유체 · 아이템 카드는 채널을 따로 셉니다.</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>기계</th><th>카드</th></tr></thead>
+      <tbody>${Object.entries(CARDS).map(([k, v]) => `<tr><td>${k} ${esc(stage(k).m)}</td><td>${v.map(esc).join(' · ')}</td></tr>`).join('')}
+        <tr><td>탱크</td><td>T-Res f0 → f1 · T-Slu f0' · f2 → f3 · T-MMR f4 → f5 · T-Sul f6 → f8 · T-Oxy f7 → f10</td></tr>
+        <tr><td>Molten</td><td>f9 IN · f11 OUT → 증류탑</td></tr></tbody></table></div>
+  </div>`;
+}
+
+/* ---------- 2 자원 · Crushed Ore ---------- */
 function viewCrushed() {
-  const h = cph(), cyc = CYCLE[S.hatch];
+  const h = cph();
   const oreRows = ORES.map(o => ({
-    label: o.n, sub: `${o.from} 단계 · ${o.t}`, value: o.c * h,
-    color: o.t === 'MV' ? 'var(--s1)' : 'var(--s2)', text: fmt(o.c * h, 0) + '개',
-    tip: `${fmt(o.c * h, 0)}개 / 시간|${o.n} (${o.t} 티어, 사이클당 ${o.c})`,
+    label: o.n, sub: `${o.from} 단계 · ${o.t}`, value: o.c * h, color: o.t === 'MV' ? 'var(--s1)' : 'var(--s2)', text: fmt(o.c * h, 0) + '개',
+    tip: `${fmt(o.c * h, 0)}개 / 시간|${o.n} (${o.t} 티어, VE 사이클당 ${o.c})`,
   }));
-  // Ore Factory: A = HV 해치로 MV 레시피 1단계 OC (160t), B = HV 레시피 OC 없음 (320t)
-  const aBusy = PER_CYCLE.mvCrushed * 160, bBusy = PER_CYCLE.hvCrushed * 320;
+  // Ore Factory: A = MV 레시피를 HV 해치로 1단계 OC (160t), B = HV 레시피 (320t). 기계 1대 = 72000t/시간
+  const aLoad = PER_CYCLE.mvCrushed * h * 160 / 72000, bLoad = PER_CYCLE.hvCrushed * h * 320 / 72000;
   const byTable = tier => `<div class="tscroll"><table><thead><tr><th>Crushed</th><th>2차</th><th>3차</th><th>4차</th><th>쓸모</th></tr></thead><tbody>
     ${ORES.filter(o => o.t === tier).map(o => `<tr><td><span class="chip"><i style="background:${tier === 'MV' ? 'var(--s1)' : 'var(--s2)'}"></i></span> ${esc(o.n)}</td><td>${esc(o.by[0])}</td><td>${esc(o.by[1])}</td><td>${esc(o.by[2])}</td><td>${esc(o.use)}</td></tr>`).join('')}
   </tbody></table></div>`;
   return `
-  <h2>Crushed Ore 분류</h2>
-  <p class="lead">체인에서 나오는 Crushed Ore는 12종이고, <code>ore_factory_processing.js</code>의 티어 표에 따라 <b>가공 유체와 전압이 둘로 갈립니다.</b>
-  원심분리기 출력으로 이미 나뉘어 나오므로 D 출력은 Ore Factory A, E/F/G 출력은 Ore Factory B로 배관하면 필터가 거의 필요 없습니다.</p>
+  <h2>2 · 자원</h2>${subnav()}
+  <p class="lead">체인에서 나오는 Crushed Ore는 12종이고, <code>ore_factory_processing.js</code>의 티어 표에 따라 <b>가공 유체와 전압이 둘로 갈립니다.</b> Theta 2에서도 표가 같습니다.
+  D 출력은 Ore Factory A, E/F/G 출력은 Ore Factory B로 보내면 필터가 거의 필요 없습니다.</p>
   <div class="grid2">
     <div class="tile" style="border-left:4px solid var(--s1)"><div class="l">Ore Factory A · MV 티어 4종</div><div class="v">Distilled Water<small>100mB/개</small></div><div class="d">120 EU/t · 320t (HV 해치로 1단계 OC → 160t)</div></div>
     <div class="tile" style="border-left:4px solid var(--s2)"><div class="l">Ore Factory B · HV 티어 8종</div><div class="v">Sodium Persulfate<small>100mB/개</small></div><div class="d">480 EU/t · 320t · HV 에너지 해치 없으면 돌지 않음</div></div>
@@ -596,21 +862,20 @@ function viewCrushed() {
       label: 'Crushed Ore 분기', h: 400,
       nodes: [
         { id: 'd', x: 20, y: 30, t: 'D Centrifuge', s: 'Raw Ore Slurry', k: 'MV' },
-        { id: 'mc', x: 20, y: 130, t: 'Macerator', s: 'Void Raw Ore 6종', k: 'LV', tip: 'Raw Coal, Raw Gold, Raw Sodalite, Raw Pentlandite, Raw Realgar, Raw Silver → crushed (LV 티어, Distilled Water)' },
+        { id: 'mc', x: 20, y: 130, t: 'Macerator', s: 'Void Raw Ore 6종', k: 'LV', tip: 'Raw Coal, Gold, Sodalite, Pentlandite, Realgar, Silver → crushed (LV 티어, Distilled Water)' },
         { id: 'e', x: 20, y: 230, t: 'E Electrolyzer', s: 'Mixed Mineral Residue', k: 'HV' },
         { id: 'fg', x: 20, y: 320, t: 'F · G Centrifuge', s: 'Mineral Mixture', k: 'HV' },
         { id: 'a', x: 420, y: 70, t: 'Ore Factory A', s: 'MV · LV 티어', k: 'OF' },
         { id: 'b', x: 420, y: 270, t: 'Ore Factory B', s: 'HV 티어 · HV 해치', k: 'OF' },
         { id: 'dw', x: 780, y: 70, t: 'Distilled Water', s: '100mB / 개', k: 'src' },
-        { id: 'sp', x: 780, y: 270, t: 'Sodium Persulfate', s: '100mB / 개 · 03 탭', k: 'src' },
+        { id: 'sp', x: 780, y: 270, t: 'Sodium Persulfate', s: '100mB / 개', k: 'src' },
       ],
       edges: [
         { a: 'd', b: 'a', l: 'Lepidolite · Pyrochlore\nPyrolusite · Magnesite', lt: 0.5, ly: -14 },
         { a: 'mc', b: 'a', l: 'LV 티어 crushed', lt: 0.55, ly: 12 },
         { a: 'e', b: 'b', l: 'Beryllium · Zavaritskite', lt: 0.5, ly: -12 },
         { a: 'fg', b: 'b', l: 'Barite · Chalcopyrite · Bornite\nTantalite · Pollucite · Cassiterite', lt: 0.5, ly: 22 },
-        { a: 'dw', b: 'a' },
-        { a: 'sp', b: 'b' },
+        { a: 'dw', b: 'a' }, { a: 'sp', b: 'b' },
       ],
     })}
     ${tierLegend(['LV', 'MV', 'HV', 'OF', 'src'])}
@@ -618,60 +883,46 @@ function viewCrushed() {
   <div class="grid2">
     <div class="card">
       <h3>종류별 시간당 Crushed</h3>
-      <p class="sub">${S.hatch} 해치 기준. 사이클당 값 × ${fmt(h)}사이클.</p>
+      <p class="sub">VE ${S.veN}대 · 시간당 ${fmt(h, 0)}사이클</p>
       ${hbar(oreRows, { cols: ['Crushed', '개수 / 시간'], legend: [{ n: 'MV 티어 → Ore Factory A', c: 'var(--s1)' }, { n: 'HV 티어 → Ore Factory B', c: 'var(--s2)' }] })}
     </div>
     <div class="card">
       <h3>Ore Factory 필요 대수</h3>
-      <p class="sub">사이클당 가동 시간 ÷ ${cyc}t. 공장은 HV 에너지 해치 기준.</p>
+      <p class="sub">시간당 가동 시간 ÷ 72,000t. 공장은 HV 에너지 해치 기준.</p>
       ${hbar([
-        { label: 'Ore Factory A', sub: `${PER_CYCLE.mvCrushed}개 × 160t`, value: aBusy / cyc, color: 'var(--s1)', text: `${fmt(aBusy / cyc, 1)} → ${Math.ceil(aBusy / cyc)}대` },
-        { label: 'Ore Factory B', sub: `${PER_CYCLE.hvCrushed}개 × 320t`, value: bBusy / cyc, color: 'var(--s2)', text: `${fmt(bBusy / cyc, 1)} → ${Math.ceil(bBusy / cyc)}대` },
-        { label: 'Ore Factory B (EV 해치)', sub: '1단계 OC → 160t', value: bBusy / 2 / cyc, color: 'var(--s2)', text: `${fmt(bBusy / 2 / cyc, 1)} → ${Math.ceil(bBusy / 2 / cyc)}대` },
+        { label: 'Ore Factory A', sub: '160t / 개', value: aLoad, color: 'var(--s1)', text: `${fmt(aLoad, 1)} → ${Math.ceil(aLoad - 1e-9)}대` },
+        { label: 'Ore Factory B', sub: '320t / 개', value: bLoad, color: 'var(--s2)', text: `${fmt(bLoad, 1)} → ${Math.ceil(bLoad - 1e-9)}대` },
+        { label: 'Ore Factory B (HV 해치 2개)', sub: 'EV로 인식 → 1단계 OC 160t', value: bLoad / 2, color: 'var(--s5)', text: `${fmt(bLoad / 2, 1)} → ${Math.ceil(bLoad / 2 - 1e-9)}대` },
       ], { ref: { v: 1, l: '1대분' }, cols: ['공장', '기계 환산 → 대수'] })}
-      <p class="sub" style="margin:10px 0 0">기존 21대 중 배정. ${EMI} 병렬 수를 확인하지 못했습니다. 병렬이 있으면 그 수로 나누세요.</p>
+      <p class="sub" style="margin:10px 0 0">기존 21대 중 배정. HV 해치 2개를 달면 Ore Factory도 EV 전압으로 인식해 B의 대수가 절반이 됩니다(5 탭 설명). ${EMI} 병렬 수.</p>
     </div>
   </div>
   <div class="grid2">
-    <div class="card"><h3>MV 티어 부산물 (Ore Factory A)</h3><p class="sub">Lepidolite · Pyrochlore는 C2F4 라인의 Fluorine 원료</p>${byTable('MV')}</div>
+    <div class="card"><h3>MV 티어 부산물 (Ore Factory A)</h3><p class="sub">Lepidolite · Pyrochlore는 PTFE의 Fluorine 원료, Magnesite는 Titanium의 Magnesium</p>${byTable('MV')}</div>
     <div class="card"><h3>HV 티어 부산물 (Ore Factory B)</h3><p class="sub">Zavaritskite의 Topaz · Blue Topaz도 Fluorine 원료</p>${byTable('HV')}</div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <h3>배관 팁</h3>
-    <ul class="pts">
-      <li>여러 대로 나눌 때는 버퍼 상자에서 Conveyor(라운드로빈)나 AE2 Interface로 분배.</li>
-      <li>섞인 입력을 분기해야 하면 HV 목록 8종을 필터로 잡고 나머지를 A로 보내는 쪽이 목록이 짧습니다.</li>
-      <li>공장마다 입력 해치 하나에 한 종류 유체만. A에 Persulfate가 들어가면 레시피는 안 걸리지만 해치를 막습니다.</li>
-      <li>B, C 단계의 Chromite · Rare Earth · Vanadium Magnetite · Cobaltite · Calcite · Silver는 dust로 바로 나오므로 Ore Factory가 필요 없습니다.</li>
-    </ul>
   </div>`;
 }
 
+/* ---------- 2 자원 · Persulfate ---------- */
 function viewPersulfate() {
   const h = cph();
-  const demand = PER_CYCLE.persulfate / CYCLE[S.hatch]; // mB/t
+  const demand = PER_CYCLE.persulfate * S.veN / CYC; // mB/t
   const cap = [
-    { label: '① SO2', sub: 'MV CR · 15t', value: 1000 / 15 / 2, t: 'MV', note: 'Sulfur Dioxide 1000' },
-    { label: '② SO3', sub: 'MV CR · 50t', value: 1000 / 50 / 2, t: 'MV', note: 'Sulfur Trioxide 1000' },
-    { label: '③ Sulfuric Acid', sub: 'MV CR · 40t', value: 1000 / 40 / 2, t: 'MV', note: 'Sulfuric Acid 1000' },
-    { label: '④ Bisulfate', sub: 'MV CR · 30t', value: 500 / 30, t: 'MV', note: 'Sodium Bisulfate 7' },
-    { label: '⑤ Persulfate', sub: 'MV Electrolyzer · 75t', value: 500 / 75, t: 'MV', note: 'Sodium Persulfate 500' },
-    { label: 'LCR 황산 1단', sub: 'HV · 320t · 비추천', value: 1000 / 320 / 2, t: 'bad', note: 'Sulfuric Acid 1000' },
-  ].map(r => {
-    const bad = r.value < demand;
-    return { label: r.label, sub: r.sub, value: r.value,
-      color: r.t === 'bad' ? (bad ? 'var(--critical)' : 'var(--muted)') : 'var(--s1)',
-      text: `${fmt(r.value, 1)} mB/t${bad ? ' · 수요 미달' : ''}`,
-      tip: `${fmt(r.value, 2)} mB/t (Persulfate 환산)|${r.label} 1대 · 1회 산출 ${r.note}` };
-  });
+    { label: '① SO2', sub: 'MV CR · 15t', value: 1000 / 15 / 2, note: 'Sulfur Dioxide 1000' },
+    { label: '② SO3', sub: 'MV CR · 50t', value: 1000 / 50 / 2, note: 'Sulfur Trioxide 1000' },
+    { label: '③ Sulfuric Acid', sub: 'MV CR · 40t', value: 1000 / 40 / 2, note: 'Sulfuric Acid 1000' },
+    { label: '④ Bisulfate', sub: 'MV CR · 30t', value: 500 / 30, note: 'Sodium Bisulfate 7' },
+    { label: '⑤ Persulfate', sub: 'MV Electrolyzer · 75t', value: 500 / 75, note: 'Sodium Persulfate 500' },
+  ].map(r => ({ label: r.label, sub: r.sub, value: r.value, color: r.value < demand ? 'var(--critical)' : 'var(--s1)',
+    text: `${fmt(r.value, 1)} mB/t${r.value < demand ? ` · ${Math.ceil(demand / r.value)}대 필요` : ''}`, tip: `${fmt(r.value, 2)} mB/t (Persulfate 환산)|${r.label} 1대 · 1회 산출 ${r.note}` }));
   return `
-  <h2>Sodium Persulfate</h2>
+  <h2>2 · 자원</h2>${subnav()}
   <p class="lead">HV 티어 Crushed Ore 8종은 1개당 Sodium Persulfate 100mB를 씁니다. HV에서는 <b>Sodium Bisulfate 전해</b>가 유일한 생산 경로이고,
-  Bisulfate 원료로 <b>Salt 경로</b>를 추천합니다. 금속 Sodium이 필요 없고, 부산물 HCl이 C2F4 라인의 염소가 됩니다.</p>
+  Bisulfate 원료로 <b>Salt 경로</b>를 추천합니다. 금속 Sodium이 필요 없고, 부산물 HCl이 PTFE 라인과 TiCl4의 염소가 됩니다.</p>
   <div class="tiles">
-    ${tile('수요', fmt(demand, 2), 'mB/t', `시간당 ${fmt(PER_CYCLE.persulfate * h / 1000, 1)}B · ${S.hatch} 해치`)}
-    ${tile('병목 단계 능력', fmt(500 / 75, 1), 'mB/t', '⑤ MV Electrolyzer 1대')}
-    ${tile('여유율', fmt(500 / 75 / demand, 1), '배', '전 단계 1대씩일 때')}
+    ${tile('수요', fmt(demand, 2), 'mB/t', `시간당 ${fmt(PER_CYCLE.persulfate * h / 1000, 1)}B · VE ${S.veN}대`)}
+    ${tile('⑤ 1대 능력', fmt(500 / 75, 1), 'mB/t', 'MV Electrolyzer')}
+    ${tile('⑤ 필요 대수', Math.ceil(demand / (500 / 75) - 1e-9), '대', '나머지 단계는 1대씩으로 충분')}
   </div>
   <div class="card">
     <h3>생산 흐름</h3>
@@ -688,7 +939,7 @@ function viewPersulfate() {
         { id: 's3', x: 400, y: 180, w: 150, t: '③ Sulfuric Acid', s: 'CR', k: 'MV', tip: 'sulfuric_acid_from_trioxide: SO3 1000 + Water 1000 → Sulfuric Acid 1000 (160t, ULV)' },
         { id: 's4', x: 600, y: 180, w: 150, t: '④ Bisulfate', s: 'CR · circuit 1', k: 'MV', tip: 'sodium_bisulfate_from_salt: Salt 2 + Sulfuric Acid 1000 → Sodium Bisulfate 7 + HCl 1000 (60t, LV)' },
         { id: 's5', x: 800, y: 180, w: 170, t: '⑤ Persulfate', s: 'Electrolyzer', k: 'MV', tip: 'sodium_bisulfate_electrolysis: Sodium Bisulfate 7 → Sodium Persulfate 500 + Hydrogen 1000 (150t, LV)' },
-        { id: 'hcl', x: 520, y: 330, w: 170, t: 'HCl 탱크', s: '→ C2F4 염소 루프', k: 'tank' },
+        { id: 'hcl', x: 520, y: 330, w: 170, t: 'HCl 탱크', s: '→ PTFE · TiCl4 염소', k: 'tank' },
         { id: 'h2', x: 720, y: 330, w: 120, t: 'Hydrogen', s: '→ HF 합성', k: 'tank' },
         { id: 'ofb', x: 860, y: 330, w: 120, t: 'Ore Factory B', s: 'HV crushed', k: 'OF' },
       ],
@@ -696,11 +947,8 @@ function viewPersulfate() {
         { a: 'su', b: 's1', l: 'Sulfur 1', anchor: 'end', lx: -8 },
         { a: 'ox', b: 's1', fs: 'b', ts: 't', fo: -30, to: 30, l: 'O 2000', lt: 0.22, anchor: 'end', lx: -8 },
         { a: 'ox', b: 's2', fs: 'b', ts: 't', fo: 30, l: 'O 1000', lt: 0.55 },
-        { a: 'wa', b: 's3', fs: 'b', ts: 't', to: 30 },
-        { a: 'sa', b: 's4', fs: 'b', ts: 't', to: 30 },
-        { a: 's1', b: 's2', l: 'SO2', amt: 1000 },
-        { a: 's2', b: 's3', l: 'SO3', amt: 1000 },
-        { a: 's3', b: 's4', l: 'H2SO4', amt: 1000 },
+        { a: 'wa', b: 's3', fs: 'b', ts: 't', to: 30 }, { a: 'sa', b: 's4', fs: 'b', ts: 't', to: 30 },
+        { a: 's1', b: 's2', l: 'SO2', amt: 1000 }, { a: 's2', b: 's3', l: 'SO3', amt: 1000 }, { a: 's3', b: 's4', l: 'H2SO4', amt: 1000 },
         { a: 's4', b: 's5', l: '7 dust' },
         { a: 's4', b: 'hcl', fs: 'b', ts: 't', l: 'HCl 1000', amt: 1000 },
         { a: 's5', b: 'h2', fs: 'b', ts: 't', fo: -50, l: 'H 1000', amt: 1000, lt: 0.5, anchor: 'end', lx: -10 },
@@ -712,24 +960,21 @@ function viewPersulfate() {
   <div class="grid2">
     <div class="card">
       <h3>단계별 처리 능력 vs 수요</h3>
-      <p class="sub">각 단계 기계 1대의 능력을 Persulfate mB/t로 환산 (황산 2000 = Persulfate 1000).</p>
-      ${hbar(cap, { ref: { v: demand, l: `현재 수요 ${fmt(demand, 2)} mB/t (${S.hatch} 해치)` }, cols: ['단계', 'Persulfate 환산'], legend: [{ n: '추천 구성 (MV 기계 1대)', c: 'var(--s1)' }, { n: 'LCR 1단 황산', c: 'var(--critical)' }] })}
-      <p class="sub" style="margin:10px 0 0">LCR은 C2F4 전용으로 두고, 황산은 기존 MV CR 3대로 3단 체인을 만드세요.</p>
+      <p class="sub">각 단계 기계 1대의 능력을 Persulfate mB/t로 환산 (황산 2000 = Persulfate 1000). 빨간 막대는 1대로 모자람.</p>
+      ${hbar(cap, { ref: { v: demand, l: `수요 ${fmt(demand, 2)} mB/t (VE ${S.veN}대)` }, cols: ['단계', 'Persulfate 환산'] })}
     </div>
     <div class="card">
       <h3>Persulfate 1000mB당 유체 수지</h3>
       <p class="sub">왼쪽 = 투입, 오른쪽 = 산출. 고체는 Salt 4 + Sulfur 2 투입.</p>
       ${hbar([
-        { label: 'Oxygen', value: -6000, color: 'var(--neg)', text: '−6,000' },
-        { label: 'Water', value: -2000, color: 'var(--neg)', text: '−2,000' },
-        { label: 'Sodium Persulfate', value: 1000, color: 'var(--pos)', text: '+1,000' },
-        { label: 'Hydrochloric Acid', value: 2000, color: 'var(--pos)', text: '+2,000' },
+        { label: 'Oxygen', value: -6000, color: 'var(--neg)', text: '−6,000' }, { label: 'Water', value: -2000, color: 'var(--neg)', text: '−2,000' },
+        { label: 'Sodium Persulfate', value: 1000, color: 'var(--pos)', text: '+1,000' }, { label: 'Hydrochloric Acid', value: 2000, color: 'var(--pos)', text: '+2,000' },
         { label: 'Hydrogen', value: 2000, color: 'var(--pos)', text: '+2,000' },
       ], { signed: true, max: 7000, cols: ['유체', 'mB'], legend: [{ n: '투입', c: 'var(--neg)' }, { n: '산출', c: 'var(--pos)' }] })}
     </div>
   </div>
   <div class="card" style="margin-top:16px">
-    <h3>레시피 (GTCEu jar에서 확인)</h3>
+    <h3>레시피 (GTCEu jar)</h3>
     <div class="tscroll"><table>
       <thead><tr><th>단계</th><th>레시피 ID</th><th>입력</th><th>출력</th><th class="n">시간 / EU/t</th></tr></thead>
       <tbody>
@@ -738,63 +983,102 @@ function viewPersulfate() {
         <tr><td>③</td><td><code>sulfuric_acid_from_trioxide</code></td><td>Sulfur Trioxide 1000 + Water 1000</td><td>Sulfuric Acid 1000</td><td class="n">160t / 7</td></tr>
         <tr><td>④</td><td><code>sodium_bisulfate_from_salt</code> (c1)</td><td>Salt 2 + Sulfuric Acid 1000</td><td>Sodium Bisulfate 7 + HCl 1000</td><td class="n">60t / 30</td></tr>
         <tr><td>⑤</td><td><code>sodium_bisulfate_electrolysis</code></td><td>Sodium Bisulfate 7</td><td>Sodium Persulfate 500 + Hydrogen 1000</td><td class="n">150t / 30</td></tr>
-        <tr><td>대안</td><td><code>sodium_bisulfate_from_hydroxide</code></td><td>Sodium Hydroxide 3 + Sulfuric Acid 1000</td><td>Sodium Bisulfate 7 + Water 1000</td><td class="n">60t / 30</td></tr>
-        <tr><td>대안</td><td><code>sulfuric_acid_from_sulfur</code> (LCR, c24)</td><td>Sulfur 1 + Water 4000</td><td>Sulfuric Acid 1000</td><td class="n">320t / 480</td></tr>
       </tbody></table></div>
   </div>
-  ${callout('info', 'i', '<b>EV 이후:</b> Chemical Plant의 <code>sodium_persulfate_skip</code> — Sodium 1 + Sulfur 1 + Oxygen 4000 → Sodium Persulfate 500 (30t, 960 EU/t). 위 5단 라인을 한 대로 대체합니다. 대신 금속 Sodium 공급원이 필요합니다.')}`;
+  ${callout('info', 'i', '<b>EV 이후:</b> Chemical Plant의 <code>sodium_persulfate_skip</code>(Theta 2에서도 같음) — Sodium 1 + Sulfur 1 + Oxygen 4000 → Sodium Persulfate 500 (30t, 960 EU/t). 금속 Sodium 공급원이 필요합니다.')}`;
 }
 
-function viewC2F4() {
-  const h = cph();
-  const fParts = [
-    { n: FLUORINE[0].n, v: FLUORINE[0].v * h, c: 'var(--s1)' },
-    { n: FLUORINE[1].n, v: FLUORINE[1].v * h, c: 'var(--s2)' },
-    { n: FLUORINE[2].n, v: FLUORINE[2].v * h, c: 'var(--s3)' },
-  ];
-  const fHour = F_PER_CYCLE * h;
-  const c2f4Hour = fHour / 4;
-  const lcrMax = 72000 / 480 * 1000;
+/* ---------- 3 PTFE → LCR · 부트스트랩 ---------- */
+function viewBoot() {
+  const ptfe = LCR_PTFE_MB, c2f4 = ptfe / 1.5, runs = c2f4 / 1000;
+  const fNeed = runs * 4000, fHour = F_PER_CYCLE * cph();
+  const steps = [
+    { label: '① HF', sub: 'CR · 60t × ' + fmt(runs * 4, 1), value: runs * 4 * 60, color: 'var(--s1)' },
+    { label: '② Chloroform', sub: 'CR · 80t × ' + fmt(runs * 2, 1), value: runs * 2 * 80, color: 'var(--s1)' },
+    { label: '③ C2F4', sub: 'HV CR · 480t × ' + fmt(runs, 1), value: runs * 480, color: 'var(--s2)' },
+    { label: '⑤ PTFE', sub: 'CR · 160t × ' + fmt(c2f4 / 144, 1), value: c2f4 / 144 * 160, color: 'var(--s1)' },
+  ].map(r => ({ ...r, text: `${fmt(r.value / 20 / 60, 1)}분`, value: r.value / 20 / 60 }));
   return `
-  <h2>C2F4 · PTFE (LCR)</h2>
-  <p class="lead">LCR에 <code>tetrafluoroethylene_from_chloroform</code>(480t, 240 EU/t)을 전담시키고, 염소는 HCl 전해로 되돌리는 닫힌 루프로 운용합니다.
-  외부에서 넣을 것은 <b>Fluorine</b>과 <b>Methane</b>뿐이고, 라인 규모를 정하는 건 Fluorine 공급량입니다.</p>
-  ${callout('crit', '!', '<b>LCR 원스텝 레시피는 HV에서 못 씁니다.</b> <code>tetrafluoroethylene_from_methane</code>(circuit 24)은 <b>IV 전압</b>입니다. HV에서는 Chloroform 경로가 유일한 답입니다.')}
+  <h2>3 · PTFE → LCR</h2>${subnav()}
+  <p class="lead">Void 라인 다음 목표는 <b>PTFE를 만들어 Large Chemical Reactor를 짓는 것</b>입니다. LCR이 있으면 에폭시 · 페놀 · 황산 같은 여러 단계 화학을 한 번에 돌리는 단축 레시피가 열려서 이후 작업이 훨씬 편해집니다.
+  LCR이 없으니 <b>처음 PTFE는 단일 블록 CR로</b> 만듭니다. 필요한 레시피는 전부 CR에서 돌아갑니다.</p>
+  <div class="tiles">
+    ${tile('LCR 1대에 PTFE', fmt(ptfe / 144, 0), 'ingot', `${fmt(ptfe, 0)}mB · 해치 8개 가정`)}
+    ${tile('필요한 C2F4', fmt(c2f4, 0), 'mB', `③ ${fmt(runs, 1)}회 · ptfe_from_oxygen 1 → 1.5`)}
+    ${tile('필요한 Fluorine', fmt(fNeed / 1000, 1), 'B', `Void 체인 기준 ${fmt(fNeed / fHour * 60, 0)}분치 (분해 레시피 확인 필요)`)}
+    ${tile('HV CR', '1', '대', '③만 240 EU/t. 기지에 1대 있음')}
+  </div>
   <div class="card">
-    <h3>염소 루프</h3>
-    <p class="sub">C2F4 1000mB 기준. 화살표 굵기 = 유체량.</p>
+    <h3>단일 블록으로 도는 경로</h3>
+    <p class="sub">C2F4 1000mB 기준. 화살표 굵기 = 유체량. ③만 HV CR, 나머지는 기존 LV · MV CR.</p>
     ${flow({
-      label: 'C2F4 라인', h: 470,
+      label: 'PTFE 부트스트랩', h: 470,
       nodes: [
-        { id: 'f', x: 20, y: 30, w: 130, t: 'Fluorine', s: '4000 · 외부 공급', k: 'src' },
-        { id: 'hf', x: 240, y: 30, t: '① HF', s: 'CR · 회로 없음', k: 'MV', tip: 'hydrofluoric_acid_from_elements: Hydrogen 1000 + Fluorine 1000 → HF 1000 (60t, ULV)' },
-        { id: 'me', x: 20, y: 200, w: 120, t: 'Methane', s: '2000 · 외부', k: 'src', tip: '오일 라인 Methane, 또는 잉여 Hydrogen 8000 + Carbon 2 → methane_from_elements' },
-        { id: 'cl', x: 240, y: 200, t: '② Chloroform', s: 'CR · circuit 1', k: 'MV', tip: 'chloroform: Chlorine 6000 + Methane 1000 → Chloroform 1000 + HCl 3000 (80t, LV) ×2' },
-        { id: 'lcr', x: 480, y: 115, t: '③ C2F4', s: 'LCR · 480t', k: 'LCR', tip: 'tetrafluoroethylene_from_chloroform: Chloroform 2000 + HF 4000 → C2F4 1000 + HCl 6000 (480t, 240 EU/t)' },
+        { id: 'f', x: 20, y: 30, w: 130, t: 'Fluorine', s: '4000', k: 'src', tip: 'Lepidolite · Pyrochlore dust 분해 (Void 체인 D → Ore Factory A), Rock Filter MV 지오드의 Topaz · Blue Topaz' },
+        { id: 'hf', x: 240, y: 30, t: '① HF', s: 'CR · 회로 없음', k: 'MV', tip: 'hydrofluoric_acid_from_elements: Hydrogen 1000 + Fluorine 1000 → HF 1000 (60t, 7 EU/t)' },
+        { id: 'me', x: 20, y: 200, w: 120, t: 'Methane', s: '2000', k: 'src', tip: '오일 라인 Methane, 또는 잉여 Hydrogen + Carbon → methane_from_elements (3500t)' },
+        { id: 'cl', x: 240, y: 200, t: '② Chloroform', s: 'CR · circuit 1', k: 'MV', tip: 'chloroform: Chlorine 6000 + Methane 1000 → Chloroform 1000 + HCl 3000 (80t, 30 EU/t) ×2' },
+        { id: 'c2', x: 480, y: 115, t: '③ C2F4', s: 'HV CR · 480t', k: 'HV', tip: 'tetrafluoroethylene_from_chloroform: Chloroform 2000 + HF 4000 → C2F4 1000 + HCl 6000 (480t, 240 EU/t) — MV CR는 128V라 불가' },
         { id: 'ox', x: 740, y: 20, w: 130, t: 'Oxygen', s: '~6944', k: 'src' },
-        { id: 'pt', x: 740, y: 115, w: 170, t: '⑤ PTFE', s: 'CR · circuit 1', k: 'MV', tip: 'ptfe_from_oxygen: Oxygen 1000 + C2F4 144 → PTFE 216 (160t, LV)' },
-        { id: 'tk', x: 480, y: 360, t: 'HCl 탱크', s: '12000 / 배치', k: 'tank' },
+        { id: 'pt', x: 740, y: 115, w: 170, t: '⑤ PTFE', s: 'CR · circuit 1', k: 'MV', tip: 'ptfe_from_oxygen: Oxygen 1000 + C2F4 144 → PTFE 216 (160t, 30 EU/t)' },
+        { id: 'lcr', x: 740, y: 240, w: 170, t: 'Large Chemical Reactor', s: `PTFE ${fmt(ptfe / 144, 0)} ingot`, k: 'LCR' },
+        { id: 'tk', x: 480, y: 360, t: 'HCl 탱크', s: '12000 / C2F4 1000', k: 'tank' },
         { id: 'el', x: 240, y: 360, t: '④ Electrolyzer', s: 'HCl → H + Cl', k: 'MV', tip: 'HCl 1000 → Hydrogen 1000 + Chlorine 1000 (분해 레시피, 시간은 EMI 확인)' },
-        { id: 'ps', x: 740, y: 360, w: 170, t: 'Persulfate 라인', s: 'HCl 보충', k: 'src' },
       ],
       edges: [
         { a: 'f', b: 'hf', l: 'F 4000', amt: 4000 },
-        { a: 'hf', b: 'lcr', l: 'HF 4000', amt: 4000, lt: 0.45 },
+        { a: 'hf', b: 'c2', l: 'HF 4000', amt: 4000, lt: 0.45 },
         { a: 'me', b: 'cl', l: 'CH4 2000', amt: 2000 },
-        { a: 'cl', b: 'lcr', l: 'Chloroform 2000', amt: 2000, lt: 0.6, ly: 12 },
-        { a: 'lcr', b: 'pt', l: 'C2F4 1000', amt: 1000 },
+        { a: 'cl', b: 'c2', l: 'Chloroform 2000', amt: 2000, lt: 0.6, ly: 12 },
+        { a: 'c2', b: 'pt', l: 'C2F4 1000', amt: 1000 },
         { a: 'ox', b: 'pt', fs: 'b', ts: 't', fo: -10, to: -20 },
-        { a: 'lcr', b: 'tk', l: 'HCl 6000', amt: 6000, fs: 'b', ts: 't', to: 20, anchor: 'start', lx: 12 },
+        { a: 'pt', b: 'lcr', l: 'PTFE', fs: 'b', ts: 't' },
+        { a: 'c2', b: 'tk', l: 'HCl 6000', amt: 6000, fs: 'b', ts: 't', to: 20, anchor: 'start', lx: 12 },
         { a: 'cl', b: 'tk', l: 'HCl 6000', amt: 6000, fs: 'r', ts: 't', fo: 14, to: -30, lt: 0.35, ly: 18 },
         { a: 'tk', b: 'el', l: 'HCl 12000', amt: 12000 },
         { a: 'el', b: 'cl', l: 'Cl 12000', amt: 12000, anchor: 'start', lx: 16 },
         { a: 'el', b: 'hf', l: 'H 4000', amt: 4000, fs: 'l', ts: 'l', k: 90, lt: 0.2, anchor: 'end', lx: -6 },
-        { a: 'ps', b: 'tk', l: 'HCl', dash: true },
       ],
     })}
-    ${tierLegend(['MV', 'LCR', 'tank', 'src'])}
-    <p class="sub" style="margin:10px 0 0">①과 ②를 같은 CR에 두면 Hydrogen과 Chlorine이 섞여 <code>hydrochloric_acid</code> 레시피가 걸립니다. 반드시 분리하세요.</p>
+    ${tierLegend(['MV', 'HV', 'LCR', 'tank', 'src'])}
+    <p class="sub" style="margin:10px 0 0">①과 ②를 같은 CR에 두면 Hydrogen과 Chlorine이 섞여 <code>hydrochloric_acid</code> 레시피가 걸립니다. 반드시 분리하세요. 단일 CR 유체 칸이 2개라 ②는 Chlorine 6000을 한 번에 받아야 합니다(LV CR 탱크 8000 이상 ${EMI}).</p>
   </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>LCR 1대에 드는 PTFE</h3>
+      <p class="sub">GT 재료량으로 계산. 케이싱 수는 해치 개수에 따라 달라집니다 ${EMI}.</p>
+      ${hbar(LCR_PTFE.map((p, i) => ({ label: p.n, sub: p.s, value: p.mb / 144, color: ['var(--s7)', 'var(--s5)', 'var(--s1)'][i], text: `${fmt(p.mb / 144, 0)} ingot` })), { cols: ['부품', 'PTFE ingot'] })}
+      <div class="tscroll" style="margin-top:12px"><table>
+        <thead><tr><th>LCR 컨트롤러</th><th>재료</th></tr></thead>
+        <tbody>
+          <tr><td><code>CRC / PMP / CHC</code></td><td>HV 회로 4 · Stainless Steel 로터 1 · <b>PTFE Large Fluid Pipe 2</b> · HV 모터 1 · HV Hull 1</td></tr>
+          <tr><td>구조</td><td>3×3×3 · 가운데 PTFE Pipe Casing · Heating Coil 1 · 나머지 Chemically Inert Casing(PTFE 216 + Solid Steel Casing)과 해치</td></tr>
+        </tbody></table></div>
+    </div>
+    <div class="card">
+      <h3>한 번 돌리는 시간 (각 단계 기계 1대)</h3>
+      <p class="sub">LCR 1대분 PTFE를 만들 때. 단계가 겹쳐 돌면 가장 긴 단계 시간이 전체 시간입니다.</p>
+      ${hbar(steps, { cols: ['단계', '분'] })}
+      <ul class="pts" style="margin-top:12px">
+        <li><b>염소는 닫힌 루프</b>입니다. 처음 한 배치(12,000mB)만 있으면 되고, Persulfate 라인의 HCl로 채웁니다.</li>
+        <li><b>Methane</b> ${fmt(runs * 2000 / 1000, 1)}B: 오일 라인이 없으면 ④에서 남는 Hydrogen + Carbon으로 <code>methane_from_elements</code>(3500t)를 미리 돌려 두세요.</li>
+        <li><b>Fluorine</b>이 시간을 정합니다. Rock Filter의 MV 지오드(<code>mv_geodes_2</code>)에서 나오는 <code>Topaz</code> · <code>Blue Topaz</code>도 Fluorine 원료입니다 ${EMI} 분해 레시피.</li>
+      </ul>
+    </div>
+  </div>
+  ${callout('ok', '✓', `<b>LCR을 지은 뒤</b> C2F4를 LCR로 옮기면(다음 하위 탭) HV CR이 풀리고, LCR 전용 레시피가 열립니다: <code>epoxy_shortcut</code> · <code>phenol_*_shortcut</code> · <code>epichlorohydrin_shortcut_*</code>(모두 30 EU/t), <code>ptfe_from_tetrachloride_oxygen</code>(PTFE +33%).`)}`;
+}
+
+/* ---------- 3 PTFE → LCR · 양산 (예전 C2F4 탭) ---------- */
+function viewLcr() {
+  const h = cph();
+  const fParts = FLUORINE.map((f, i) => ({ n: f.n, v: f.v * h, c: ['var(--s1)', 'var(--s2)', 'var(--s3)'][i] }));
+  const fHour = F_PER_CYCLE * h, c2f4Hour = fHour / 4, lcrMax = 72000 / 480 * 1000;
+  return `
+  <h2>3 · PTFE → LCR</h2>${subnav()}
+  <p class="lead">LCR이 생기면 <code>tetrafluoroethylene_from_chloroform</code>(480t, 240 EU/t)을 LCR에 전담시키고, 염소는 HCl 전해로 되돌리는 닫힌 루프로 운용합니다.
+  외부에서 넣을 것은 <b>Fluorine</b>과 <b>Methane</b>뿐이고, 라인 규모를 정하는 건 Fluorine 공급량입니다.</p>
+  ${callout('crit', '!', '<b>LCR 원스텝 레시피는 HV에서 못 씁니다.</b> <code>tetrafluoroethylene_from_methane</code>(circuit 24)은 IV 전압입니다. HV 해치 2개로도 EV까지라 Chloroform 경로가 답입니다.')}
   <div class="grid2">
     <div class="card">
       <h3>C2F4 1000mB당 순수지</h3>
@@ -814,13 +1098,13 @@ function viewC2F4() {
         { label: 'ptfe_from_oxygen', sub: 'CR · circuit 1', value: 1500, color: 'var(--s1)', text: '1,500mB · 기본' },
         { label: 'ptfe_from_tetrachloride_oxygen', sub: 'LCR · circuit 2 · TiCl4 100', value: 2000, color: 'var(--s7)', text: '2,000mB · +33%' },
       ], { cols: ['레시피', 'PTFE'] })}
-      <p class="sub" style="margin:10px 0 0">Titanium Tetrachloride를 만들 수 있으면 두 번째 LCR로 TiCl4 경로를 쓰세요. LCR 한 대로 C2F4와 번갈아 쓰면 입력이 섞여 막힙니다.</p>
+      <p class="sub" style="margin:10px 0 0">TiCl4는 5 탭의 Titanium 경로에서 같이 만듭니다. LCR 한 대로 C2F4와 번갈아 쓰면 입력이 섞이니 두 번째 LCR에서.</p>
     </div>
   </div>
   <div class="grid2">
     <div class="card">
       <h3>Void 체인에서 나오는 Fluorine</h3>
-      <p class="sub">시간당 약 <b>${fmt(fHour, 0)}mB</b> (${S.hatch} 해치). Ore Factory 기대 산출 1.5 dust/crushed 기준 예상치. ${EMI}</p>
+      <p class="sub">시간당 약 <b>${fmt(fHour / 1000, 0)}B</b> (VE ${S.veN}대). Ore Factory 기대 산출 1.5 dust/crushed 기준 예상치. ${EMI}</p>
       ${stackbar(fParts, 'mB')}
       <div class="tscroll" style="margin-top:12px"><table>
         <thead><tr><th>dust</th><th>구성</th><th class="n">분해 입력</th><th class="n">Fluorine</th></tr></thead>
@@ -833,315 +1117,283 @@ function viewC2F4() {
     </div>
     <div class="card">
       <h3>LCR 가동률</h3>
-      <p class="sub">LCR이 쉬지 않으면 Fluorine이 시간당 ${fmt(lcrMax * 4 / 1000, 0)}B 필요합니다. 실제로는 Fluorine이 먼저 바닥납니다.</p>
+      <p class="sub">LCR이 쉬지 않으면 Fluorine이 시간당 ${fmt(lcrMax * 4 / 1000, 0)}B 필요합니다.</p>
       ${hbar([
-        { label: 'LCR 최대', sub: 'HV 해치 · OC 없음', value: lcrMax, color: 'var(--muted)', text: fmt(lcrMax, 0) + 'mB' },
-        { label: 'Fluorine 기준 예상', sub: 'Void 체인만', value: c2f4Hour, color: 'var(--s7)', text: `${fmt(c2f4Hour, 0)}mB · ${fmt(c2f4Hour / lcrMax * 100, 0)}%` },
+        { label: 'LCR 최대', sub: 'HV 해치 · OC 없음', value: lcrMax, color: 'var(--muted)', text: fmt(lcrMax / 1000, 0) + 'B' },
+        { label: 'Fluorine 기준 예상', sub: 'Void 체인만', value: Math.min(c2f4Hour, lcrMax), color: 'var(--s7)', text: `${fmt(c2f4Hour / 1000, 0)}B · ${fmt(c2f4Hour / lcrMax * 100, 0)}%` },
       ], { cols: ['', 'C2F4 / 시간'] })}
       <div class="tiles" style="margin:14px 0 0">
-        ${tile('C2F4 / 시간', fmt(c2f4Hour / 1000, 1), 'B', '예상')}
-        ${tile('PTFE / 시간', fmt(c2f4Hour * 1.5 / 144, 0), 'ingot', 'ptfe_from_oxygen')}
+        ${tile('C2F4 / 시간', fmt(Math.min(c2f4Hour, lcrMax) / 1000, 1), 'B', '예상')}
+        ${tile('PTFE / 시간', fmt(Math.min(c2f4Hour, lcrMax) * 1.5 / 144, 0), 'ingot', 'ptfe_from_oxygen')}
       </div>
-      <p class="sub" style="margin:10px 0 0">PTFE가 더 필요하면 Lepidolite 광맥을 따로 캐거나 Void Extractor를 늘리세요. Lepidolite 분해는 Oxygen 10000도 내서 ⑤의 산소를 일부 채웁니다.</p>
+      <p class="sub" style="margin:10px 0 0">100%를 넘으면 LCR 1대가 한계입니다. 그때는 부트스트랩 때 쓴 HV CR을 같이 돌리세요.</p>
     </div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <h3>배치</h3>
-    <div class="tscroll"><table>
-      <thead><tr><th>단계</th><th>기계</th><th class="n">대수</th><th>비고</th></tr></thead>
-      <tbody>
-        <tr><td>① HF</td><td>기존 LV/MV CR</td><td class="n">1</td><td>회로 없음. ②와 같은 CR 금지</td></tr>
-        <tr><td>② Chloroform</td><td>기존 MV CR</td><td class="n">1</td><td>circuit 1</td></tr>
-        <tr><td>③ C2F4</td><td>LCR (HV 해치)</td><td class="n">1</td><td>이 레시피 전용. Chlorine · Methane이 들어가지 않게</td></tr>
-        <tr><td>④ HCl 전해</td><td>기존 LV/MV Electrolyzer</td><td class="n">1</td><td>②③ · Persulfate의 HCl을 한 탱크로 ${EMI}</td></tr>
-        <tr><td>⑤ PTFE</td><td>기존 MV CR (또는 LCR 2호기)</td><td class="n">1</td><td>circuit 1 (TiCl4 경로는 circuit 2)</td></tr>
-        <tr><td>Methane (선택)</td><td>MV CR</td><td class="n">2</td><td><code>methane_from_elements</code> circuit 1 · 3500t로 느림</td></tr>
-        <tr><td>Fluorine 원료 분해</td><td>기존 Electrolyzer</td><td class="n">1~2</td><td>${EMI}</td></tr>
-      </tbody></table></div>
   </div>`;
 }
 
-/* ---------- 3D 배치도 ---------- */
-// 좌표는 블록 단위: x = 동, z = 남, y = 위. 모든 줄은 동쪽 끝이 열려 있어서 늘릴 때 뒤에 붙이기만 한다.
-const PIPE = {
-  water: { c: '--s1', n: 'Water' }, lube: { c: '--s4', n: 'Lubricant' },
-  df: { c: '--s3', n: 'Drilling Fluid' }, res: { c: '--s5', n: 'Rare Ore Residue' },
-  slu: { c: '--s4', n: 'Raw Ore Slurry' }, mmr: { c: '--s7', n: 'Mixed Mineral Residue' },
-  sul: { c: '--s8', n: 'Sulfuric Mineral Mixture' }, oxy: { c: '--s1', n: 'Oxygenous Mineral Mixture' },
-  molten: { c: '--s2', n: 'Molten Ore Mixture' }, item: { c: '--ink-2', n: '아이템 (Raw Ore · dust)' },
-  crushed: { c: '--s6', n: 'Crushed Ore' },
-  beam: { c: '--s8', n: 'LaserIO 레이저', w: 0.05 }, me: { c: '--s7', n: 'ME 케이블', w: 0.11 },
-  hv: { c: '--s2', n: 'HV 케이블', w: 0.16 }, mv: { c: '--s1', n: 'MV 케이블', w: 0.16 },
-};
-const slotsFor = busy => Math.ceil(busy * MAX_VE / CYCLE.HV - 1e-9);   // HV 해치 · VE 최대 대수 기준 자리
-const firstN = (busy, j) => { for (let n = 1; n <= 16; n++) if (need(busy, n) > j) return n; return 99; };
-
-function buildLayout(N) {
-  const boxes = [], pipes = [];
-  const box = (o) => { boxes.push(o); return o; };
-  const top = (b) => [b.x + b.w / 2, b.y + b.h, b.z + b.d / 2];
-  // a/b 윗면에서 lane 높이로 올라가 x → z (또는 z → x) 순으로 이동해 내려간다. 같은 lane끼리는 겹쳐 버스처럼 보인다.
-  const pipe = (type, a, b, y, zFirst) => {
-    if (a.ghost || b.ghost) return;
-    const p = top(a), q = top(b);
-    const mid = zFirst ? [p[0], y, q[2]] : [q[0], y, p[2]];
-    pipes.push({ type, pts: [p, [p[0], y, p[2]], mid, [q[0], y, q[2]], q] });
-  };
-  const path = (type, pts, ghost) => { if (!ghost) pipes.push({ type, pts }); };
-  const unit = (x, z, o) => box({ x, y: 0, z, w: 1, h: 1, d: 1, ...o });
-  const stageBy = id => STAGES.find(s => s.id === id);
-  const row = (id, x0, z) => {
-    const s = stageBy(id), n = slotsFor(s.busy), live = need(s.busy, N);
-    return Array.from({ length: n }, (_, j) => unit(x0 + j, z, {
-      col: TIER[s.t].c.slice(4, -1), ghost: j >= live, label: `${id}${j + 1}`,
-      tip: `${id}${j + 1} · ${s.t} ${s.m}|${s.r}${j >= live ? ` · Void Extractor ${firstN(s.busy, j)}대부터` : ''}`,
-    }));
-  };
-
-  // ── Void Extractor 윙 (북쪽, 동쪽으로 증설) ──
-  const VE = [];
-  for (let i = 0; i < MAX_VE; i++) {
-    const x0 = 4 + 5 * i, g = i >= N, name = `Void Extractor ${i + 1}`;
-    const tipBase = `${name}${g ? ' · 예약 자리' : ''}`;
-    const hatch = (dx, dz, col, what) => unit(x0 + dx, -6 + dz, { col, ghost: g, tip: `${what}|${tipBase}` });
-    const v = {
-      res: hatch(0, 2, '--s5', 'Fluid Output Hatch · Rare Ore Residue'),
-      ctl: hatch(1, 2, '--ink-2', 'Controller (남쪽을 봄)'),
-      slu: hatch(2, 2, '--s4', 'Fluid Output Hatch · Raw Ore Slurry'),
-      inp: hatch(0, 1, '--s3', 'Fluid Input Hatch · Drilling Fluid'),
-      nrg: hatch(2, 1, '--s2', `Energy Hatch · ${S.hatch}`),
-      it1: hatch(0, 0, '--ink-2', 'Item Output Bus · Raw Ore'),
-      it2: hatch(1, 0, '--ink-2', 'Item Output Bus · Raw Ore'),
-    };
-    hatch(2, 0, '--axis', 'Solid Steel Machine Casing');
-    hatch(1, 1, '--axis', 'Solid Steel Machine Casing');
-    const fr = (dx, dz, y) => box({ x: x0 + dx + 0.35, y, z: -6 + dz + 0.35, w: 0.3, h: 1, d: 0.3, col: '--edge', ghost: g, tip: `Steel Frame|${tipBase}` });
-    for (const y of [1, 2]) { fr(1, 0, y); fr(0, 1, y); fr(2, 1, y); fr(1, 2, y); box({ x: x0 + 1, y, z: -5, w: 1, h: 1, d: 1, col: '--ink-2', ghost: g, tip: `Steel Gearbox|${tipBase}` }); }
-    for (const y of [3, 4, 5]) fr(1, 1, y);
-    box({ x: x0, y: 0, z: -6, w: 3, h: 6, d: 3, zone: true, ghost: true, hide: true, label: `VE${i + 1}`, g });
-    v.x0 = x0; v.g = g; VE.push(v);
-  }
-
-  // ── Drilling Fluid 구역 (북서) ──
-  const mixN = slotsFor(MIXER_BUSY), mixLive = need(MIXER_BUSY, N);
-  const rock = unit(-2, -9, { col: '--s3', label: 'RB', tip: 'Rock Breaker (LV)|Cobblestone → Macerator' });
-  const mac = unit(-1, -9, { col: '--s3', label: 'Mac', tip: 'Macerator (LV)|Stone Dust 공급' });
-  const mixers = Array.from({ length: mixN }, (_, j) => unit(j, -9, { col: '--s3', ghost: j >= mixLive, label: `Mix${j + 1}`,
-    tip: `Mixer ${j + 1}|drilling_fluid · 64t${j >= mixLive ? ` · Void Extractor ${firstN(MIXER_BUSY, j)}대부터` : ''}` }));
-  const water = unit(0, -11, { col: '--s1', label: 'Water', tip: 'Water 공급|무한 물 (Pump · 무한 물 셀). VE 1대당 약 31mB/t' });
-  const lube = unit(1, -11, { col: '--s4', label: 'Lube', tip: 'Lubricant 탱크|사이클당 20mB' });
-  const dfT = unit(mixN + 1, -9, { col: '--muted', label: 'DF', tip: 'Drilling Fluid 버퍼 탱크|모든 Void Extractor가 여기서 받음' });
-  const rawC = unit(1, -6, { col: '--s4', label: 'Raw', tip: 'Raw Ore 출구|→ Macerator → Ore Factory A (02 탭)' });
-  pipe('item', rock, mac, 1.3);
-  mixers.forEach(m => { pipe('item', mac, m, 1.3); pipe('water', water, m, 1.5, true); pipe('lube', lube, m, 1.8, true); pipe('df', m, dfT, 2.1); });
-
-  // ── 단계 버퍼 탱크 (x = 0 기둥) ──
-  const tank = (z, label, tip) => unit(0, z, { col: '--muted', label, tip });
-  const Z = { res: 0, slu: 3, mmr: 6, sul: 9, oxy: 12 };
-  const tRes = tank(Z.res, 'T-Res', 'Rare Ore Residue 버퍼|A 버스의 시작점');
-  const tSlu = tank(Z.slu, 'T-Slu', 'Raw Ore Slurry 버퍼|VE 600 + A 250 합류');
-  const tMmr = tank(Z.mmr, 'T-MMR', 'Mixed Mineral Residue 버퍼|D → E');
-  const tSul = tank(Z.sul, 'T-Sul', 'Sulfuric Mineral Mixture 버퍼|E → F');
-  const tOxy = tank(Z.oxy, 'T-Oxy', 'Oxygenous Mineral Mixture 버퍼|E → G. G가 가장 바쁘니 크게');
-
-  VE.forEach(v => {
-    const cx = v.x0 + 0.5;
-    path('df', [top(dfT), [dfT.x + 0.5, 2.1, -7.5], [cx - 1, 2.1, -7.5], [cx - 1, 0.5, -7.5], [cx - 1, 0.5, -4.5], [cx - 0.5, 0.5, -4.5]], v.g);
-    path('item', [[cx, 0.5, -6], [cx, 0.5, -6.6], [rawC.x + 0.5, 0.5, -6.6], [rawC.x + 0.5, 0.5, -5.5]], v.g);
-    path('item', [[cx + 1, 0.5, -6], [cx + 1, 0.5, -6.6]], v.g);
-    path('res', [[cx, 0.5, -3], [cx, 0.5, -2.6], [cx, 1.5, -2.6], [0.5, 1.5, -2.6], [0.5, 1.5, 0.5], [0.5, 1, 0.5]], v.g);
-    path('slu', [[cx + 2, 0.5, -3], [cx + 2, 0.5, -1.8], [cx + 2, 1.9, -1.8], [-0.5, 1.9, -1.8], [-0.5, 1.9, 3.5], [0.5, 1.9, 3.5], [0.5, 1, 3.5]], v.g);
-  });
-
-  // ── 처리 행 (남쪽, 각 행이 동쪽으로 자람) ──
-  const A = row('A', 2, Z.res), B = row('B', 3 + A.length, Z.res), C = row('C', 4 + A.length + B.length, Z.res);
-  const dust = unit(C[C.length - 1].x + 2, Z.res, { col: '--s4', label: 'Dust', tip: 'dust 출구|Chromite · Rare Earth · Vanadium Magnetite · Cobaltite · Calcite · Silver' });
-  const D = row('D', 2, Z.slu);
-  const ofA = unit(D[D.length - 1].x + 2, Z.slu, { col: '--s4', label: '→OF-A', tip: 'MV crushed 출구|→ Ore Factory A (Distilled Water)' });
-  const mol = unit(ofA.x + 1, Z.slu, { col: '--s2', label: 'Molten', tip: 'Super Tank · Molten Ore Mixture|EV까지 보관. 출구가 없으면 D가 멈춤' });
-  box({ x: mol.x + 2, y: 0, z: Z.slu - 1, w: 3, h: 4, d: 3, zone: true, ghost: true, label: 'EV Distillation', tip: 'EV Distillation Tower 자리|Molten Ore Mixture를 7종으로 분리. 크기는 게임에서 확인' });
-  const E = row('E', 2, Z.mmr), F = row('F', 2, Z.sul), G = row('G', 2, Z.oxy);
-  const ofB = unit(Math.max(E.length, F.length, G.length) + 4, Z.sul, { col: '--s4', label: '→OF-B', tip: 'HV crushed 출구|→ Ore Factory B (Sodium Persulfate)' });
-
-  A.forEach(a => { pipe('res', tRes, a, 1.4); pipe('slu', a, tSlu, 2.3); B.forEach(b => pipe('item', a, b, 1.25)); });
-  B.forEach(b => { C.forEach(c => pipe('item', b, c, 1.6)); pipe('item', b, dust, 1.9); });
-  C.forEach(c => pipe('item', c, dust, 1.9));
-  D.forEach(d => { pipe('slu', tSlu, d, 1.4); pipe('mmr', d, tMmr, 2.3); pipe('crushed', d, ofA, 1.8); pipe('molten', d, mol, 2.1); });
-  E.forEach(e => { pipe('mmr', tMmr, e, 1.4); pipe('sul', e, tSul, 2.1); pipe('oxy', e, tOxy, 2.4); pipe('crushed', e, ofB, 1.8, true); });
-  F.forEach(f => { pipe('sul', tSul, f, 1.4); pipe('crushed', f, ofB, 1.8); });
-  G.forEach(g => { pipe('oxy', tOxy, g, 1.4); pipe('crushed', g, ofB, 1.8); });
-  return { boxes, pipes };
+/* ---------- 4 클린룸 · 회로 ---------- */
+const CIRCUITS = [
+  { n: 'Processor Assembly', t: 'HV', id: 'processor_assembly_hv', eut: 120, cr: false, ok: true },
+  { n: 'Workstation', t: 'EV', id: 'workstation_ev', eut: 120, cr: true, ok: true },
+  { n: 'Mainframe', t: 'IV', id: 'mainframe_iv', eut: 480, cr: true, ok: true },
+  { n: 'Nanoprocessor', t: 'HV', id: 'nano_processor_hv', eut: 600, cr: true, ok: false },
+  { n: 'Nanoprocessor Assembly', t: 'EV', id: 'nano_processor_assembly_ev', eut: 600, cr: true, ok: false },
+  { n: 'Nano Supercomputer', t: 'IV', id: 'nano_computer_iv', eut: 600, cr: true, ok: false },
+  { n: 'Quantum Processor', t: 'EV', id: 'quantum_processor_ev', eut: 2400, cr: true, ok: false },
+  { n: 'Quantum Assembly', t: 'IV', id: 'quantum_assembly_iv', eut: 2400, cr: true, ok: false },
+];
+// 부품 수: Workstation 1 = board 1 + Processor Assembly 2 (…) / Mainframe 1 = Workstation 2 + …
+const BOM = [
+  { n: 'Plastic Circuit Board', w: 4, m: 8, how: '<code>plastic_circuit_board_persulfate</code> · Persulfate 500 · LV', cr: false },
+  { n: 'CPU (Central Processing Unit)', w: 2, m: 4, how: '실리콘 웨이퍼 → Laser Engraver(Light Blue 렌즈, MV) → Cutter → 8개', cr: false },
+  { n: 'RAM', w: 8, m: 32, how: '실리콘 웨이퍼 → Laser Engraver(Green 렌즈, MV) → Cutter → 32개', cr: false },
+  { n: 'Capacitor', w: 16, m: 48, how: 'Assembler MV · Polyethylene · Aluminium foil → 8개', cr: false },
+  { n: 'Inductor', w: 4, m: 16, how: 'Assembler MV · Steel ring · Annealed Copper fine wire → 4개', cr: false },
+  { n: 'Diode', w: 4, m: 8, how: 'Assembler LV · 실리콘 웨이퍼 + Annealed Copper → 4개', cr: false },
+  { n: 'Resistor · Transistor', w: 8, m: 16, how: '각각. Resistor LV(Glue) · Transistor MV(Silicon plate, Tin)', cr: false },
+  { n: 'Red Alloy fine wire', w: 16, m: 32, how: 'Processor · Assembly 납땜선', cr: false },
+  { n: 'Electrum fine wire · Blue Alloy bolt', w: 16, m: 32, how: '각각. Workstation 전용', cr: false },
+  { n: 'Aluminium Frame · Annealed Copper wire', w: 0, m: '2 · 16', how: 'Mainframe 전용', cr: false },
+];
+function viewCircuit() {
+  const W = 7, H = 5;
+  const shell = (w, h) => w * w * h - Math.max(0, w - 2) ** 2 * Math.max(0, h - 2);
+  return `
+  <h2>4 · 클린룸 · 회로</h2>
+  <p class="lead">GTCEu의 Microprocessor 계열은 <b>EV 회로(Workstation)가 120 EU/t, IV 회로(Mainframe)가 480 EU/t</b>라 클린룸만 있으면 지금 HV에서 둘 다 만듭니다.
+  Nano · Quantum 계열은 600 EU/t 이상이라 EV부터입니다. 팩(Theta 2)은 Quantum Mainframe 이상만 바꿨고 이 구간은 GTCEu 그대로입니다.</p>
+  <div class="card">
+    <h3>HV에서 되는 회로 · 안 되는 회로</h3>
+    <p class="sub">단일 블록 Circuit Assembler는 해치를 두 개 달 수 없어서 HV 기계면 512 EU/t까지입니다.</p>
+    ${hbar(CIRCUITS.map(c => ({ label: `${c.n} (${c.t})`, sub: `${c.id}${c.cr ? ' · 클린룸' : ''}`, value: c.eut, color: c.ok ? 'var(--good)' : 'var(--axis)', text: `${fmt(c.eut, 0)} EU/t${c.ok ? ' · HV 가능' : ' · EV부터'}` })), { ref: { v: 512, l: 'HV 기계 한계 512 EU/t' }, cols: ['회로', 'EU/t'] })}
+    <p class="sub" style="margin:10px 0 0"><code>mainframe_iv_asmd</code>(400t)는 ASMD 부품이 3,840 EU/t라 HV에서 못 만듭니다. 일반 SMD도 HV(480 EU/t)라 Microprocessor 계열은 SMD가 아닌 일반 부품을 씁니다.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>재료표</h3>
+      <p class="sub">Workstation 1개 · Mainframe 1개(Workstation 2개 포함)에 드는 부품. 납땜(Soldering Alloy)은 따로 ${EMI}.</p>
+      <div class="tscroll"><table>
+        <thead><tr><th>부품</th><th class="n">EV 1</th><th class="n">IV 1</th><th>만드는 곳</th></tr></thead>
+        <tbody>${BOM.map(b => `<tr><td>${esc(b.n)}</td><td class="n">${b.w || '—'}</td><td class="n">${b.m}</td><td>${b.how}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">웨이퍼는 <code>silicon_boule</code>(EBF 1784K · MV · 9000t) → 16장. CPU 웨이퍼 1장이 Mainframe 2개분, RAM 웨이퍼 1장이 1개분입니다. 여기까지는 클린룸이 필요 없습니다.</p>
+    </div>
+    <div class="card">
+      <h3>조립 순서 · 기계</h3>
+      <ol class="steps">
+        <li><b>Integrated Processor</b> <code>processor_mv</code> — board + CPU + Resistor 4 · Capacitor 4 · Transistor 4 (60 EU/t · 200t). 클린룸 밖.</li>
+        <li><b>Processor Assembly (HV)</b> <code>processor_assembly_hv</code> — Processor 2 → 2개 (120 EU/t · 400t). 클린룸 밖. 지금 이미 만드는 회로.</li>
+        <li><b>Workstation (EV)</b> <code>workstation_ev</code> — Assembly 2 + Diode 4 · RAM 4 · Electrum 16 · Blue Alloy 16 (120 EU/t · 400t). <b>클린룸 안 MV Circuit Assembler</b>(기지에 2대).</li>
+        <li><b>Mainframe (IV)</b> <code>mainframe_iv</code> — Workstation 2 + Aluminium Frame 2 · Inductor 8 · Capacitor 16 · RAM 16 (480 EU/t · 800t). <b>클린룸 안 HV Circuit Assembler</b>(새로 만듦).</li>
+      </ol>
+      ${callout('info', 'i', '<b>EV 회로가 먼저 필요한 곳:</b> Distillation Tower 컨트롤러 4개, Vacuum Freezer 컨트롤러 2개. 둘 다 5 탭 Titanium 경로의 전제입니다.')}
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>클린룸 짓기</h3>
+      <div class="tscroll"><table>
+        <thead><tr><th>블록</th><th>제작</th></tr></thead>
+        <tbody>
+          <tr><td>컨트롤러 <code>FFF / RHR / MCM</code></td><td>Item Filter 3 · Stainless Steel 로터 2 · HV Hull · HV 모터 2 · HV 회로 1</td></tr>
+          <tr><td>Filter Casing <code>BBB / III / MFR</code></td><td>Iron Bars 3 · Item Filter 3 · MV 모터 · Steel Frame · Steel 로터 (작업대)</td></tr>
+          <tr><td>Plascrete</td><td>Assembler: Steel Frame + Polyethylene plate 6 + Concrete 144 (48 EU/t)</td></tr>
+          <tr><td>Cleanroom Glass</td><td>Assembler: Steel Frame + Polyethylene plate 6 + Glass 144</td></tr>
+        </tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">천장은 Filter Casing(가운데 컨트롤러), 나머지 벽 · 바닥은 Plascrete · 유리 · 해치 · 문. 에너지 해치와 정비 해치, 물건을 넣고 빼는 Passthrough Hatch가 필요합니다. 크기 범위는 ${EMI} 미리보기.</p>
+    </div>
+    <div class="card">
+      <h3>크기별 블록 수</h3>
+      <p class="sub">바깥 크기 기준. 안에 Circuit Assembler 2대(MV · HV)와 여유를 두려면 ${W}×${W}×${H} 정도.</p>
+      <div class="tscroll"><table>
+        <thead><tr><th>바깥 크기</th><th class="n">Filter Casing</th><th class="n">벽 · 바닥</th><th class="n">Polyethylene plate</th></tr></thead>
+        <tbody>${[[5, 5], [7, 5], [9, 6]].map(([w, h]) => `<tr${w === W ? ' style="font-weight:600"' : ''}><td>${w}×${w}×${h}</td><td class="n">${w * w - 1}</td><td class="n">${shell(w, h) - w * w}</td><td class="n">${fmt((shell(w, h) - w * w) * 6, 0)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">벽 · 바닥 수에는 해치와 문이 포함돼 있어 실제 Plascrete는 몇 개 적습니다. Polyethylene이 가장 많이 듭니다.</p>
+    </div>
+  </div>`;
 }
 
-/* ---------- LaserIO + AE2 배치 (월드에서 쓰는 방식 기준) ---------- */
-// 세이브 스캔: LaserIO 노드 685 · 카드 1,136장(채널은 전부 0) · filter_count 86 · filter_basic 73 · overclocker 43,
-// AE2 storage bus 32(Super Tank · Super Chest · Functional Storage), ME Interface 옆 노드 8, mv_16a_energy_converter 15.
-// 채널은 카드 종류별로 따로 센다(유체 카드는 유체 카드끼리만 주고받음).
-const FCH = [
-  { n: 'Drilling Fluid', a: 'Mixer', b: 'DF 탱크' }, { n: 'Drilling Fluid', a: 'DF 탱크', b: 'Void Extractor 입력 해치' },
-  { n: 'Rare Ore Residue', a: 'VE 출력 해치', b: 'T-Res' }, { n: 'Rare Ore Residue', a: 'T-Res', b: 'A' },
-  { n: 'Raw Ore Slurry', a: 'VE 출력 해치 · A', b: 'T-Slu' }, { n: 'Raw Ore Slurry', a: 'T-Slu', b: 'D' },
-  { n: 'Mixed Mineral Residue', a: 'D (필터)', b: 'T-MMR' }, { n: 'Mixed Mineral Residue', a: 'T-MMR', b: 'E' },
-  { n: 'Sulfuric Mineral Mixture', a: 'E (필터)', b: 'T-Sul' }, { n: 'Sulfuric Mineral Mixture', a: 'T-Sul', b: 'F' },
-  { n: 'Oxygenous Mineral Mixture', a: 'E (필터)', b: 'T-Oxy' }, { n: 'Oxygenous Mineral Mixture', a: 'T-Oxy', b: 'G' },
-  { n: 'Molten Ore Mixture', a: 'D (필터)', b: 'Molten Super Tank' }, { n: 'Water', a: '무한 물', b: 'Mixer' },
-  { n: 'Lubricant', a: 'ME Interface', b: 'Mixer' },
-];
-const ICH = [
-  { n: 'Raw Ore', a: 'VE 출력 버스', b: 'Raw Ore Super Chest' }, { n: 'Sludge dust', a: 'A', b: 'B' },
-  { n: 'Rare Metallic Residue', a: 'B (basic 필터 허용)', b: 'C' }, { n: '본 광물 · Calcite · Silver dust', a: 'B (같은 필터 거부) · C', b: 'Functional Storage' },
-  { n: 'MV crushed', a: 'D', b: 'Ore Factory A 입력 버스' }, { n: 'HV crushed', a: 'E · F · G', b: 'Ore Factory B 입력 버스' },
-  { n: 'Stone Dust', a: 'ME Interface', b: 'Mixer' },
-];
-// 기계별 카드 (f = 유체 채널, i = 아이템 채널). IN 카드는 탱크 쪽 OUT 카드에 round robin을 켜서 고르게 나눈다.
-const CARDS = {
-  A: ['유체 IN f3', '아이템 OUT i1', '유체 OUT f4'],
-  B: ['아이템 IN i1', '아이템 OUT i2 (필터 Rare Metallic Residue 허용)', '아이템 OUT i3 (같은 필터 거부)'],
-  C: ['아이템 IN i2', '아이템 OUT i3'],
-  D: ['유체 IN f5', '유체 OUT f6 (필터 Mixed Mineral Residue)', '유체 OUT f12 (필터 Molten Ore Mixture)', '아이템 OUT i4'],
-  E: ['유체 IN f7', '유체 OUT f8 (필터 Sulfuric)', '유체 OUT f10 (필터 Oxygenous)', '아이템 OUT i5'],
-  F: ['유체 IN f9', '아이템 OUT i5'],
-  G: ['유체 IN f11', '아이템 OUT i5'],
-};
-// 전력: 컨버터 3대 → hv_transformer_16a(승압) → HV 12A, 컨버터 1대 → MV 16A
-const POWER = { hvA: 12, mvA: 16, total: 64 };
-const A_MV = { busy: 24, eu: 24 * 120 };                                   // 전선을 MV/HV 둘로 줄이려고 A도 MV 기계
-const hvMachines = n => n + need(STAGES[4].busy, n) + need(STAGES[5].busy, n) + need(STAGES[6].busy, n);
-const mvMachines = n => need(A_MV.busy, n) + need(STAGES[1].busy, n) + need(STAGES[2].busy, n) + need(STAGES[3].busy, n) + need(MIXER_BUSY, n);
-const avgEUt = n => (veEU() + A_MV.eu + STAGES.slice(1).reduce((a, s) => a + s.eu, 0)) * n / CYCLE[S.hatch];
-
-function buildLaser(N) {
-  const boxes = [], pipes = [];
-  const box = o => (boxes.push(o), o);
-  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
-  const cable = (type, pts) => pipes.push({ type, pts: pts.map(([x, y, z]) => [x + 0.5, y + 0.5, z + 0.5]) });
-  const node = (x, y, z, ghost, what, cards) => box({ x: x + 0.15, y: y + 0.15, z: z + 0.15, w: 0.7, h: 0.7, d: 0.7, col: '--s8', ghost, node: true,
-    tip: `LaserIO Node · ${what}|${cards.join(' · ')}` });
-  const plate = (x, y, z, face, what) => {   // AE2 storage bus: 블록 면에 붙는 얇은 판
-    const t = 0.14, o = { x: x + 0.2, y: y + 0.2, z: z + 0.2, w: 0.6, h: 0.6, d: 0.6, col: '--s7', tip: `AE2 Storage Bus|${what} — ME 터미널에서 잔량이 보임` };
-    if (face === 'w') Object.assign(o, { x: x - t, w: t }); if (face === 'e') Object.assign(o, { x: x + 1, w: t });
-    if (face === 'n') Object.assign(o, { z: z - t, d: t }); if (face === 's') Object.assign(o, { z: z + 1, d: t });
-    box(o);
-  };
-  const colOfTier = t => TIER[t].c.slice(4, -1);
-
-  // 기계 열: 아래 기계 · 노드 · 위 기계 샌드위치 (월드의 Super Chest 배치와 같은 방식)
-  const rowOf = (id, x0, z, busy, tier, m, r) => {
-    const n = slotsFor(busy), live = need(busy, N), cols = Math.ceil(n / 2);
-    for (let c = 0; c < cols; c++) {
-      [0, 1].forEach(k => {
-        const j = c * 2 + k; if (j >= n) return;
-        unit(x0 + c, k * 2, z, { col: colOfTier(tier), ghost: j >= live, label: `${id}${j + 1}`,
-          tip: `${id}${j + 1} · ${tier} ${m}|${r}${j >= live ? ` · Void Extractor ${firstN(busy, j)}대부터` : ''}` });
-      });
-      node(x0 + c, 1, z, c * 2 >= live, `${id} 열 ${c + 1}`, [`↓↑ ${id}${c * 2 + 1}${c * 2 + 1 < n ? `/${id}${c * 2 + 2}` : ''}`, ...CARDS[id]]);
-    }
-    return cols;
-  };
-
-  // ── Void Extractor 윙: 바닥을 한 칸 올리고 해치 바로 밑에 노드 (지금 VE와 같은 방식) ──
-  for (let i = 0; i < MAX_VE; i++) {
-    const x0 = 4 + 4 * i, g = i >= N, tb = `Void Extractor ${i + 1}${g ? ' · 예약 자리' : ''}`;
-    const h = (dx, dz, col, what) => unit(x0 + dx, 1, -6 + dz, { col, ghost: g, tip: `${what}|${tb}` });
-    h(0, 2, '--s5', 'Fluid Output Hatch · Rare Ore Residue'); node(x0, 0, -4, g, `VE${i + 1} Residue`, ['유체 OUT f2']);
-    h(1, 2, '--ink-2', 'Controller');
-    h(2, 2, '--s4', 'Fluid Output Hatch · Raw Ore Slurry'); node(x0 + 2, 0, -4, g, `VE${i + 1} Slurry`, ['유체 OUT f4']);
-    h(0, 1, '--s3', 'Fluid Input Hatch · Drilling Fluid'); node(x0, 0, -5, g, `VE${i + 1} 입력`, ['유체 IN f1']);
-    h(2, 1, '--s2', 'Energy Hatch · HV (동쪽 면에 HV 케이블)');
-    h(0, 0, '--ink-2', 'Item Output Bus · Raw Ore'); node(x0, 0, -6, g, `VE${i + 1} 버스 1`, ['아이템 OUT i0']);
-    h(1, 0, '--ink-2', 'Item Output Bus · Raw Ore'); node(x0 + 1, 0, -6, g, `VE${i + 1} 버스 2`, ['아이템 OUT i0']);
-    h(2, 0, '--axis', 'Solid Steel Machine Casing'); h(1, 1, '--axis', 'Solid Steel Machine Casing');
-    const fr = (dx, dz, y) => box({ x: x0 + dx + 0.35, y, z: -6 + dz + 0.35, w: 0.3, h: 1, d: 0.3, col: '--edge', ghost: g, tip: `Steel Frame|${tb}` });
-    for (const y of [2, 3]) { fr(1, 0, y); fr(0, 1, y); fr(2, 1, y); fr(1, 2, y); unit(x0 + 1, y, -5, { col: '--ink-2', ghost: g, tip: `Steel Gearbox|${tb}` }); }
-    for (const y of [4, 5, 6]) fr(1, 1, y);
-    box({ x: x0, y: 1, z: -6, w: 3, h: 6, d: 3, ghost: true, hide: true, label: `VE${i + 1}`, g });
-  }
-  // Raw Ore: Super Chest · 노드 · Super Chest (지금 VE 옆에 있는 배치 그대로)
-  unit(1, 0, -7, { col: '--s4', label: 'Raw', tip: 'LV Super Chest · Raw Ore|지금처럼 Super Chest에 모음. storage bus를 달면 ME에서 보임' });
-  node(1, 1, -7, false, 'Raw Ore 창고', ['↓↑ 아이템 IN i0']);
-  unit(1, 2, -7, { col: '--s4', tip: 'LV Super Chest · Raw Ore|Raw Ore 6종' });
-
-  // ── Mixer: 노드 하나가 Mixer 2대 · 물 · ME Interface · DF 탱크에 닿는다 ──
-  const mixN = slotsFor(MIXER_BUSY), mixLive = need(MIXER_BUSY, N);
-  unit(0, 0, -9, { col: colOfTier('MV'), label: 'Mix1', tip: 'MV Mixer 1|drilling_fluid' });
-  if (mixN > 1) unit(0, 2, -9, { col: colOfTier('MV'), ghost: mixLive < 2, label: 'Mix2', tip: `MV Mixer 2|drilling_fluid${mixLive < 2 ? ` · Void Extractor ${firstN(MIXER_BUSY, 1)}대부터` : ''}` });
-  node(0, 1, -9, false, 'Mixer', ['↓↑ Mixer: 유체 IN f13 · f14, 아이템 IN i6, 유체 OUT f0', '서: 물 유체 OUT f13 (overclocker)', '동: ME Interface 유체 OUT f14 · 아이템 OUT i6', '북: DF 탱크 유체 IN f0 · OUT f1 (overclocker)']);
-  unit(-1, 1, -9, { col: '--s1', label: 'Water', tip: '무한 물|월드의 thermal:fluid_cell 방식. VE 1대당 약 31mB/t' });
-  unit(1, 1, -9, { col: '--s7', label: 'ME IF', tip: 'ME Interface|Stone Dust 64 · Lubricant 유지 설정. 레이저가 여기서 뽑아 Mixer로 (월드에서 쓰는 방식)' });
-  unit(0, 1, -10, { col: '--muted', label: 'DF', tip: 'Drilling Fluid 버퍼 탱크|Mixer → f0 → 여기 → f1 → 모든 VE' });
-
-  // ── 단계 탱크 (x = -1) + 노드 (위) + storage bus (서쪽 면) ──
-  const R = { res: 0, slu: 3, mmr: 6, sul: 9, oxy: 12 };
-  [['res', 'T-Res', 'Rare Ore Residue', 'f2', 'f3'], ['slu', 'T-Slu', 'Raw Ore Slurry', 'f4', 'f5'], ['mmr', 'T-MMR', 'Mixed Mineral Residue', 'f6', 'f7'],
-   ['sul', 'T-Sul', 'Sulfuric Mineral Mixture', 'f8', 'f9'], ['oxy', 'T-Oxy', 'Oxygenous Mineral Mixture', 'f10', 'f11']].forEach(([k, lab, n, fin, fout]) => {
-    unit(-1, 0, R[k], { col: '--muted', label: lab, tip: `LV Super Tank · ${n}|단계 버퍼. 여기 잔량으로 병목을 찾음` });
-    node(-1, 1, R[k], false, lab, [`↓ 유체 IN ${fin}`, `유체 OUT ${fout} (round robin)`]);
-    plate(-1, 0, R[k], 'w', lab);
-  });
-
-  // ── 처리 행 ──
-  const aCols = rowOf('A', 1, R.res, A_MV.busy, 'MV', 'Electrolyzer', 'rare_ore_residue (MV에서 60t)');
-  const bCols = rowOf('B', 1 + aCols, R.res, STAGES[1].busy, 'MV', 'Centrifuge', '*_sludge ×4');
-  const cCols = rowOf('C', 1 + aCols + bCols, R.res, STAGES[2].busy, 'MV', 'Electrolyzer', 'rare_metallic_residue');
-  const dCols = rowOf('D', 1, R.slu, STAGES[3].busy, 'MV', 'Centrifuge', 'raw_ore_slurry');
-  const eCols = rowOf('E', 1, R.mmr, STAGES[4].busy, 'HV', 'Electrolyzer', 'mixed_mineral_residue');
-  const fCols = rowOf('F', 1, R.sul, STAGES[5].busy, 'HV', 'Centrifuge', 'sulfuric_mineral_mixture');
-  const gCols = rowOf('G', 1, R.oxy, STAGES[6].busy, 'HV', 'Centrifuge', 'oxygenous_mineral_mixture');
-
-  // ── 출구 (HV 간선 동쪽) ──
-  unit(12, 0, 0, { col: '--s4', label: 'Dust', tip: 'Functional Storage (Storage Controller)|dust 6종. 월드에서 storage bus 7개가 Storage Controller에 붙어 있는 방식 그대로' });
-  node(12, 1, 0, false, 'dust 창고', ['↓ 아이템 IN i3']);
-  plate(12, 0, 0, 'n', 'dust 창고');
-  unit(12, 0, 3, { col: '--s4', label: '→OF-A', tip: 'Ore Factory A 입력 버스|MV crushed. 02 탭' });
-  node(12, 1, 3, false, 'Ore Factory A', ['↓ 아이템 IN i4']);
-  unit(13, 0, 3, { col: '--s2', label: 'Molten', tip: 'Super Tank · Molten Ore Mixture|EV까지 보관. 출구가 없으면 D가 멈춤' });
-  node(13, 1, 3, false, 'Molten', ['↓ 유체 IN f12']);
-  plate(13, 0, 3, 'n', 'Molten Ore Mixture');
-  box({ x: 15, y: 0, z: 2, w: 3, h: 4, d: 3, ghost: true, label: 'EV Distillation', tip: 'EV Distillation Tower 자리|Molten Super Tank 바로 옆. 크기는 게임에서 확인' });
-  unit(12, 0, 9, { col: '--s4', label: '→OF-B', tip: 'Ore Factory B 입력 버스|HV crushed 8종. 02 탭' });
-  node(12, 1, 9, false, 'Ore Factory B', ['↓ 아이템 IN i5']);
-
-  // ── 변전: 컨버터 3대가 트랜스포머에 바로 붙음 (MV 48A는 케이블 없이 전달) ──
-  const conv = (x, z, n) => unit(x, 0, z, { col: '--s1', label: n, tip: `mv_16a_energy_converter · ${n}|FE → EU, MV 16A. 전력은 Carbon Brushes에서 LaserIO 에너지 카드로 (월드 방식). 출력면은 트랜스포머 쪽` });
-  unit(9, 0, 5, { col: '--s2', label: 'HV 16A', tip: 'hv_transformer_16a (승압 모드)|MV 64A 입력 ↔ HV 16A 출력. 컨버터 3대 = MV 48A → HV 12A. 출력면은 서쪽 간선' });
-  conv(10, 5, 'C1'); conv(9, 4, 'C2'); conv(9, 6, 'C3');
-  node(10, 0, 4, false, '변전 (전력 네트워크)', ['서 C2 · 남 C1: 에너지 IN']);
-  node(10, 0, 6, false, '변전 (전력 네트워크)', ['서 C3 · 북 C1: 에너지 IN']);
-
-  // ── HV 케이블: 간선 x = 7 (y 0), 행마다 남쪽 면을 따라 두 층 ──
-  cable('hv', [[8, 0, 5], [7, 0, 5]]);
-  cable('hv', [[7, 0, 5], [7, 0, -3], [7, 1, -3], [19, 1, -3]]);                      // VE 레인 (VE 사이 틈으로 에너지 해치)
-  for (let i = 0; i < MAX_VE; i++) cable('hv', [[7 + 4 * i, 1, -3], [7 + 4 * i, 1, -5]]);
-  cable('hv', [[7, 0, 5], [7, 0, 13]]);
-  const lane = (type, z, x1, xr) => { cable(type, [[x1, 0, z], [xr, 0, z], [xr, 2, z], [1, 2, z]]); };
-  lane('hv', R.mmr + 1, 7, 1 + eCols); cable('hv', [[1 + eCols, 0, R.mmr + 1], [1, 0, R.mmr + 1]]);
-  lane('hv', R.sul + 1, 7, 1 + fCols); cable('hv', [[1 + fCols, 0, R.sul + 1], [1, 0, R.sul + 1]]);
-  lane('hv', R.oxy + 1, 7, 1 + gCols); cable('hv', [[1 + gCols, 0, R.oxy + 1], [1, 0, R.oxy + 1]]);
-  // ── MV 케이블: C4 → A~C 행, D 행, Mixer ──
-  const abcEnd = aCols + bCols + cCols + 1, c4x = abcEnd + 1;
-  unit(c4x, 0, 2, { col: '--s1', label: 'C4', tip: 'mv_16a_energy_converter · C4|MV 16A 전용. 출력면은 북쪽(A~C 행 케이블)' });
-  node(c4x, 1, 2, false, 'C4 (전력 네트워크)', ['↓ 에너지 IN']);
-  cable('mv', [[c4x, 0, 1], [1, 0, 1]]); cable('mv', [[abcEnd, 0, 1], [abcEnd, 2, 1], [1, 2, 1]]);
-  cable('mv', [[abcEnd, 0, 1], [abcEnd, 0, R.slu + 1], [1, 0, R.slu + 1]]);
-  cable('mv', [[abcEnd, 0, R.slu + 1], [abcEnd, 2, R.slu + 1], [1, 2, R.slu + 1]]);
-  cable('mv', [[1, 0, 1], [0, 0, 1], [0, 0, -8], [0, 2, -8]]);
-  // ── ME 케이블: 탱크 서쪽 기둥 → Interface, 출구 창고 ──
-  cable('me', [[-2, 0, R.oxy], [-2, 0, -10], [1, 0, -10], [1, 0, -9]]);
-  cable('me', [[-2, 1, -1], [13, 1, -1]]); cable('me', [[-2, 0, -1], [-2, 1, -1]]);
-  cable('me', [[12, 1, -1], [12, 0, -1]]); cable('me', [[13, 1, -1], [13, 1, 2], [13, 0, 2]]);
-
-  // ── 레이저: 같은 네트워크의 노드끼리 최소 신장 트리 (8칸 넘는 선은 커넥터 필요) ──
-  const lz = boxes.filter(b => b.node && !b.ghost && !/전력/.test(b.tip));
-  const cen = b => [b.x + b.w / 2, b.y + b.h / 2, b.z + b.d / 2];
-  const inT = new Set([0]);
-  while (lz.length && inT.size < lz.length) {
-    let best = null;
-    inT.forEach(i => lz.forEach((b, j) => { if (inT.has(j)) return; const d = Math.hypot(...cen(lz[i]).map((v, k) => v - cen(b)[k])); if (!best || d < best.d) best = { i, j, d }; }));
-    inT.add(best.j);
-    pipes.push({ type: 'beam', pts: [cen(lz[best.i]), cen(lz[best.j])], long: best.d > 8 });
-  }
-  return { boxes, pipes };
+/* ---------- 5 다음 티어 ---------- */
+function viewNext() {
+  const n = S.veN, runs = towerRuns(n), ti = tiPerHour(n);
+  return `
+  <h2>5 · 다음 티어</h2>
+  <p class="lead">EV Hull과 EV 부품은 <b>Titanium</b>이 필요합니다. 이 팩에서 Titanium 원료(Ilmenite · Bauxite)는 Void 체인의 <b>Molten Ore Mixture를 증류</b>해야 나오고, 그 증류 레시피가 EV(1,920 EU/t)입니다.
+  그래서 <b>Distillation Tower에 HV 에너지 해치 2개를 달아 EV 레시피를 돌립니다.</b></p>
+  ${callout('info', 'i', `<b>HV 해치 2개 = EV.</b> GTCEu는 멀티블럭의 에너지 해치를 합칠 때 암페어 합이 4의 거듭제곱이면 한 티어 높은 전압 1A로 봅니다(<code>EnergyContainerList.calculateVoltageAmperage</code>). HV 해치(2A) 2개 = 512V × 4A = 2,048V × 1A → EV 레시피가 돕니다. HV 4A 해치 1개도 같습니다. 단일 블록 기계에는 해당하지 않습니다.`)}
+  <div class="tiles">
+    ${tile('증류 / 시간', fmt(runs, 1), '회', `Molten Ore Mixture ${fmt(PER_CYCLE.molten * CPH1 * n / 1000, 0)}B · 가동률 ${fmt(runs * TOWER.dur / 72000 * 100, 0)}%`)}
+    ${tile('Rutile / 증류 1회', fmt(TI.per10k, 2), '개', 'Ilmenite ' + fmt(TI.rutIlm, 2) + ' + Bauxite ' + fmt(TI.rutBau, 2))}
+    ${tile('Titanium / 시간', fmt(ti, 0), 'ingot', `VE ${n}대 · Raw 1 → Crushed 1 가정`)}
+    ${tile('덤: Aluminium / 시간', fmt(runs * TI.al10k, 0), 'dust', 'Bauxite 전해')}
+  </div>
+  <div class="card">
+    <h3>Titanium 경로</h3>
+    <p class="sub">Molten Ore Mixture 10,000mB(증류 1회) 기준. 분홍 띠 = HV 해치 2개로 돌리는 EV 레시피.</p>
+    ${flow({
+      label: 'Titanium 경로', h: 610,
+      nodes: [
+        { id: 'mo', x: 20, y: 30, w: 150, t: 'Molten Ore Mixture', s: '10,000mB', k: 'tank' },
+        { id: 'ds', x: 220, y: 30, w: 170, t: 'Distillation Tower', s: 'HV 해치 ×2 · 1200t', k: 'EV', tip: 'distillation_tower/molten_ore_mixture: 10000 → Metal Mixture 1 + Molten Bauxite 1500 · Pitchblende 1250 · Molybdenite 1000 · Ilmenite 1000 · Bastnasite 1000 · Tungstate 2000 · Cooperite 2250 (1920 EU/t)' },
+        { id: 'ac', x: 470, y: 30, w: 150, t: 'Autoclave (HV)', s: 'Molten 500 + Stone Dust', k: 'HV', tip: 'raw_${type}: Molten X Ore 500 + Stone Dust 1 → Raw X (160t, 480 EU/t)' },
+        { id: 'of', x: 670, y: 30, w: 170, t: 'Macerator → Ore Factory', s: 'EV 티어 · HV 해치 ×2', k: 'EV', tip: 'Ilmenite · Bauxite는 Ore Factory EV 티어(Persulfate 100). 4차 부산물 Rutile 7.5%' },
+        { id: 'il', x: 440, y: 180, w: 160, t: 'Ilmenite dust', s: fmt(TI.ilmDust, 1) + '개', k: 'tank' },
+        { id: 'ba', x: 650, y: 180, w: 160, t: 'Bauxite dust', s: fmt(TI.bauDust, 1) + '개', k: 'tank' },
+        { id: 'eb1', x: 440, y: 300, w: 160, t: 'EBF 1700K', s: '10 Ilmenite + 2 Carbon', k: 'HV', tip: 'rutile_from_ilmenite_fix (팩): → 2 Rutile + 2 Wrought Iron + CO 2000 (1600t, 480 EU/t)' },
+        { id: 'el', x: 650, y: 300, w: 160, t: 'Electrolyzer', s: '15 Bauxite', k: 'MV', tip: 'bauxite_electrolysis: → 6 Aluminium + 1 Rutile + Oxygen 9000 (270t, 2 EU/t)' },
+        { id: 'ru', x: 860, y: 300, w: 120, t: 'Rutile', s: fmt(TI.per10k, 2) + '개', k: 'tank' },
+        { id: 'cr', x: 860, y: 420, w: 120, t: 'HV CR', s: 'TiCl4 1000', k: 'HV', tip: 'titanium_tetrachloride: Rutile 1 + Carbon 2 + Chlorine 4000 → TiCl4 1000 + CO 2000 (400t, 480 EU/t)' },
+        { id: 'eb2', x: 650, y: 500, w: 160, t: 'EBF 2141K', s: 'Kanthal 코일 · + Mg 2', k: 'HV', tip: 'titanium_from_tetrachloride: TiCl4 1000 + Magnesium 2 → Hot Titanium Ingot + Magnesium Chloride 6 (800t, 480 EU/t, Titanium 1941K + 200)' },
+        { id: 'vf', x: 440, y: 500, w: 160, t: 'Vacuum Freezer', s: 'Hot → Ingot', k: 'HV', tip: '컨트롤러: HV 펌프 3 · EV 회로 2 · Frostproof Casing · Gold 케이블 2. 시간은 EMI 확인' },
+        { id: 'ti', x: 220, y: 500, w: 170, t: 'Titanium Ingot', s: fmt(TI.per10k, 2) + '개 / 증류 1회', k: 'GOAL' },
+        { id: 'mg', x: 860, y: 510, w: 120, t: 'MgCl2 전해', s: 'Mg · Cl 회수', k: 'MV', tip: 'Magnesium Chloride 6 → Magnesium 2 + Chlorine 4000 (분해 레시피 · EMI 확인). Mg와 Cl이 닫힌 루프' },
+      ],
+      edges: [
+        { a: 'mo', b: 'ds', amt: 1000 },
+        { a: 'ds', b: 'ac', l: 'Ilmenite 1000\nBauxite 1500', ly: -12 },
+        { a: 'ac', b: 'of', l: 'Raw ×' + (TI.ilmRaw + TI.bauRaw) },
+        { a: 'of', b: 'il', fs: 'b', ts: 't', fo: -40 },
+        { a: 'of', b: 'ba', fs: 'b', ts: 't' },
+        { a: 'il', b: 'eb1' }, { a: 'ba', b: 'el' },
+        { a: 'eb1', b: 'ru', fs: 'b', ts: 'b', k: 70, l: '×0.2', lt: 0.2, anchor: 'end', lx: -6 }, { a: 'el', b: 'ru', fs: 'r', ts: 'l', l: '÷15', lt: 0.5 },
+        { a: 'of', b: 'ru', fs: 'r', ts: 't', l: '4차 7.5%', lt: 0.6, anchor: 'start', lx: 8 },
+        { a: 'ru', b: 'cr' }, { a: 'cr', b: 'eb2', fs: 'l', ts: 't', l: 'TiCl4', lt: 0.4, ly: -6 },
+        { a: 'eb2', b: 'vf', l: 'Hot Ingot' }, { a: 'vf', b: 'ti' },
+        { a: 'eb2', b: 'mg', fs: 'r', ts: 'l', l: 'MgCl2 6', lt: 0.5 },
+        { a: 'mg', b: 'eb2', fs: 'b', ts: 'b', l: 'Mg 2', k: 40, lt: 0.5, dash: true },
+      ],
+    })}
+    ${tierLegend(['MV', 'HV', 'EV', 'tank', 'GOAL'])}
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>먼저 갖출 것</h3>
+      <ol class="steps">
+        <li><b>EV 회로</b>(4 탭 Workstation) — Distillation Tower 4개 · Vacuum Freezer 2개.</li>
+        <li><b>HV 에너지 해치 2개씩</b> — Distillation Tower, EV 티어 Ore Factory. 기지에 HV 해치가 아직 없습니다.</li>
+        <li><b>Distillation Tower</b> <code>CBC / FMF / CBC</code>: EV 회로 4 · Stainless Steel Large Fluid Pipe 2 · HV 펌프 2 · Hull 1 (${EMI} Hull 티어). 출력 7종이라 <b>출력 층 7개</b>.</li>
+        <li><b>Kanthal 코일 EBF</b> — Titanium 추출이 2141K. Cupronickel(1800K)은 HV 해치로 +100K, HV 해치 2개(EV)로도 +200K라 2000K에서 모자랍니다.</li>
+        <li><b>Vacuum Freezer</b> <code>PPP / CMC / WCW</code>: HV 펌프 3 · EV 회로 2 · Frostproof Casing(Aluminium plate 6 + Frame) · Gold 케이블 2.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Kanthal 코일 16개 (EBF 1대)</h3>
+      <div class="tscroll"><table>
+        <thead><tr><th>단계</th><th>레시피</th><th class="n">16개분</th></tr></thead>
+        <tbody>
+          <tr><td>Kanthal dust</td><td>Mixer MV: Iron 1 + Aluminium 1 + Chromium 1 → 3</td><td class="n">Cr 43</td></tr>
+          <tr><td>Kanthal ingot</td><td>EBF(Cupronickel로 됨) → Hot → Chemical Bath 물 100 (MV)</td><td class="n">128</td></tr>
+          <tr><td>Kanthal Coil</td><td>Assembler MV: Kanthal 2x wire 8 + Aluminium foil 8 + Copper 144</td><td class="n">16</td></tr>
+        </tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">Chromium은 Void 체인 B 단계의 <code>Chromite</code> dust에서, Aluminium은 Bauxite 전해에서도 나옵니다. Hot Kanthal은 Chemical Bath로 식혀서 Vacuum Freezer 전에 만들 수 있습니다.</p>
+    </div>
+  </div>
+  <div class="card">
+    <h3>계산 가정 · 확인할 것</h3>
+    <ul class="pts">
+      <li>Raw 광석 1 → Crushed 1, Ore Factory EV 티어 기대 산출 1.5 dust + 4차 Rutile 7.5%로 계산했습니다. Macerator가 Raw 1개에서 Crushed 2개를 주면 Titanium도 약 두 배입니다 ${EMI}.</li>
+      <li><code>Metal Mixture</code> dust(증류 1회당 1개)의 원심분리(900 EU/t)에서도 Bauxite 25% · Ilmenite 5.5%가 나오지만 단일 블록은 HV에서 안 돌아갑니다. Large Centrifuge가 있으면 HV 해치 2개로.</li>
+      <li>MgCl2 전해로 Magnesium과 Chlorine이 되돌아오면 둘 다 닫힌 루프입니다. 초기 Magnesium은 Magnesite(Void 체인 D → Ore Factory A)에서 ${EMI}.</li>
+    </ul>
+  </div>`;
 }
+
+/* ---------- 6 기타 · 멀티블럭 ---------- */
+function viewMulti() {
+  const rows = [
+    ['Cleanroom', '4 · 회로', 'HV', 'Item Filter 3 · Stainless Steel 로터 2 · HV Hull · HV 모터 2 · HV 회로 1', 'Filter Casing · Plascrete', '없음'],
+    ['Large Chemical Reactor', '3 · PTFE', 'HV', 'HV 회로 4 · Stainless Steel 로터 1 · PTFE Large Pipe 2 · HV 모터 · HV Hull', 'Chemically Inert Casing (PTFE)', '없음'],
+    ['Distillation Tower', '5 · Titanium', 'HV 해치 ×2', 'EV 회로 4 · Stainless Steel Large Pipe 2 · HV 펌프 2 · Hull', '출력 7층', '없음'],
+    ['Vacuum Freezer', '5 · Titanium', 'HV', 'HV 펌프 3 · EV 회로 2 · Frostproof Casing · Gold 케이블 2', 'Frostproof Casing', '없음'],
+    ['Electric Blast Furnace', '5 · Kanthal', 'HV', '있음 (28대)', 'Kanthal Coil 16', '28대 · MV 해치'],
+    ['Electric Ore Factory', '2 · 자원', 'HV (B는 ×2)', '있음 (21대)', '—', '21대'],
+  ];
+  return `
+  <h2>6 · 기타</h2>${subnav()}
+  <p class="lead">HV 동안 새로 지을 멀티블럭을 한곳에 모았습니다. 컨트롤러 제작법은 GTCEu jar의 작업대 레시피에서 읽었고, 팩(Theta 2)은 이 컨트롤러들을 바꾸지 않았습니다.</p>
+  <div class="card">
+    <div class="tscroll"><table>
+      <thead><tr><th>멀티블럭</th><th>쓰는 곳</th><th>에너지</th><th>컨트롤러 재료</th><th>케이싱 · 특이사항</th><th>기지</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td>${i ? esc(c) : `<b>${esc(c)}</b>`}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>짓는 순서</h3>
+      <ol class="steps">
+        <li><b>Large Chemical Reactor</b> — PTFE만 있으면 됨. 이후 화학이 전부 편해짐.</li>
+        <li><b>Cleanroom</b> — Polyethylene을 가장 많이 먹음. LCR의 단축 레시피와 무관하게 먼저 지어도 됨.</li>
+        <li><b>Distillation Tower · Vacuum Freezer</b> — EV 회로(Workstation) 6개가 먼저.</li>
+        <li><b>EBF 코일 교체</b> — Kanthal 16개. HV 해치 2개를 같이 달면 EV 레시피도 돌아감.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>HV 해치 2개가 되는 곳 · 안 되는 곳</h3>
+      <ul class="pts">
+        <li><b>된다</b>: 에너지 해치를 여러 개 받는 멀티블럭 — Distillation Tower, EBF, Electric Ore Factory, LCR, Large Centrifuge 등.</li>
+        <li><b>안 된다</b>: 단일 블록 기계. HV Circuit Assembler로 Nano 회로(600 EU/t)는 못 만듭니다.</li>
+        <li>EV 레시피를 돌리면 오버클럭 기준도 EV라 HV 레시피는 1단계 OC가 걸립니다(Ore Factory B가 절반 대수).</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
+/* ---------- 6 기타 · 에폭시 ---------- */
+function viewEpoxy() {
+  return `
+  <h2>6 · 기타</h2>${subnav()}
+  <p class="lead"><b>Epoxy</b>는 EV 회로 중 Nano 계열의 <code>Advanced Circuit Board</code>(Epoxy Board + Electrum foil + Persulfate)와 Reinforced Epoxy(Fiber Board → Extreme Board)에 들어갑니다.
+  지금 목표(Workstation · Mainframe)에는 필요 없으니 <b>EV 준비</b>로 둡니다. 기본 체인은 전부 LV 단일 CR로 돌고, LCR이 있으면 한 번에 끝납니다.</p>
+  <div class="card">
+    <h3>체인</h3>
+    <p class="sub">Epoxy 1000mB 기준.</p>
+    ${flow({
+      label: 'Epoxy 체인', h: 400,
+      nodes: [
+        { id: 'bz', x: 20, y: 30, w: 130, t: 'Benzene', s: '오일 → 증류', k: 'src' },
+        { id: 'pr', x: 20, y: 150, w: 130, t: 'Propene', s: '크래킹', k: 'src' },
+        { id: 'cu', x: 210, y: 30, w: 150, t: 'Cumene', s: 'CR · 1920t', k: 'LV', tip: 'cumene_from_benzene: Phosphoric Acid 1000 + Benzene 8000 + Propene 8000 → Cumene 8000' },
+        { id: 'ph', x: 410, y: 30, w: 150, t: 'Phenol + Acetone', s: 'CR · 160t', k: 'LV', tip: 'phenol_from_cumene: Oxygen 2000 + Cumene 1000 → Phenol 1000 + Acetone 1000' },
+        { id: 'bp', x: 620, y: 30, w: 150, t: 'Bisphenol A', s: 'CR · circuit 1', k: 'LV', tip: 'bisphenol_a: HCl 1000 + Acetone 1000 + Phenol 2000 → Bisphenol A 1000 + Diluted HCl 1000' },
+        { id: 'al', x: 210, y: 150, w: 150, t: 'Allyl Chloride', s: 'CR · circuit 1', k: 'LV', tip: 'allyl_chloride: Propene 1000 + Chlorine 2000 → Allyl Chloride 1000 + HCl 1000' },
+        { id: 'hy', x: 210, y: 270, w: 150, t: 'Hypochlorous Acid', s: 'CR · circuit 1', k: 'LV', tip: 'hypochlorous_acid: Water 1000 + Chlorine 2000 → Hypochlorous Acid 1000 + Diluted HCl 1000' },
+        { id: 'ep', x: 410, y: 210, w: 160, t: 'Epichlorohydrin', s: 'CR + NaOH 3', k: 'LV', tip: 'epichlorohydrin_from_allyl_chloride: NaOH 3 + Allyl Chloride 1000 + Hypochlorous Acid 1000 → Epichlorohydrin 1000 + Salt Water 1000' },
+        { id: 'ex', x: 620, y: 210, w: 150, t: 'Epoxy', s: 'CR + NaOH 3 · 200t', k: 'GOAL', tip: 'epoxy_from_bisphenol_a: NaOH 3 + Epichlorohydrin 1000 + Bisphenol A 1000 → Epoxy 1000 + Salt Water 1000' },
+        { id: 'lcr', x: 820, y: 210, w: 160, t: 'LCR 단축', s: 'epoxy_shortcut', k: 'LCR', tip: 'epoxy_shortcut (circuit 24): NaOH 3 + Epichlorohydrin 1000 + Phenol 2000 + Acetone 1000 + HCl 1000 → Epoxy 1000 (480t, 30 EU/t)' },
+      ],
+      edges: [
+        { a: 'bz', b: 'cu' }, { a: 'pr', b: 'cu', fs: 'r', ts: 'b' }, { a: 'cu', b: 'ph' }, { a: 'ph', b: 'bp' },
+        { a: 'pr', b: 'al' }, { a: 'al', b: 'ep' }, { a: 'hy', b: 'ep' }, { a: 'bp', b: 'ex', fs: 'b', ts: 't' }, { a: 'ep', b: 'ex' },
+        { a: 'ex', b: 'lcr', dash: true, l: '대체' },
+      ],
+    })}
+    ${tierLegend(['LV', 'LCR', 'GOAL', 'src'])}
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>원료가 어디서 오나</h3>
+      <ul class="pts">
+        <li><b>Benzene · Propene</b>: 이 팩은 오일을 Pyrolyse Oven에서 만듭니다(<code>hydrocarbons.js</code>: Wood Dust · Bio Chaff · Plant Ball · 원목 → Oil 계열 16,000mB). 기지에 Pyrolyse Oven 1대. 증류 · 크래킹은 ${EMI}.</li>
+        <li><b>Sodium Hydroxide</b>: Sodium + Water → NaOH 3 (MV 120 EU/t). Sodium은 Salt 전해.</li>
+        <li><b>Chlorine</b>: PTFE 라인과 같은 HCl 전해 루프에서.</li>
+        <li>대안: <code>epichlorohydrin_from_glycerol</code>(Glycerol + HCl) — Glycerol은 Seed Oil + Methanol + NaOH에서.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>팩이 지운 것 · 바꾼 것</h3>
+      <ul class="pts">
+        <li>CR 크래킹 레시피(<code>lightly/severely/steam/hydro crack</code>)를 지웠습니다. 크래킹은 Cracker 멀티블럭에서 ${EMI}.</li>
+        <li><code>styrene_from_benzene</code>, <code>vinyl_chloride_from_ethane</code>(원본)을 지우고 Vinyl Chloride는 circuit 2 버전으로 다시 넣었습니다.</li>
+        <li>팩 자체 Epoxy 레시피(<code>hydrocarbons.js</code>, 박테리아 경로)는 LuV라 지금은 해당 없음.</li>
+      </ul>
+    </div>
+  </div>`;
+}
+
+const VIEWS = {
+  overview: viewOverview, power: viewPower, circuit: viewCircuit, next: viewNext,
+  resource: { void: viewVoid, chunk: viewChunk, crushed: viewCrushed, persulfate: viewPersulfate },
+  ptfe: { boot: viewBoot, lcr: viewLcr },
+  misc: { multi: viewMulti, epoxy: viewEpoxy },
+};
 
 const L3 = { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, hit: [] };
 function drawLayout() {
@@ -1156,8 +1408,8 @@ function drawLayout() {
   const shade = (hex, f) => `rgb(${rgb(hex).map(c => Math.round(c * f)).join(',')})`;
   ctx.fillStyle = colOf('--surface'); ctx.fillRect(0, 0, wrapW, H);
 
-  const { boxes, pipes } = (S.layMode === 'pipe' ? buildLayout : buildLaser)(S.layN);
-  const vis = boxes.filter(b => !b.hide && (!b.ghost || S.layGhost));
+  const { boxes, pipes } = buildChunk(S.veN);
+  const vis = boxes.filter(b => !b.hide && (!b.ghost || S.layGhost || b.outline));
   // 장면 중심과 배율
   let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
   boxes.forEach(b => { [[b.x, b.y, b.z], [b.x + b.w, b.y + b.h, b.z + b.d]].forEach(p => p.forEach((v, i) => { mn[i] = Math.min(mn[i], v); mx[i] = Math.max(mx[i], v); })); });
@@ -1255,6 +1507,7 @@ function drawLayout() {
   L3.hit = hit.reverse();
 }
 
+
 function mountLayout() {
   const cv = document.getElementById('lay3d'); if (!cv) return;
   let drag = null;
@@ -1277,8 +1530,7 @@ function mountLayout() {
   cv.addEventListener('wheel', e => { e.preventDefault(); L3.zoom = Math.min(4, Math.max(0.4, L3.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); drawLayout(); }, { passive: false });
   document.getElementById('layctl').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.n) { S.layN = +b.dataset.n; render(); return; }
-    if (b.dataset.mode) { S.layMode = b.dataset.mode; L3.fit = 0; render(); return; }
+    if (b.dataset.n) { S.veN = +b.dataset.n; render(); return; }
     const a = b.dataset.act;
     if (a === 'reset') Object.assign(L3, { yaw: -0.62, pitch: 0.82, zoom: 1.12, panX: 0, panY: 0, fit: 0 });
     if (a === 'top') Object.assign(L3, { yaw: 0, pitch: 1.55, zoom: 1, panX: 0, panY: 0, fit: 0 });
@@ -1294,133 +1546,33 @@ function mountLayout() {
   drawLayout();
 }
 
-function viewLayout() {
-  const N = S.layN, cyc = CYCLE[S.hatch], laser = S.layMode !== 'pipe';
-  const euCycle = veEU() + STAGES.reduce((a, s) => a + s.eu, 0);
-  const rows = [{ label: 'Mixer', busy: MIXER_BUSY, t: laser ? 'MV' : 'LV' },
-    ...STAGES.map(s => s.id === 'A' && laser ? { label: 'A MV Electrolyzer', busy: A_MV.busy, t: 'MV' } : { label: `${s.id} ${s.t} ${s.m}`, busy: s.busy, t: s.t })];
-  const ns = [1, 2, 3, 4];
-  const pressed = k => `aria-pressed="${S[k]}"`;
-  const lineKeys = laser ? ['beam', 'me', 'hv', 'mv'] : Object.keys(PIPE).filter(k => !PIPE[k].w);
-  const ok = n => hvMachines(n) <= POWER.hvA && mvMachines(n) <= POWER.mvA;
-  const maxN = ns.filter(ok).pop();
-  const chTable = (list, p) => `<div class="tscroll"><table><thead><tr><th>채널</th><th>내용</th><th>보내는 쪽</th><th>받는 쪽</th></tr></thead><tbody>
-    ${list.map((c, k) => `<tr><td class="n">${p}${k}</td><td>${esc(c.n)}</td><td>${esc(c.a)}</td><td>${esc(c.b)}</td></tr>`).join('')}</tbody></table></div>`;
-  const red = bad => bad ? ' style="color:var(--critical);font-weight:600"' : '';
-  const laserCards = `
-  ${callout(ok(N) ? 'ok' : 'crit', ok(N) ? '✓' : '!', ok(N)
-    ? `<b>MV 64A로 Void Extractor ${N}대를 돌릴 수 있습니다.</b> 피크 때 HV ${hvMachines(N)}A / ${POWER.hvA}A, MV ${mvMachines(N)}A / ${POWER.mvA}A. 64A로는 <b>${maxN}대까지</b>입니다.`
-    : `<b>MV 64A로는 Void Extractor ${N}대가 부족합니다.</b> 피크 때 HV 기계가 ${hvMachines(N)}대라 트랜스포머 쪽 ${POWER.hvA}A를 넘습니다. 컨버터를 1대(MV 16A) 더 트랜스포머에 붙이면 HV 16A가 됩니다. 케이블과 자리는 이미 깔려 있습니다.`)}
-  <div class="grid2">
-    <div class="card">
-      <h3>전력 예산 · MV 64A</h3>
-      <p class="sub">컨버터 C1~C3(48A)은 <code>hv_transformer_16a</code>에 바로 붙여 HV 12A로 올리고, C4(16A)는 MV 기계 전용입니다. 단일 블록 기계는 돌 때 자기 전압 1A를 씁니다.</p>
-      <div class="tscroll"><table>
-        <thead><tr><th>Void Extractor</th>${ns.map(n => `<th class="n">${n}대</th>`).join('')}</tr></thead>
-        <tbody>
-          <tr><td>HV 피크 (한도 ${POWER.hvA}A)</td>${ns.map(n => `<td class="n"${red(hvMachines(n) > POWER.hvA)}>${hvMachines(n)}A</td>`).join('')}</tr>
-          <tr><td>MV 피크 (한도 ${POWER.mvA}A)</td>${ns.map(n => `<td class="n"${red(mvMachines(n) > POWER.mvA)}>${mvMachines(n)}A</td>`).join('')}</tr>
-          <tr><td>평균 전력</td>${ns.map(n => `<td class="n">${fmt(avgEUt(n), 0)} EU/t</td>`).join('')}</tr>
-          <tr><td>64A 중 평균 사용</td>${ns.map(n => `<td class="n">${fmt(avgEUt(n) / 128, 0)}A (${fmt(avgEUt(n) / 128 / POWER.total * 100, 0)}%)</td>`).join('')}</tr>
-        </tbody></table></div>
-      <ul class="pts" style="margin-top:12px">
-        <li><b>LV 기계를 없앴습니다.</b> A와 Mixer도 MV로 둬서 전선을 MV · HV 두 계통으로 줄였습니다(LV 기계를 MV 선에 물리면 터짐). 대신 A가 사이클당 ${fmt(A_MV.eu - STAGES[0].eu, 0)} EU를 더 씁니다.</li>
-        <li><b>HV 간선은 x = 7 한 줄.</b> 변전 설비를 간선 가운데(z = 5)에 둬서 양 끝이 9칸 이내입니다. GT 케이블은 칸당 · 암페어당 손실이 있으니 간선은 그대로 두고 행을 동쪽으로 늘리세요.</li>
-        <li><b>행마다 남쪽 면에 두 층(y 0 · y 2).</b> 샌드위치의 아래 · 위 기계가 각각 남쪽 면으로 전력을 받고, 행 동쪽 끝에서 세로로 이어집니다. 케이블은 예약 자리까지 미리 깔아 둡니다.</li>
-        <li><b>케이블 용량</b>: HV 간선 12A 이상, VE · E · G 레인 4A, F 레인 3A, C4의 MV 레인 16A. 재질별 암페어는 게임 툴팁으로 확인하세요 ${EMI}.</li>
-      </ul>
-    </div>
-    <div class="card">
-      <h3>월드에서 가져온 방식</h3>
-      <p class="sub">세이브를 읽기 전용으로 스캔한 결과입니다.</p>
-      <ul class="pts">
-        <li><b>노드는 기계 면에 바로</b> — 노드 685개, 카드 1,136장. Super Chest–노드–Super Chest처럼 위아래로 끼우는 배치가 많아서 기계 열도 그렇게 쌓았습니다.</li>
-        <li><b>지금 Void Extractor도 같은 구조</b> — 출력 해치 밑 노드 → LV Super Tank, 출력 버스 → Super Chest. 그대로 살리고 처리 단계만 붙입니다.</li>
-        <li><b>AE2는 보는 용도 + 공급</b> — storage bus 32개가 Super Tank · Super Chest · Functional Storage에 붙어 있고, ME Interface 옆 노드가 8개입니다. 여기서도 단계 탱크에 storage bus를 달고, Mixer 재료는 ME Interface에서 뽑습니다.</li>
-        <li><b>전력도 레이저로</b> — Carbon Brushes → 에너지 카드 → <code>mv_16a_energy_converter</code>(월드에 15대). 컨버터를 부하 옆에 두니 긴 MV 케이블이 없습니다.</li>
-        <li><b>새로 쓰는 것: 채널.</b> 지금은 1,136장이 전부 채널 0이고 네트워크를 물리적으로 나눕니다. 이 라인은 한 네트워크를 유체 15 · 아이템 7개 채널로 나눠야 기계를 늘릴 때 노드 하나만 놓고 끝납니다.</li>
-      </ul>
-    </div>
-  </div>
-  <div class="grid2">
-    <div class="card"><h3>유체 채널</h3><p class="sub">생산 → 탱크, 탱크 → 소비를 다른 채널로 나눠 거꾸로 흐르지 않게 합니다. 탱크의 OUT 카드는 round robin을 켭니다.</p>${chTable(FCH, 'f')}</div>
-    <div class="card"><h3>아이템 채널</h3><p class="sub">아이템은 기계 입력 슬롯이 버퍼라서 탱크 없이 바로 보냅니다. B의 두 OUT 카드는 같은 basic 필터를 허용 / 거부로 씁니다.</p>${chTable(ICH, 'i')}
-      <p class="sub" style="margin:10px 0 0">물과 Drilling Fluid 카드에는 overclocker 카드를 넣으세요(VE ${N}대면 물 약 ${fmt(PER_CYCLE.water * N / cyc, 0)}mB/t). 카드 속도는 ${EMI}.</p></div>
-  </div>`;
-  const pipeCards = `
-  <div class="card">
-    <h3>배관 방식의 원칙</h3>
-    <ul class="pts">
-      <li><b>단계마다 버퍼 탱크 하나 + 버스.</b> 기계를 늘릴 때 버스 끝에 한 대를 붙이기만 하면 됩니다.</li>
-      <li><b>탱크는 x = 0 기둥에 모아 둡니다.</b> 탱크 잔량만 훑으면 어느 단계가 병목인지 보입니다.</li>
-      <li><b>Void Extractor는 5칸 간격.</b> 사이 2칸이 Drilling Fluid 입력과 에너지 케이블 통로입니다.</li>
-    </ul>
-  </div>`;
-  return `
-  <h2>3D 배치도 · 확장형</h2>
-  <p class="lead">Void Extractor를 <b>최대 ${MAX_VE}대까지 늘리는 것을 전제로</b> 자리를 미리 잡아 둔 배치입니다. 모든 행은 동쪽(+x) 끝이 열려 있고, 점선 상자는 아직 지을 필요가 없는 <b>예약 자리</b>입니다.
-  드래그로 회전, Shift+드래그로 이동, 휠로 확대합니다. 블록과 선에 마우스를 올리면 카드 설정이 나옵니다.</p>
-  <div class="card">
-    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
-      <div class="seg"><button data-mode="laser" aria-pressed="${laser}">LaserIO + AE2</button><button data-mode="pipe" aria-pressed="${!laser}">GT 파이프</button></div>
-      <span class="ctl-label">Void Extractor</span>
-      <div class="seg">${ns.map(n => `<button data-n="${n}" aria-pressed="${n === N}">${n}대</button>`).join('')}</div>
-      <div class="seg"><button data-act="ghost" ${pressed('layGhost')}>예약 자리</button><button data-act="pipes" ${pressed('layPipes')}>${laser ? '선' : '배관'}</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
-      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
-    </div>
-    <div><canvas id="lay3d" role="img" aria-label="Void Extractor 체인 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    ${laser ? `<div class="legend">${[['--s1', 'MV 기계 · 컨버터'], ['--s2', 'HV 기계 · 트랜스포머'], ['--muted', 'Super Tank'], ['--s4', '창고 · 출구'], ['--s8', 'LaserIO Node'], ['--s7', 'AE2 (Interface · storage bus)']].map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join('')}</div>` : tierLegend(['LV', 'MV', 'HV', 'tank'])}
-    <div class="legend">${lineKeys.map(k => `<span><i style="background:var(${PIPE[k].c});height:4px;border-radius:2px"></i>${esc(PIPE[k].n)}</span>`).join('')}</div>
-    <p class="sub" style="margin:10px 0 0">블록 한 칸 = 1m. Void Extractor는 3×3 바닥에 높이 6(<code>void_extractor.js</code> 패턴).${laser ? ' 해치 밑에 노드를 두려고 VE를 한 칸 띄웠습니다. 레이저 선은 노드끼리 가장 짧게 이은 예시이고, 8칸이 넘는 선(점선)은 Laser Connector로 중계합니다.' : ' 배관 위치는 개념도이니 실제로는 GT 파이프 면 연결로 맞추세요.'}</p>
-  </div>
-  ${laser ? laserCards : ''}
-  <div class="grid2">
-    <div class="card">
-      <h3>Void Extractor 대수별 필요 기계</h3>
-      <p class="sub">${S.hatch} 해치 기준, 사이클 ${cyc}t. 굵은 숫자가 지금 선택한 ${N}대.</p>
-      <div class="tscroll"><table>
-        <thead><tr><th>단계</th>${ns.map(n => `<th class="n">${n}대</th>`).join('')}</tr></thead>
-        <tbody>${rows.map(r => `<tr><td><span class="chip"><i style="background:${TIER[r.t].c}"></i></span> ${esc(r.label)}</td>${ns.map(n => `<td class="n">${n === N ? `<b>${need(r.busy, n)}</b>` : need(r.busy, n)}</td>`).join('')}</tr>`).join('')}
-          <tr><td>평균 전력</td>${ns.map(n => `<td class="n">${fmt(laser ? avgEUt(n) : euCycle * n / cyc, 0)} EU/t</td>`).join('')}</tr>
-          <tr><td>Water</td>${ns.map(n => `<td class="n">${fmt(PER_CYCLE.water * n / cyc, 0)} mB/t</td>`).join('')}</tr>
-        </tbody></table></div>
-    </div>
-    <div class="card">
-      <h3>늘릴 때 순서</h3>
-      <ul class="pts">
-        <li><b>Void Extractor 추가</b>: 동쪽 다음 자리에 짓고${laser ? ' 해치 밑 노드 5개에 카드를 꽂습니다. 에너지 해치는 이미 깔린 VE 레인 틈으로 닿습니다' : ' 트렁크에 출력 해치를 잇습니다'}.</li>
-        <li><b>처리 기계 추가</b>: ${laser ? '해당 행의 다음 열에 기계 → 노드 → 기계를 쌓고 같은 카드를 복사합니다. 케이블은 이미 깔려 있습니다' : '해당 행 버스 끝에 한 대를 붙입니다'}.</li>
-        <li><b>Molten Ore 옆 3×3</b>은 EV Distillation Tower 자리입니다. 탱크를 옮기지 않습니다.</li>
-        <li><b>LuV 이후</b> <code>void_excavator</code>의 <code>aqueous_void_excavation</code>(EV 레시피, 320t)은 한 대가 HV 해치 VE 5대 분량을 냅니다. 처리 행을 그대로 이어 씁니다.</li>
-      </ul>
-    </div>
-  </div>
-  ${laser ? '' : pipeCards}`;
-}
-
-const VIEWS = { overview: viewOverview, void: viewVoid, crushed: viewCrushed, persulfate: viewPersulfate, c2f4: viewC2F4, layout: viewLayout };
-const AFTER = { layout: mountLayout };
-
 /* ---------- render ---------- */
 function render() {
-  if (!VIEWS[S.tab]) S.tab = 'overview';
-  document.getElementById('tabs').innerHTML = TABS.map(t =>
-    `<button role="tab" data-tab="${t.id}" aria-selected="${t.id === S.tab}">${esc(t.name)}</button>`).join('');
-  document.querySelectorAll('#hatch button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.hatch));
+  if (!TOPICS.some(t => t.id === S.topic)) S.topic = 'overview';
+  const t = curTopic(), sub = curSub();
+  document.getElementById('tabs').innerHTML = TOPICS.map(x =>
+    `<button role="tab" data-tab="${x.id}" aria-selected="${x.id === S.topic}">${esc(x.name)}</button>`).join('');
+  document.querySelectorAll('#ven button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.n === S.veN));
+  const v = VIEWS[t.id], fn = typeof v === 'function' ? v : v[sub];
   const y = window.scrollY;
-  document.getElementById('main').innerHTML = `<section class="tab on" role="tabpanel">${VIEWS[S.tab]()}</section>`;
-  if (AFTER[S.tab]) AFTER[S.tab]();
+  document.getElementById('main').innerHTML = `<section class="tab on" role="tabpanel">${fn()}</section>`;
+  if (fn === viewChunk) mountLayout();
   window.scrollTo(0, y);
   persist();
 }
 document.getElementById('tabs').addEventListener('click', e => {
   const b = e.target.closest('button[data-tab]'); if (!b) return;
-  S.tab = b.dataset.tab; render(); window.scrollTo(0, 0);
+  S.topic = b.dataset.tab; render(); window.scrollTo(0, 0);
 });
-document.getElementById('hatch').addEventListener('click', e => {
-  const b = e.target.closest('button[data-v]'); if (!b) return;
-  S.hatch = b.dataset.v; render();
+document.getElementById('main').addEventListener('click', e => {
+  const b = e.target.closest('#subnav button[data-sub]'); if (!b) return;
+  S.sub[S.topic] = b.dataset.sub; L3.fit = 0; render();
 });
+document.getElementById('ven').addEventListener('click', e => {
+  const b = e.target.closest('button[data-n]'); if (!b) return;
+  S.veN = +b.dataset.n; render();
+});
+window.addEventListener('hashchange', () => { readHash(); render(); });
 window.addEventListener('themechange', () => drawLayout());
 
 /* ---------- tooltip: "value|label" or plain text ---------- */
