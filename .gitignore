@@ -1,0 +1,15 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Scratch files from layout checks
+*_tmp.html
+
+# Secrets never belong in a public repo
+.env
+.env.*
+*.key

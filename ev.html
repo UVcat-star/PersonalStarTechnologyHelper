@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EV 자동화 라인</title>
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/shell.js"></script>
+<style>
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+header { border-bottom: 1px solid var(--border); }
+header h1 { font-size: 18px; margin: 0; font-weight: 650; padding: 14px 0 2px; }
+header .meta { color: var(--muted); font-size: 13px; padding-bottom: 12px; }
+main { padding: 40px 0 60px; }
+.hero { text-align: center; padding: 36px 16px 28px; }
+.hero .tier { width: 64px; height: 40px; font-size: 18px; margin: 0 auto 14px; border-radius: 10px; }
+.hero h2 { font-size: 26px; margin: 0 0 6px; }
+.hero p { color: var(--ink-2); margin: 0 auto; max-width: 560px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; max-width: 760px; margin: 0 auto 16px; }
+.card h3 { font-size: 15px; margin: 0 0 4px; }
+.card .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+ul.pts { margin: 0; padding-left: 20px; } ul.pts li + li { margin-top: 10px; }
+.from { display: block; font-size: 12.5px; color: var(--muted); }
+code { overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--s1); }
+</style>
+</head>
+<body data-tier="EV">
+<header>
+  <div class="wrap">
+    <h1>Star Technology · EV 자동화 라인</h1>
+    <div class="meta">아직 정리 전입니다</div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="hero">
+    <span class="tier" style="--tc:#9b4fc4">EV</span>
+    <h2>Coming soon</h2>
+    <p>EV 라인은 <code>EV Universal Circuit</code>에 가까워지면 여기에 정리합니다. 지금은 HV 단계를 진행 중입니다.</p>
+  </div>
+
+  <div class="card">
+    <h3>HV에서 EV로 넘겨 둔 일</h3>
+    <p class="sub">HV 문서에서 "EV가 되면" 하기로 한 항목입니다. EV 페이지를 만들 때 여기서 시작합니다.</p>
+    <ul class="pts">
+      <li><b><code>Molten Ore Mixture</code> → <code>Distillation Tower</code></b><br>
+        HV 동안 <code>Super Tank</code>에 모아 둔 유체를 <code>Bauxite</code>, <code>Tungstate</code>, <code>Cooperite</code>, <code>Pitchblende</code> 등 7종으로 나눕니다. 탱크 동쪽 3×3을 이 자리로 비워 두었습니다.
+        <span class="from"><a href="hv.html#void">HV · Void Extractor 체인</a></span></li>
+      <li><b><code>Sodium Persulfate</code> 라인을 <code>Chemical Plant</code> 한 대로 교체</b><br>
+        <code>sodium_persulfate_skip</code>: <code>Sodium</code> dust 1 + <code>Sulfur</code> dust 1 + <code>Oxygen</code> 4000 → <code>Sodium Persulfate</code> 500 (30t, 960 EU/t). 금속 <code>Sodium</code> 공급원이 따로 필요합니다.
+        <span class="from"><a href="hv.html#persulfate">HV · Sodium Persulfate</a></span></li>
+      <li><b>Ore Factory B에 EV 에너지 해치</b><br>
+        1단계 오버클럭이 걸려 필요한 대수가 절반으로 줄어듭니다.
+        <span class="from"><a href="hv.html#crushed">HV · Crushed Ore 분류</a></span></li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

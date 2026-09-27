@@ -1,0 +1,129 @@
+/* Shared by every tier page: colour tokens, base type, and the tier sidebar.
+   Page-specific components (charts, flow diagrams, the 3D layout) stay in each page. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --surface-2: #f3f2ee;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.10);
+  --edge: #9a988f;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --pos: #2a78d6; --neg: #e34948; --mid: #f0efec;
+  --good-text: #006300;
+  --side-w: 232px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+    --edge: #6b6a64;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --pos: #3987e5; --neg: #e66767; --mid: #383835;
+    --good-text: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10);
+  --edge: #6b6a64;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --pos: #3987e5; --neg: #e66767; --mid: #383835;
+  --good-text: #0ca30c;
+}
+:root.side-collapsed { --side-w: 60px; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  padding-left: var(--side-w);
+  transition: padding-left .18s ease;
+}
+
+/* ---------- sidebar ---------- */
+#side {
+  position: fixed; inset: 0 auto 0 0; z-index: 30; width: var(--side-w);
+  display: flex; flex-direction: column;
+  background: var(--surface); border-right: 1px solid var(--border);
+  transition: width .18s ease, transform .18s ease;
+  overflow: hidden;
+}
+#side .brand { padding: 16px 16px 12px; white-space: nowrap; }
+#side .brand b { display: block; font-size: 15px; font-weight: 650; }
+#side .brand span { font-size: 12px; color: var(--muted); }
+#side .brand .mark { display: none; font-weight: 700; font-size: 14px; text-align: center; }
+#side .group { font-size: 11.5px; color: var(--muted); padding: 10px 16px 4px; white-space: nowrap; letter-spacing: .02em; }
+#side nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; }
+#side nav a {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 8px;
+  border-radius: 8px; color: var(--ink-2); text-decoration: none; white-space: nowrap;
+}
+#side nav a:hover { background: var(--surface-2); color: var(--ink); }
+#side nav a[aria-current="page"] { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+#side nav a.soon { color: var(--muted); }
+.tier {
+  flex: none; width: 36px; height: 24px; border-radius: 6px; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  color: var(--tc); background: color-mix(in srgb, var(--tc) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tc) 45%, transparent);
+}
+#side nav a.soon .tier { opacity: .55; }
+#side .lbl { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+#side .lbl small { font-size: 11.5px; color: var(--muted); font-weight: 400; }
+#side .lbl .row { display: flex; align-items: center; gap: 6px; }
+#side .badge {
+  font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+}
+#side .badge.now { color: var(--good-text); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+#side .foot { margin-top: auto; padding: 10px 8px 12px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); }
+#side .foot button {
+  display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 10px; width: 100%;
+  font: inherit; font-size: 13px; color: var(--ink-2); background: none; border: 0; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; text-align: left;
+}
+#side .foot button:hover { background: var(--surface-2); color: var(--ink); }
+#side .foot .ico { flex: none; width: 20px; text-align: center; font-size: 15px; }
+:root.side-collapsed #side .brand b, :root.side-collapsed #side .brand span,
+:root.side-collapsed #side .group, :root.side-collapsed #side .lbl,
+:root.side-collapsed #side .badge, :root.side-collapsed #side .foot .txt { display: none; }
+:root.side-collapsed #side .brand .mark { display: block; }
+:root.side-collapsed #side .brand { padding: 16px 0 12px; }
+:root.side-collapsed #side nav a { justify-content: center; padding: 6px 0; }
+:root.side-collapsed #side .foot button { justify-content: center; padding: 6px 0; }
+
+#side-open { display: none; }
+#side-scrim { display: none; }
+
+/* Phones: the sidebar becomes a drawer opened from a floating button. */
+@media (max-width: 800px) {
+  body { padding-left: 0; }
+  :root, :root.side-collapsed { --side-w: 248px; }
+  #side { transform: translateX(-100%); box-shadow: none; }
+  :root.side-open #side { transform: none; box-shadow: 0 8px 32px rgba(0,0,0,.25); }
+  :root.side-collapsed #side .brand b, :root.side-collapsed #side .brand span,
+  :root.side-collapsed #side .group, :root.side-collapsed #side .lbl,
+  :root.side-collapsed #side .badge, :root.side-collapsed #side .foot .txt { display: revert; }
+  :root.side-collapsed #side .lbl { display: flex; }
+  :root.side-collapsed #side .brand .mark, #side .collapse { display: none !important; }
+  :root.side-collapsed #side nav a, :root.side-collapsed #side .foot button { justify-content: flex-start; padding: 6px 10px; }
+  :root.side-collapsed #side .brand { padding: 16px 16px 12px; }
+  #side-open {
+    display: grid; place-items: center; position: fixed; left: 16px; bottom: 16px; z-index: 25;
+    width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink); font-size: 18px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18);
+  }
+  :root.side-open #side-scrim { display: block; position: fixed; inset: 0; z-index: 29; background: rgba(0,0,0,.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body, #side { transition: none; }
+}
