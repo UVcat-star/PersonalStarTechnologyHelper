@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UEV 검토</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="UEV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · UEV 검토</h1>
+        <div class="meta">Theta 2 · 2026-09-27 · UEV = 8,388,608V(7,864,320 EU/t) · 무대: Nether (Ancient Stargate)</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
+<script src="assets/page.js"></script>
+<script src="assets/late.js"></script>
+<script>
+const S = { topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+
+/* 수치 출처: 팩 KubeJS — utils/fluid_veins.js(Nether 광맥: highly_unstable_nether_magma · debris_rich · crude_infernal_concentrate 가중치 10),
+   nether_lines/magmas.js · estalt.js · adamantine.js · mythril.js, systems/hellforge.js, fusion_scaling.js
+   (magmatic_plasma 반사판 5 · Infernal Concentrate 500 + Iron 플라즈마 288 → 144 · 66,666 EU/t · 12.8초 · 720M),
+   plasma_turbines.js(magmatic 1mB = 748t × 8,192 EU/t), objects/blocks/coils.js(Magmada 16,199K).
+   패시브 목표: Mystical Nether Magma 12B/회 Sifter를 시간당 RUNS회. 가동률은 이 비율로 계산, 금속 수율은 EMI 확인. */
+const RUNS = 4;
+const MAG_GROSS = 144 * 748 * 8192 / 256, MAG_NET = MAG_GROSS - 66666;
+
+lateStart({
+  key: 'uev-web', T: 10,
+  lead: '"UEV"는 <b>8,388,608V(7,864,320 EU/t)</b>. 무대는 <b>Nether</b>입니다 — UHV에서 만든 Ancient Stargate(Milky Way)로 가고, 퀘스트 <b>Draconic Empires</b>의 첫 절반(Hellstones · Hellforge · UEV 합금 · Mystical Metals)이 이 단계입니다. 발전은 <b>Magmatic 플라즈마</b>(1mB = 748t × <b>8,192</b> EU/t)로 크게 뜁니다.',
+  tiles: [
+    ['UEV 회로', 'Runic', 'Mainframe', 'Assembly Line 600,000 (UHV 전압)'],
+    ['UIV 회로', 'Draco CA', '필요', 'Draconic Mainframe · Abyssal Computer — UIV 기계'],
+    ['이 단계의 코일', 'Magmada', '16,199K', 'UEV Assembler · UEV 해치 2 = 17,099K'],
+    ['Magmatic 플라즈마', fmt(MAG_NET / 1e6, 2) + 'M', 'EU/t', '융합로 1대 · 반사판 5 · 720M'],
+  ],
+  roadmap: {
+    stages: [
+      ['E0', 'UHV에서 가져올 것', 'UHV', 'Ancient Stargate · Utopian Akreyrium · Runic Mainframe · UHV Fusion(MK4) · Supreme Plasma Turbine', '—'],
+      ['E1', 'Nether 진입 · 해치', 'UHV', 'Husk of the Flame · Hellstones(Cryostone · Brimstone) · UEV 해치 · Cryostate Quantum Chiller', '1'],
+      ['E2', 'Hellforge', 'UEV', 'Heart of the Flame + Hellforge — 합금 플라즈마 · Hellfire Ash → Infernal Concentrate', '3'],
+      ['E3', 'Nether Magma (패시브)', 'UEV', 'Highly Unstable Magma 광맥 → Mystical Magma → Estalt · Adamantine · Mythril', '4'],
+      ['E4', 'Magmatic 플라즈마', 'UEV', 'Borealic 반사판 + MK4 → 기당 3.38M EU/t', '3'],
+      ['E5', 'UEV 합금 · 코일', 'UEV', 'Magmada · Mythrolic · Starium 합금 → Magmada 코일 · UEV Hull', '5'],
+    ],
+    flow: {
+      label: 'UEV 로드맵', h: 330,
+      nodes: [
+        { id: 'e0', x: 20, y: 30, w: 170, t: 'E0 UHV에서', s: 'ASG · Runic Mainframe', k: 'UHV' },
+        { id: 'e1', x: 230, y: 30, w: 170, t: 'E1 Nether 진입', s: 'Hellstones · 해치', k: 'UHV' },
+        { id: 'e2', x: 440, y: 30, w: 170, t: 'E2 Hellforge', s: '합금 플라즈마', k: 'UEV' },
+        { id: 'e3', x: 650, y: 30, w: 170, t: 'E3 Nether Magma', s: 'Mystical Metals', k: 'UEV' },
+        { id: 'e4', x: 650, y: 170, w: 170, t: 'E4 Magmatic 플라즈마', s: '3.38M EU/t / 기', k: 'UEV' },
+        { id: 'e5', x: 440, y: 170, w: 170, t: 'E5 UEV 합금 · 코일', s: 'Magmada · Starium', k: 'UEV' },
+        { id: 'uiv', x: 230, y: 176, w: 120, h: 44, t: 'UIV', k: 'GOAL' },
+      ],
+      edges: [{ a: 'e0', b: 'e1' }, { a: 'e1', b: 'e2' }, { a: 'e2', b: 'e3' }, { a: 'e2', b: 'e4', fs: 'b', ts: 'l', l: 'Infernal Concentrate' }, { a: 'e3', b: 'e5', fs: 'b', ts: 'r', l: 'Adamantine' }, { a: 'e4', b: 'e5' }, { a: 'e5', b: 'uiv' }],
+    },
+  },
+  opens: [
+    '<b>기계</b>(팩 Assembly Line 3,932,160~7,864,320): <code>hellforge</code> · <code>heart_of_the_flame</code> · <code>cryostate_quantum_chiller</code> · <code>omega_pressure_heat_chamber</code> · <code>mega_abs</code> · <code>bulk_processing_array</code> · <code>exotic_gas_siphon</code> · <code>component_nexus</code> · <code>uev_fusion_reactor</code> · <code>uev_rotor_holder</code>.',
+    '<b>라인</b>: Nether magma → Estalt · Adamantine · Mythril(<code>ordered_chemistry</code>), Atomic Nether Sludge → Flerovium · Seaborgium · Polonium · Astatine, Hellish Concentrate.',
+    '<b>회로</b>: UEV 회로 = Runic Mainframe. Abyssal Circuit Board · Processing Unit(Circuit Assembler 3,932,160)으로 Abyssal 계열 시작.',
+    '<b>냉각</b>: Cryostate Quantum Chiller — Superstate Helium-3 · BEC-Og · Oganesson(퀘스트 Advanced Cooling Materials).',
+  ],
+  order: [
+    'Nether 도착 → <b>Hellstones</b>(Cryostone · Brimstone, Reinforced 케이싱 UHV Compressor) → <b>Hellforge</b>. Hellforge가 합금 · 플라즈마의 중심입니다.',
+    '광맥 두 개를 먼저 잡습니다: <b>Highly Unstable Nether Magma</b>(Mystical Metals)와 <b>Crude Infernal Concentrate</b>(가중치 10 · Magmatic 플라즈마 연료).',
+    '발전을 <b>Magmatic 플라즈마</b>로 — Borealic 반사판(UV 제작: Ancient Netherite · Void)과 MK4(1,280M 한도, GTCEu 기준)면 됩니다.',
+    'UIV 회로가 Draco Circuit Assembler(UIV) 뒤라 <b>UEV Fusion(UIV 회로 4)은 UIV 단계</b>에서 짓습니다.',
+  ],
+  entry: {
+    lead: 'UEV 해치 · Hull은 퀘스트 Draconic Empires(UEV Energy Input Hatch · 4A · 16A). UHV 해치 2개 멀티블럭이면 UEV 레시피가 돕니다.',
+    cards: [
+      { h: 'Nether 준비 (퀘스트)', li: ['<b>Husk of the Flame</b> · Nether 차원 진입(Ancient Stargate).', '<b>Hellstones</b>: Cryostone · Brimstone → Reinforced Cryostone/Brimstone Casing(UHV Compressor 983,040).', '<b>Runic Infused Hazmat Armor</b>(A Portal of Lost Worlds) — Nether 환경 대비.'] },
+      { h: 'UEV 기계 (팩)', table: { head: ['기계', '역할'], rows: [
+        ['Hellforge + Heart of the Flame', '합금 플라즈마 제조 · Hellfire Ash'],
+        ['Cryostate Quantum Chiller', 'Superstate He-3 · BEC-Og · Oganesson (quantum_cooling)'],
+        ['Omega Pressure Heat Chamber', 'Pressure Heat Chamber 상위 — Draconic Core · Stargate Rod'],
+        ['Mega ABS · Bulk Processing Array', '대형 합금 · 광석 처리'],
+        ['Exotic Gas Siphon', '차원별 기체 (Overworld · Abydos · Nether · End)'],
+      ] } },
+    ],
+  },
+  circuit: {
+    lead: 'UEV에서 새로 나오는 회로는 없고, <b>UEV 회로 = Runic Mainframe</b>(UHV 페이지)입니다. UIV 회로(Draconic Mainframe · Abyssal Computer)는 <b>Draco Circuit Assembler</b>(Assembly Line VHA[UIV])가 있어야 해서 UIV 단계로 넘어갑니다.',
+    rows: [
+      { n: 'Runic Mainframe', t: 'UEV', id: 'runic_processor_mainframe', eut: 600000, dur: 1800, out: 1, where: 'Assembly Line · 연구', in: 'UHV 페이지 2 탭' },
+      { n: 'Abyssal Processing Unit', t: '부품', id: 'abyssal_processing_unit', eut: 3932160, where: 'Circuit Assembler', in: 'Abyssal 계열 CPU' },
+      { n: 'Abyssal Circuit Board', t: '부품', id: 'abyssal_circuit_board', eut: 3932160, where: 'Circuit Assembler', in: 'Abyssal 계열 기판' },
+      { n: 'Draconic Processing Unit', t: '부품', id: 'draconic_processing_unit', eut: 983040, where: 'Circuit Assembler (UHV)', in: 'Draconic 계열 CPU' },
+    ],
+    cards: [
+      { h: 'Draco Circuit Assembler (팩)', li: ['Assembly Line VHA[UIV] · 연구 VA[UEV] — Draconic · Abyssal 회로 전용 기계.', 'Draconic Processor(VHA[UHV]) · Assembly(VA[UHV]) · Computer(VA[UHV]) · Mainframe(VA[UEV]), Abyssal Processor ~ Computer(VA[UEV]) · Mainframe(VA[UIV]).', '→ 기계를 짓고 나면 회로 레시피 자체는 UHV~UEV 전압.'] },
+      { h: 'UEV Fusion 컨트롤러 (팩)', li: ['Advanced Fusion Coil · <b>UIV 회로 4</b> · Decaying Star(Hellforge) · Magmada double plate · UHV Field Generator 2 · UEPIC 128 · Enriched Pallarovium wire 32 · Naquadated Solder · Cerium Tritelluride 1152.', 'UIV 회로가 있어야 하므로 UIV 페이지.'] },
+    ],
+  },
+  resource: {
+    lead: 'Nether 유체 광맥(<code>utils/fluid_veins.js</code>): <b>Highly Unstable Nether Magma</b> · <b>Debris Rich Nether Magma</b> · Lava · <b>Crude Infernal Concentrate</b>(가중치 10). Infernal Concentrate는 Magmatic 플라즈마의 연료이고, Hellforge의 Hellfire Ash에서도 나옵니다.',
+    flow: {
+      label: 'UEV 자원 · 발전', h: 330,
+      nodes: [
+        { id: 'cv', x: 20, y: 30, w: 180, t: 'Crude Infernal 광맥', s: 'Nether · Fluid Drilling Rig', k: 'src' },
+        { id: 'cs', x: 240, y: 30, w: 170, t: 'Cyclonic Sifter', s: '50B → 15B · VHA[UHV] · 1150t', k: 'UHV' },
+        { id: 'ic', x: 450, y: 30, w: 170, t: 'Infernal Concentrate', s: '+ Hellfire Ash → Tar → 100', k: 'UEV' },
+        { id: 'fe', x: 240, y: 180, w: 170, t: 'Iron 플라즈마 288', s: '반사판 3 · Si + Mg (UV 페이지)', k: 'UV' },
+        { id: 'mf', x: 450, y: 180, w: 170, t: 'Fusion (MK4) · 반사판 5', s: '66,666 EU/t · 12.8초 · 720M', k: 'UEV' },
+        { id: 'mp', x: 660, y: 180, w: 190, t: 'Magmatic 플라즈마 144', s: '1mB = 748t × 8,192', k: 'UEV' },
+        { id: 'tb', x: 660, y: 30, w: 190, t: `순 ${fmt(MAG_NET / 1e6, 2)}M EU/t`, s: '→ Infernal Concentrate 회수', k: 'GOAL' },
+      ],
+      edges: [{ a: 'cv', b: 'cs' }, { a: 'cs', b: 'ic' }, { a: 'ic', b: 'mf', fs: 'b', ts: 't', l: '500' }, { a: 'fe', b: 'mf' }, { a: 'mf', b: 'mp' }, { a: 'mp', b: 'tb', fs: 't', ts: 'b', l: 'Plasma Turbine' }],
+    },
+    cards: [
+      { h: 'Magmatic 플라즈마 수치', li: [
+        `144mB × 748t × 8,192 EU/t ÷ 256t = ${fmt(MAG_GROSS, 0)} EU/t − 66,666 = <b>${fmt(MAG_NET, 0)} EU/t</b> (UEV 0.4A, Americium의 약 4배).`,
+        '터빈 레시피 <code>infernal_concentrate_from_magmatic_plasma</code>는 8,192 EU/t 기준 — 플라즈마를 태우면 Infernal Concentrate가 되돌아옵니다(1mB당 1mB).',
+        '반사판 5 = <b>Borealic</b>(UV · Sterile: Ancient Netherite plate · Void double 2 · Reinforced 패널). Iron 플라즈마(반사판 3)는 별도 융합로 — 1회에 288mB = Iron 2회.',
+      ] },
+      { h: 'Hellforge (팩 <code>hellforge.js</code>)', li: ['플라즈마 144 × 수량 → 같은 양의 합금 플라즈마 + Tiny Hellfire Ash. 촉매(Polymer PEDOT:PSS 포함)를 넣으면 1.25배 · 시간 ×0.85.', 'Hellfire Ash → Manifold Centrifuge → Infernal Tar 25 → Infernal Concentrate.', 'Superheated / Sub-Stellar Infernal Concentrate(Utopian Akreyrium · Borealic Concentrate)는 UIV 재료.'] },
+    ],
+  },
+  passive: {
+    name: 'Nether Magma',
+    lead: `Highly Unstable Nether Magma(광맥) 200B → <b>Cyclonic Sifter</b>(1350t) → Mystical Nether Magma 12B + Deactivated Nether Dust → <b>Molten Destabiliser</b>(3B → Estaltadyne · Adamantamite · Mythrillic Magma 각 1B) → <b>Manifold Centrifuge</b>(9B → Molten Mixture 6B · Enriched 2B · Mystical 1B 회수) → Molten Destabilising(300B → 금속 유체 200B) → Electrolyzer → <b>Ordered Chemistry</b> → Estalt · Adamantine · Mythril. 시간당 Sifter ${RUNS}회 기준.`,
+    lead3d: 'Sifter · Destabiliser · Centrifuge 3대(종류별) · 금속별 Electrolyzer · Ordered Chemistry를 한 청크에. 팩 멀티블럭 크기는 EMI 확인 — 5 × 5 × 5(Destabiliser) · 4 × 4 × 4 자리로 잡았습니다.',
+    flow: {
+      label: 'Nether Magma', h: 440,
+      nodes: [
+        { id: 'v', x: 20, y: 30, w: 170, t: `Magma 광맥 ${RUNS * 200}B/h`, s: 'Highly Unstable Nether Magma', k: 'src' },
+        { id: 'cs', x: 230, y: 30, w: 170, t: 'Cyclonic Sifter', s: '200B → Mystical 12B · 1350t', k: 'UEV' },
+        { id: 'md', x: 440, y: 30, w: 180, t: 'Molten Destabiliser', s: '3B → 3종 각 1B · 480t', k: 'UHV' },
+        { id: 'mc', x: 660, y: 30, w: 190, t: 'Manifold Centrifuge ×3', s: '9B → Molten 6B · Enriched 2B', k: 'UHV' },
+        { id: 'dd', x: 660, y: 180, w: 190, t: 'Molten Destabilising', s: '300B → 금속 유체 200B · 3600t', k: 'UV' },
+        { id: 'el', x: 440, y: 180, w: 180, t: 'Electrolyzer', s: '1B → dust 1.25 + Mystical 250', k: 'UHV' },
+        { id: 'oc', x: 230, y: 180, w: 170, t: 'Ordered Chemistry', s: 'Hydroxide · Hydride (UEV)', k: 'UEV' },
+        { id: 'mt', x: 20, y: 180, w: 170, t: 'Estalt · Adamantine · Mythril', s: 'Mystical Metals 퀘스트', k: 'GOAL' },
+        { id: 'en', x: 440, y: 330, w: 180, t: 'Enriched → Atomic Sludge', s: 'Heat Chamber · Activated Dust', k: 'UHV' },
+        { id: 'dz', x: 230, y: 330, w: 170, t: 'Activated Nether Dust', s: 'Sifter 부산물 → Polarizer', k: 'UHV' },
+      ],
+      edges: [{ a: 'v', b: 'cs' }, { a: 'cs', b: 'md' }, { a: 'md', b: 'mc' }, { a: 'mc', b: 'dd', fs: 'b', ts: 't' }, { a: 'dd', b: 'el' }, { a: 'el', b: 'oc' }, { a: 'oc', b: 'mt' },
+        { a: 'mc', b: 'en', fs: 'b', ts: 'r', k: 120 }, { a: 'dz', b: 'en' }, { a: 'mc', b: 'md', dash: true, fs: 't', ts: 't', k: 50, l: 'Mystical 1B' }],
+    },
+    cards: [
+      { h: '비율 (Sifter 1회 = Mystical 12B)', table: { head: ['단계', '회 / Sifter 1회', '레시피'], num: [1], rows: [
+        ['Molten Destabiliser', 4, 'mystical_nether_magma_deconstruction · 480t'],
+        ['Manifold Centrifuge (종류마다)', '0.44', '*_nether_magma_deconstruction · 9B · 1200t'],
+        ['Molten Destabilising', '0.009', 'molten_*_mixture 300B → 200B · 3600t'],
+        ['Electrolyzer', '1.8', '금속 유체 1B → dust 1.25'],
+      ] }, note: 'Molten Mixture는 한 번에 300B를 먹어서 여러 시간 모아야 한 번 돕니다 — 탱크 버퍼가 중요. 금속 dust 수율은 EMI 확인.' },
+      { h: '부산물 순환', li: ['Destabilising이 Highly Unstable Magma 25~50B · Molten Ore Mixture 50~75B를 돌려줍니다 → Sifter로 · EV 페이지 증류탑으로.', 'Electrolyzer가 Mystical Magma 250mB씩 되돌려 Destabiliser 입력을 보탭니다.'] },
+    ],
+    cards3d: [
+      { h: '배치 원칙', li: ['북쪽 줄: Sifter → Destabiliser, 동쪽: Centrifuge 3대(종류별 한 대 — 유체가 섞이지 않게).', '남쪽: Molten Mixture 대형 탱크 3개(300B 버퍼) · Molten Destabilising · Electrolyzer 3 · Ordered Chemistry.', '전원은 UEV 간선, UV · UHV 기계는 트랜스포머 가지.'] },
+      { h: '연결', li: ['광맥 유체: Nether → Ancient Stargate 너머에서 전송(EMI 확인).', 'Molten Ore Mixture 부산물 → EV 페이지 증류탑 라인.'] },
+    ],
+    legend: [['--s4', 'UEV 기계'], ['--s8', 'UHV 기계'], ['--s1', 'UV 기계'], ['--muted', '탱크'], ['--good', 'Mystical Metals']],
+    src: 'UEV Tr',
+    build: () => {
+      const boxes = [], pipes = [];
+      const box = o => (boxes.push(o), o);
+      const unit = (x, z, col, label, tip) => box({ x, y: 0, z, w: 1, h: 1, d: 1, col, label, tip });
+      box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+      box({ x: 1, y: 0, z: 1, w: 4, h: 4, d: 4, col: '--s4', label: 'Sifter', tip: 'Cyclonic Sifter|Highly Unstable 200B → Mystical 12B (크기 EMI 확인)' });
+      box({ x: 6, y: 0, z: 1, w: 5, h: 5, d: 5, col: '--s8', label: 'Destabiliser', tip: 'Molten Destabiliser|Mystical 3B → 3종 1B · 480t' });
+      ['Cent-Est', 'Cent-Ada', 'Cent-Myt'].forEach((l, i) => box({ x: 12, y: 0, z: 1 + i * 4, w: 3, h: 3, d: 3, col: '--s8', label: l, tip: `Manifold Centrifuge · ${l.slice(5)}|9B → Molten 6B · Enriched 2B · Mystical 1B` }));
+      ['T-Est', 'T-Ada', 'T-Myt'].forEach((l, i) => box({ x: 1 + i * 3, y: 0, z: 8, w: 2, h: 3, d: 2, col: '--muted', label: l, tip: `Molten Mixture 탱크 · ${l.slice(2)}|300B 버퍼` }));
+      box({ x: 10, y: 0, z: 10, w: 1, h: 1, d: 1, col: '--s1', label: 'Destab-M', tip: 'Molten Destabilising (UV)|300B → 금속 유체 200B · 3600t' });
+      ['El-Est', 'El-Ada', 'El-Myt'].forEach((l, i) => unit(2 + i * 2, 12, '--s8', l, `Electrolyzer · ${l.slice(3)}|1B → dust + Mystical 250`));
+      ['OC-Est', 'OC-Ada', 'OC-Myt'].forEach((l, i) => unit(2 + i * 2, 14, '--s4', l, `Ordered Chemistry · ${l.slice(3)}|Hydroxide / Hydride`));
+      unit(9, 14, '--good', 'Metals', 'Estalt · Adamantine · Mythril 창고|');
+      unit(8, 6, '--muted', 'Mystical', 'Super Tank · Mystical Nether Magma|순환');
+      unit(14, 15, '--s4', 'UEV Tr', '전원|UEV 64A 배정');
+      const c = (x, z) => [x + 0.5, 4.3, z + 0.5];
+      [[[3, 3], [8, 3]], [[8, 3], [13, 2]], [[13, 10], [10, 10]], [[10, 10], [4, 12]], [[4, 12], [4, 14]], [[4, 14], [9, 14]]].forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+      return { boxes, pipes };
+    },
+    pw: () => [
+      { name: 'Cyclonic Sifter (mystical_nether_magma)', eut: 2144815, u: RUNS * 1350 / 72000, n: 1, labels: ['Sifter'] },
+      { name: 'Molten Destabiliser (EMI 확인 EU/t)', eut: 589824, u: RUNS * 4 * 480 / 72000, n: 1, labels: ['Destabiliser'] },
+      { name: 'Manifold Centrifuge (종류별)', eut: 983040, u: RUNS * 0.44 * 1200 / 72000 * 3, n: 3, labels: ['Cent-Est', 'Cent-Ada', 'Cent-Myt'] },
+      { name: 'Molten Destabilising', eut: 245760, u: 0.05, n: 1, labels: ['Destab-M'] },
+      { name: 'Electrolyzer (금속 유체)', eut: 983040, u: 0.3, n: 3, labels: ['El-Est', 'El-Ada', 'El-Myt'] },
+      { name: 'Ordered Chemistry', eut: 7864320, u: 0.1, n: 3, labels: ['OC-Est', 'OC-Ada', 'OC-Myt'] },
+    ],
+    pwNote: '<li>Ordered Chemistry(Adamantine Hydroxide · Mythrillic Hydride 7,864,320)가 UEV 풀 전압이라 이 청크는 간선이 UEV입니다.</li>',
+  },
+  next: {
+    lead: 'UIV의 무대는 <b>End</b>(End Coordinate Crystal · Dimensional Finder UIV)입니다. Draconic Empires 후반: Abyssal Harvester · Draconic Stem Cells · Draco Infusion · Draco Circuit Assembler.',
+    cards: [
+      { h: 'UEV 합금 · 코일', li: ['<b>UEV Alloys</b>(퀘스트): Magmada · Mythrolic · Starium — Hellforge 플라즈마.', '<b>Magmada 코일</b>(UEV Assembler 7,864,320): Ancient Netherite Frame · Magmada 2x wire 8 · Pure Netherite foil 8 · Enriched Pallarovium fine 32 · Neutronium SiC foil 32 · Adamantine 144 → 16,199K.', 'Abyssal Harvester 드릴 케이싱에 Mythrolic · Starium 합금.'] },
+      { h: 'UIV 준비물', table: { head: ['재료', '어디에', '공급'], rows: [
+        ['Adamantine · Mythril · Estalt', 'UIV 합금 · Nyanium', '4 탭'],
+        ['Infernal Concentrate', 'Magmatic 플라즈마 · Sub-Stellar Concentrate', '3 탭'],
+        ['Void · Echo-R', 'Draneko Casing · Abyssal 계열', 'A Portal of Lost Worlds'],
+        ['Oganesson · BEC-Og', '냉각 · Oganesson 플라즈마', 'Cryostate Quantum Chiller'],
+        ['UEPIC', 'UIV 기계 · Abyssal Harvester(176)', 'Abydos 라인'],
+      ] } },
+    ],
+  },
+});
+</script>
+</body>
+</html>

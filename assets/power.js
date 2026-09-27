@@ -12,7 +12,7 @@
      labels 3D 배치에서 이 기계에 해당하는 상자 라벨 (전선 그리기용) */
 const PW_TN = ['ULV', 'LV', 'MV', 'HV', 'EV', 'IV', 'LuV', 'ZPM', 'UV', 'UHV', 'UEV', 'UIV', 'UXV', 'OpV'];
 const PW_V = PW_TN.map((_, i) => 8 * 4 ** i);
-const PW_COL = ['--muted', '--s3', '--s1', '--s2', '--s5', '--s7', '--s8', '--s4', '--s6', '--good', '--good', '--good', '--good', '--good'];
+const PW_COL = ['--muted', '--s3', '--s1', '--s2', '--s5', '--s7', '--s8', '--s4', '--s6', '--s8', '--s4', '--s7', '--s5', '--s3'];   // UHV 이상은 페이지 TIER 색과 맞춤
 // Mechanics 챕터의 티어별 초전도 케이블
 const PW_SC = { LV: 'Soul Infused', MV: 'Signalum', HV: 'Lumium', EV: 'Enderium', IV: 'Shellite', LuV: 'Twinite', ZPM: 'Dragonsteel', UV: 'Prismalium · Melodium', UHV: 'Stellarium', UEV: 'Ancient Runicalium', UIV: 'Rhenium Super-Composite' };
 const LOAD_MAX = 0.85;
