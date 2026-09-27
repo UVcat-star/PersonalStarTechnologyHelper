@@ -27,7 +27,7 @@
 <script src="assets/page.js"></script>
 <script>
 const S = { topic: 'mech', sub: {}, layGhost: true, layPipes: true, layLabels: true };
-const TN = ['ULV', 'LV', 'MV', 'HV', 'EV', 'IV', 'LuV', 'ZPM', 'UV', 'UHV'];
+const TN = ['ULV', 'LV', 'MV', 'HV', 'EV', 'IV', 'LuV', 'ZPM', 'UV', 'UHV', 'UEV', 'UIV', 'UXV'];
 const V = [8, 32, 128, 512, 2048, 8192, 32768, 131072, 524288, 2097152];
 const VA = [7, 30, 120, 480, 1920, 7680, 30720, 122880, 491520, 1966080];
 
@@ -79,6 +79,9 @@ const COILS = [
   { t: 6, n: 'Naquadah', k: 7200, make: 'HSS-G Frame · Naquadah 2x wire 8 · Osmium foil 8 · Niobium Nitride foil 8 · Tungstensteel 144' },
   { t: 7, n: 'Trinium', k: 9001, make: 'HSS-E Frame · Trinium 2x wire 8 · Enriched Naquadah foil 8 · Niobium Nitride foil 16 · Naquadah 144' },
   { t: 8, n: 'Tritanium', k: 10800, make: 'Trinaquadalloy Frame · Tritanium 2x wire 8 · Naquadria foil 8 · Niobium Nitride foil 32 · Trinium 144' },
+  { t: 9, n: 'Zalloy (팩)', k: 13499, make: 'Neutronium Frame · Zalloy 2x wire 8 · Zirconium foil 8 · RTAN fine 32 · Neutronium SiC foil 16 · Tritanium 144' },
+  { t: 10, n: 'Magmada Alloy (팩)', k: 16199, make: 'Ancient Netherite Frame · Magmada 2x wire 8 · Pure Netherite foil 8 · Enriched Pallarovium fine 32 · Neutronium SiC foil 32 · Adamantine 144' },
+  { t: 11, n: 'Abyssal Alloy (팩)', k: 18888, make: 'Draconyallium Frame · Abyssal 2x wire 8 · Nyanium foil 8 · RSCA fine 32 · Neutronium SiC foil 64 · Void 144' },
 ];
 // jar 재료 정의의 blast 온도 (blast.mjs)
 const BLAST = [['Stainless Steel', 1700], ['Kanthal', 1800], ['Titanium', 1941], ['Titanium 추출(TiCl4)', 2141], ['Silicon Boule', 1784], ['Phosphorus Boule', 2484], ['Nichrome', 2700], ['Niobium', 2750],

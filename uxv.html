@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UXV 검토</title>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="stylesheet" href="assets/page.css">
+<script src="assets/shell.js"></script>
+</head>
+<body data-tier="UXV">
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Star Technology · UXV 검토</h1>
+        <div class="meta">Theta 2 · 2026-09-28 · UXV = 134,217,728V(125,829,120 EU/t) · 무대: Rift (Komaru) · Theta 버전의 끝</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<div id="tip" role="tooltip"></div>
+<script src="assets/charts.js"></script>
+<script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
+<script src="assets/page.js"></script>
+<script src="assets/late.js"></script>
+<script>
+const S = { topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
+
+/* 수치 출처: 팩 KubeJS — komaru/modules.js(rimula_extraction: Runic Wave Generator 1% 소모 + Kaleidoscope Agitation Serum 1250
+   → Riftion Extract 128B + Highly Unstable Rift Source 27.5B · 1800t · VHA[UIV] · 시동 25G EU), lines/riftic/riftion.js.
+   목표: Rimula 추출 EXT회 / 시간. */
+const EXT = 1;
+const SRC = 27.5 * EXT, RX = 128 * EXT + SRC / 100 * 1.25;   // B/h
+const SIFT = SRC / 100, DEST = SIFT * 27.5, MIX = DEST / 7.5 / 2;   // 회/h (Mixer는 종류마다)
+
+lateStart({
+  key: 'uxv-web', T: 12,
+  lead: '"UXV"는 <b>134,217,728V(125,829,120 EU/t)</b>. 퀘스트 <b>The Stars Await Greatness</b>가 이 단계이고, 마지막 퀘스트가 "You have completed the Theta Version of Star Technology"입니다. 무대는 <b>Rift</b> — <b>Komaru</b>(거대 모듈 기계)의 Rimula Extraction 모듈이 Riftion을 뽑고, Kaleidoscopic Fractalizer · Riftion Injector · DSG(세 번째 Stargate)로 끝납니다.',
+  tiles: [
+    ['UXV 회로', 'Abyssal', 'Mainframe', 'Draco CA · VA[UIV] (UIV 페이지)'],
+    ['Rift SoC', 'Riftion', 'Injector', 'rift_infused_soc · 62,914,560'],
+    ['Komaru 시동', '25', 'G EU', 'Rimula Extraction 1회 시동 에너지'],
+    ['Riftion Extract', fmt(RX, 0), 'B/h', `Rimula 추출 ${EXT}회/시간`],
+  ],
+  roadmap: {
+    stages: [
+      ['X0', 'UIV에서 가져올 것', 'UIV', 'Abyssal Mainframe · UIV Fusion · Voidic 플라즈마 · Borealic Concentrate · DSG Enscription', '—'],
+      ['X1', 'Komaru', 'UIV', 'Komaru 본체 · Gravitational Stabilisers · Rift Caller · Plating · 기본 모듈(Voidic Refinement · Magmatic Drilling)', '1'],
+      ['X2', 'Rimula · Riftion (패시브)', 'UXV', 'Rimula Extraction → Rift Source → Rimula Foundation · Riftion 플라즈마', '4'],
+      ['X3', 'Kaleidoscopic Fractalizer', 'UXV', 'Neutral Riftion 6종 · True Rimula → Primordial · Riftic · Faetic Extract', '3'],
+      ['X4', 'Riftion Injector · Supreme Chemistry', 'UXV', 'Raging Rimulatia · Rift Infused SoC · Riftion 유체 3종', '2 · 3'],
+      ['X5', 'Pegasus Stargate (DSG)', 'UXV', 'Primordial · Riftic · Prismalic Fragment → Core 4종 → DSG → Theta 완료', '5'],
+    ],
+    flow: {
+      label: 'UXV 로드맵', h: 330,
+      nodes: [
+        { id: 'x0', x: 20, y: 30, w: 170, t: 'X0 UIV에서', s: 'Abyssal Mainframe', k: 'UIV' },
+        { id: 'x1', x: 230, y: 30, w: 170, t: 'X1 Komaru', s: '모듈 기계', k: 'UIV' },
+        { id: 'x2', x: 440, y: 30, w: 170, t: 'X2 Rimula · Riftion', s: 'Rift 추출', k: 'UXV' },
+        { id: 'x3', x: 650, y: 30, w: 170, t: 'X3 Fractalizer', s: 'Primordial Extract', k: 'UXV' },
+        { id: 'x4', x: 650, y: 170, w: 170, t: 'X4 Riftion Injector', s: 'Rift SoC · Rimulatia', k: 'UXV' },
+        { id: 'x5', x: 440, y: 170, w: 170, t: 'X5 Pegasus Stargate', s: 'DSG · Core 4종', k: 'UXV' },
+        { id: 'end', x: 230, y: 176, w: 140, h: 44, t: 'Theta 완료', k: 'GOAL' },
+      ],
+      edges: [{ a: 'x0', b: 'x1' }, { a: 'x1', b: 'x2' }, { a: 'x2', b: 'x3' }, { a: 'x3', b: 'x4', fs: 'b', ts: 't' }, { a: 'x4', b: 'x5' }, { a: 'x5', b: 'end' }],
+    },
+  },
+  opens: [
+    '<b>기계</b>(팩 Assembly Line VA[UXV] 등): <code>abyssal_containment_room</code> · <code>ultimate_ebf</code> · <code>atomic_materialization_plant</code> · <code>true_synthesis_array</code> · <code>primordial_infusion</code> · <code>ultimate_abs</code> · <code>riftion_injector</code> · <code>kaleidoscopic_fractalizer</code> · <code>riftion_accelerator</code> · <code>riftion_slammer</code>.',
+    '<b>Komaru</b>: 본체(Gravitational Stabilisers · Rift Caller · Plating, Assembly Line 31,457,280) + 모듈 — Voidic Refinement · Magmatic Drilling(기본), Riftic Infusion Assembly, Rimula Extraction, Riftic Enhancement(고급).',
+    '<b>회로 · 칩</b>: Abyssal Mainframe(UXV 회로), <code>rift_infused_soc</code>(Riftion Injector), Component Data Core(Circuit Assembler 33,554,432).',
+    '<b>Stargate</b>: Pegasus Stargate · DHD, DSG 부품 전부, Stargate Rod(Primordicly · Kaleidoscopicly · Prismaticly Infused, Faetic · Riftic · Temporic).',
+  ],
+  order: [
+    '<b>Komaru</b> 본체를 먼저 — 모듈 기계라 같은 본체에 모듈을 갈아 끼우며 씁니다. 기본 모듈 Magmatic Drilling은 Nether · Abydos 광물을 한 번에(Infernal Concentrate 최대 1,024B · Gritty Akreyrium 최대 4,096B).',
+    '<b>Rimula Extraction</b>: 한 번 시동에 25G EU — 전력 저장(Substation · Lapotronic)이 먼저 필요합니다.',
+    'Rift 계열 유체(Rimula Foundation · Riftion 플라즈마) → <b>Kaleidoscopic Fractalizer</b> → Supreme Chemistry로 Riftion 유체 3종 → DSG · Core 4종 → Pegasus Stargate.',
+  ],
+  entry: {
+    lead: 'UXV 해치 · Hull 레시피는 팩 퀘스트에 따로 없고, UXV 기계 대부분은 UIV 해치 2개 멀티블럭 또는 Komaru 모듈로 돕니다(EMI 확인). 발전은 UIV 페이지의 Magmatic 플라즈마 + Nyinsane Turbine을 늘리는 방향.',
+    cards: [
+      { h: 'Komaru (퀘스트 The Stars Await Greatness)', li: ['<b>Komaru</b> · Komaru Gravitational Stabilisers · Rift Caller · Plating.', '<b>Basic Modules</b>: Voidic Refinement(EV급 광물 · Kaleidoscope Serum 5) · Magmatic Drilling.', '<b>Advanced</b>: Riftic Infusion Assembly · Rimula Extraction · Riftic Enhancement.', '<b>Fornax\'s Infernal Rotary Engine</b> · Soul of the Flame — 발전 · Hellforge 관련 (EMI 확인).'] },
+      { h: 'UXV 기계 (팩)', table: { head: ['기계', '역할'], rows: [
+        ['Abyssal Containment Room', '반사판 7(Prismalic) 제작 공간 · 최종 재료'],
+        ['Ultimate EBF · Ultimate ABS', '최상위 고로 · 합금'],
+        ['Atomic Materialization Plant', '원소 합성'],
+        ['Riftion Injector', 'Raging Rimulatia · Rift Infused SoC · DSG DPU'],
+        ['Kaleidoscopic Fractalizer', 'Riftion 분해 → Primordial · Riftic · Faetic Extract'],
+      ] } },
+    ],
+  },
+  circuit: {
+    lead: 'UXV 회로는 <b>Abyssal Mainframe</b>(UIV 페이지 · Draco CA VA[UIV]) 하나입니다. 이 단계의 새 칩은 <b>Rift Infused SoC</b>(Riftion Injector)와 Component Data Core.',
+    rows: [
+      { n: 'Abyssal Mainframe', t: 'UXV', id: 'abyssal_processor_mainframe', eut: 31457280, where: 'Draco CA', in: 'UIV 페이지 2 탭' },
+      { n: 'Rift Infused SoC', t: '칩', id: 'rift_infused_soc', eut: 62914560, where: 'Riftion Injector', in: 'Riftion 유체 (EMI 확인)' },
+      { n: 'Component Data Core', t: '부품', id: 'component_data_core', eut: 33554432, where: 'Circuit Assembler', in: 'Component Part Hub 연구' },
+    ],
+    cards: [
+      { h: 'Threading', li: ['<b>Hyper Helixes</b>(UIV Overdrive · Coprocessor · Weaving Thread Helix) — Threading Controller에 끼워 기계 강화(Mechanics › Threading).', 'Prisma Helical Nucleus · Prismalic Helix Core.'] },
+      { h: 'Singularity', li: ['<b>Singularities</b>(Undina · Sylvestris · Gnomus · Vulcanus · Illustris · Tenebrosus) → Transcension Engraved Sigils.', 'Neutral Riftion 6종과 같은 원소 이름 — Fractalizer 입력.'] },
+    ],
+  },
+  resource: {
+    lead: 'Rift의 자원은 Komaru의 <b>Rimula Extraction</b> 모듈 한 곳에서 나옵니다: Riftion Extract(Fusion으로 Riftion 플라즈마) + Highly Unstable Rift Source(Rimula Foundation). 여기에 UIV의 Voidic 플라즈마 · UEV의 Borealic Concentrate가 섞입니다.',
+    flow: {
+      label: 'UXV 자원', h: 320,
+      nodes: [
+        { id: 'rx', x: 20, y: 30, w: 190, t: 'Rimula Extraction', s: 'Komaru · 1800t · 25G EU 시동', k: 'UIV' },
+        { id: 'ex', x: 250, y: 30, w: 170, t: 'Riftion Extract', s: '128B / 회', k: 'UXV' },
+        { id: 'fu', x: 460, y: 30, w: 180, t: 'Fusion · Riftion 플라즈마', s: 'Extract 5B + Neutronium 432 → 250', k: 'UIV' },
+        { id: 'us', x: 250, y: 180, w: 170, t: 'Unstable Rift Source', s: '27.5B / 회', k: 'UXV' },
+        { id: 'rm', x: 460, y: 180, w: 180, t: 'Rimula Foundation', s: '4 탭', k: 'UXV' },
+        { id: 'kf', x: 680, y: 100, w: 180, t: 'Kaleidoscopic Fractalizer', s: 'Neutral Riftion 6종 × 32 + True Rimula 6B', k: 'GOAL' },
+      ],
+      edges: [{ a: 'rx', b: 'ex' }, { a: 'ex', b: 'fu' }, { a: 'rx', b: 'us', fs: 'b', ts: 'l' }, { a: 'us', b: 'rm' }, { a: 'rm', b: 'kf' }, { a: 'fu', b: 'kf', l: 'Riftion' }],
+    },
+    cards: [
+      { h: 'Supreme Chemistry → Riftion 유체 3종', table: { head: ['유체', '입력', '출력'], rows: [
+        ['Primordial Residue', 'Void dust 2 + Primordial Extract 750', 'EMI 확인'],
+        ['Riftic Concentrate', 'Dragonsteel dust 2 + Condensed Rimula 750', 'EMI 확인'],
+        ['Prismatic Hypergurmalium', 'Aurourium dust 2 + Faetic Extract 750', '325mB'],
+      ] }, note: '퀘스트 Riftion Fluids. 모두 VHA[UXV] · 480t.' },
+      { h: 'Stargate Rod · Core', li: ['Riftic Enhancement(Komaru 모듈): Faetic · Riftic · Temporic Stargate Rod.', 'Large Rotor Machine: Primordicly · Kaleidoscopicly · Prismaticly Infused Rod.', 'Core 4종: Ascension · Primus Tempus · Spatium Ruptura · Prismafae Illuminatus.'] },
+    ],
+  },
+  passive: {
+    name: 'Rimula · Riftion',
+    lead: `Rimula Extraction 시간당 ${EXT}회 기준. Unstable Rift Source 100B → <b>Cyclonic Sifter</b>(400t) → Destabilized 27.5B + Extract 1.25B → <b>Injection Mixer</b> 2종(7.5B + Borealic Concentrate 432 / Voidic 플라즈마 432 → Slurry 5B) → <b>Pressure Heat Chamber</b>(3.75B → Rimula T · S 2.5B) → <b>Abyssal Akreyriadix Stabiliser</b>(T 500 + S 500 → True Rimula 875). Extract는 Fusion으로 Riftion 플라즈마.`,
+    lead3d: 'Komaru는 거대 구조라 옆에 두고(유령 상자), 이 청크에는 Sifter · Mixer 2 · Pressure Heat Chamber 2 · Stabiliser · Riftion Fusion 입구 탱크를 넣었습니다. 팩 멀티블럭 크기는 EMI 확인.',
+    flow: {
+      label: 'Rimula', h: 400,
+      nodes: [
+        { id: 'us', x: 20, y: 30, w: 170, t: `Rift Source ${fmt(SRC, 1)}B/h`, s: 'Komaru Rimula Extraction', k: 'src' },
+        { id: 'cs', x: 230, y: 30, w: 170, t: 'Cyclonic Sifter', s: '100B → 27.5B + Extract 1.25B', k: 'UXV' },
+        { id: 'ma', x: 440, y: 0, w: 190, t: 'Mixer · Ascension', s: '+ Borealic Concentrate 432', k: 'UIV' },
+        { id: 'mb', x: 440, y: 110, w: 190, t: 'Mixer · Abyssal', s: '+ Voidic 플라즈마 432', k: 'UIV' },
+        { id: 'ha', x: 670, y: 0, w: 180, t: 'Heat Chamber → Rimula T', s: '3.75B → 2.5B · 540t', k: 'UIV' },
+        { id: 'hb', x: 670, y: 110, w: 180, t: 'Heat Chamber → Rimula S', s: '3.75B → 2.5B · 540t', k: 'UIV' },
+        { id: 'st', x: 670, y: 250, w: 180, t: 'Akreyriadix Stabiliser', s: 'T 500 + S 500 → 875 · 48t', k: 'UIV' },
+        { id: 'tr', x: 440, y: 250, w: 190, t: 'True Rimula Foundation', s: '→ Fractalizer 6B', k: 'GOAL' },
+        { id: 'rf', x: 230, y: 250, w: 170, t: `Riftion 플라즈마`, s: `Extract ${fmt(RX, 0)}B/h ÷ 5B × 250`, k: 'GOAL' },
+      ],
+      edges: [{ a: 'us', b: 'cs' }, { a: 'cs', b: 'ma' }, { a: 'cs', b: 'mb' }, { a: 'ma', b: 'ha' }, { a: 'mb', b: 'hb' }, { a: 'ha', b: 'st', fs: 'r', ts: 'r', k: 60 }, { a: 'hb', b: 'st', fs: 'b', ts: 't' }, { a: 'st', b: 'tr' }, { a: 'cs', b: 'rf', dash: true, fs: 'b', ts: 't', l: 'Extract' }],
+    },
+    cards: [
+      { h: '수치 (시간당)', table: { head: ['단계', '회 / 시간', '레시피'], num: [1], rows: [
+        ['Rimula Extraction', EXT, 'Komaru · 1800t · 25G EU 시동'],
+        ['Cyclonic Sifter', fmt(SIFT, 2), 'highly_unstable_rift_source · VHA[UXV] · 400t'],
+        ['Injection Mixer (종류마다)', fmt(MIX, 2), '7.5B · 720t'],
+        ['Pressure Heat Chamber (종류마다)', fmt(MIX * 5 / 3.75, 2), '3.75B · 540t'],
+        ['Stabiliser', fmt(MIX * 5 / 3.75 * 2.5 / 0.5, 1), 'T · S 500씩 · 48t'],
+        ['Fusion (Riftion 플라즈마)', fmt(RX / 5, 1), 'Extract 5B + Neutronium 432 · 1200t'],
+      ] } },
+      { h: '한계', li: ['<b>Rift Source는 적고 Extract는 많습니다</b> — 1회에 Extract 128B, Source 27.5B. True Rimula가 병목이라 Fractalizer(6B)를 돌리려면 추출을 여러 번.', 'Riftion 플라즈마 Fusion은 1회 1200t로 느려서 Extract가 쌓입니다 — 융합로를 여러 대.'] },
+    ],
+    cards3d: [
+      { h: '배치 원칙', li: ['서쪽에 Komaru 연결(유령), 북쪽에 Sifter → Mixer 2, 남쪽에 Heat Chamber 2 → Stabiliser.', 'Borealic Concentrate · Voidic 플라즈마 탱크는 Mixer 옆.'] },
+      { h: '연결', li: ['Riftion Extract → 옆 청크 Fusion(반사판 6 이상).', 'True Rimula → Kaleidoscopic Fractalizer.'] },
+    ],
+    legend: [['--s5', 'UXV 기계'], ['--s7', 'UIV 기계'], ['--muted', '탱크'], ['--good', '결과물']],
+    src: 'UXV Tr',
+    build: () => {
+      const boxes = [], pipes = [];
+      const box = o => (boxes.push(o), o);
+      const unit = (x, z, col, label, tip) => box({ x, y: 0, z, w: 1, h: 1, d: 1, col, label, tip });
+      box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+      box({ x: -10, y: 0, z: 1, w: 9, h: 9, d: 14, ghost: true, col: '--s7', label: 'Komaru (옆)', tip: 'Komaru + Rimula Extraction 모듈|크기 EMI 확인' });
+      box({ x: 1, y: 0, z: 1, w: 4, h: 4, d: 4, col: '--s5', label: 'Sifter', tip: 'Cyclonic Sifter|Rift Source 100B → Destabilized 27.5B' });
+      box({ x: 6, y: 0, z: 1, w: 3, h: 3, d: 3, col: '--s7', label: 'Mix-Asc', tip: 'Injection Mixer · Ascension|+ Borealic Concentrate 432' });
+      box({ x: 10, y: 0, z: 1, w: 3, h: 3, d: 3, col: '--s7', label: 'Mix-Aby', tip: 'Injection Mixer · Abyssal|+ Voidic 플라즈마 432' });
+      unit(6, 5, '--muted', 'Borealic', 'Super Tank · Borealic Concentrate|');
+      unit(10, 5, '--muted', 'Voidic P', 'Super Tank · Voidic 플라즈마|');
+      box({ x: 6, y: 0, z: 8, w: 3, h: 3, d: 3, col: '--s7', label: 'PHC-T', tip: 'Pressure Heat Chamber|→ Rimula T Foundation' });
+      box({ x: 10, y: 0, z: 8, w: 3, h: 3, d: 3, col: '--s7', label: 'PHC-S', tip: 'Pressure Heat Chamber|→ Rimula S Foundation' });
+      box({ x: 6, y: 0, z: 12, w: 3, h: 3, d: 3, col: '--s7', label: 'Stabiliser', tip: 'Abyssal Akreyriadix Stabiliser|T + S → True Rimula 875' });
+      unit(10, 13, '--good', 'True Rim', 'Super Tank · True Rimula Foundation|→ Fractalizer');
+      unit(2, 8, '--good', 'Extract', 'Super Tank · Riftion Extract|→ Fusion (옆 청크)');
+      unit(14, 15, '--s5', 'UXV Tr', '전원|UXV 64A 배정');
+      const c = (x, z) => [x + 0.5, 4.3, z + 0.5];
+      [[[-1, 7], [2, 3]], [[3, 3], [7, 2]], [[3, 3], [11, 2]], [[7, 2], [7, 9]], [[11, 2], [11, 9]], [[7, 9], [7, 13]], [[11, 9], [8, 13]], [[7, 13], [10, 13]], [[2, 3], [2, 8]]].forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+      return { boxes, pipes };
+    },
+    pw: () => [
+      { name: 'Cyclonic Sifter (Rift Source)', eut: 62914560, u: SIFT * 400 / 72000, n: 1, labels: ['Sifter'] },
+      { name: 'Injection Mixer (2종)', eut: 15728640, u: MIX * 2 * 720 / 72000, n: 2, labels: ['Mix-Asc', 'Mix-Aby'] },
+      { name: 'Pressure Heat Chamber (2종)', eut: 31457280, u: MIX * 5 / 3.75 * 2 * 540 / 72000, n: 2, labels: ['PHC-T', 'PHC-S'] },
+      { name: 'Abyssal Akreyriadix Stabiliser', eut: 31457280, u: MIX * 5 / 3.75 * 5 * 48 / 72000, n: 1, labels: ['Stabiliser'] },
+      { name: 'Komaru · Rimula Extraction (옆)', eut: 15728640, u: EXT * 1800 / 72000, n: 1, labels: ['Komaru (옆)'] },
+    ],
+    pwNote: '<li>Rimula Extraction은 전력보다 <b>시동 25G EU</b>가 문제입니다 — Magmatic 플라즈마 융합로 1대(순 ~3.38M EU/t)로 약 6분(25G ÷ 3.38M ÷ 20 ÷ 60). 저장 설비로 모아 두고 시동합니다.</li>',
+  },
+  next: {
+    lead: 'UXV 다음(OpV · MAX)은 Theta 버전에 콘텐츠가 없습니다. <b>Pegasus Stargate</b>를 열면 "You have completed the Theta Version of Star Technology".',
+    cards: [
+      { h: '마지막 목록 (The Stars Await Greatness)', li: ['Riftion Production: Riftion Accelerator · Riftion Slammer.', 'Primordially Stellarized Weapon Grade Naquadah · Faematter · Aquariadic Rimuli Dragonix.', 'DSG 부품 전부 → Draconic Stargate 블록 → Pegasus Stargate · DHD.', 'Maxwell · Valenok · Mars · Poomba · Vasilisa(장식 보상).'] },
+      { h: '돌아볼 것', li: ['공용 페이지의 <a href="common.html#coil">코일 사다리</a> · <a href="common.html#power">발전 전환</a> — UHV 이후 코일(Zalloy 13,499K · Magmada 16,199K · Abyssal 18,888K)과 플라즈마(Americium · Magmatic)는 각 페이지에.', '전 티어 64A 배정은 각 패시브 탭의 "전력 · 64A".'] },
+    ],
+  },
+});
+</script>
+</body>
+</html>
