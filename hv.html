@@ -33,6 +33,8 @@
 
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
+<script src="assets/power.js"></script>
+<script src="assets/logi3d.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -141,6 +143,7 @@ const TOPICS = [
   { id: 'resource', name: '2 · 자원', subs: [['void', 'Void 체인'], ['chunk', '한 청크 배치 · 3D'], ['crushed', 'Crushed Ore'], ['persulfate', 'Sodium Persulfate']] },
   { id: 'ptfe', name: '3 · PTFE → LCR', subs: [['boot', '첫 LCR 만들기'], ['lcr', 'LCR 이후 C2F4 양산']] },
   { id: 'passive', name: '패시브 (LCR 후)', subs: [['flow', '수지 · 대수'], ['3d', '화학 청크 · 3D']] },
+  { id: 'prep', name: '패시브 (EV 준비)', subs: [['metal', '금속 · 초전도'], ['chem', '피복 화학'], ['3d', '청크 · 3D']] },
   { id: 'circuit', name: '4 · 클린룸 · 회로' },
   { id: 'next', name: '5 · 다음 티어' },
   { id: 'misc', name: '6 · 기타', subs: [['multi', '멀티블럭'], ['epoxy', '에폭시']] },
@@ -542,6 +545,7 @@ const PIPE = {
   hv: { c: '--s2', n: 'HV 케이블', w: 0.16 }, mv: { c: '--s1', n: 'MV 케이블', w: 0.16 },
   in: { c: '--s4', n: 'VE 청크에서 오는 레이저', w: 0.07 },
 };
+Object.assign(PIPE, PW_PIPES, { sub: LOGI_PIPES.sub, laser: LOGI_PIPES.laser });
 const ROWS = { A: 1, B: 1, C: 1, D: 4, E: 7, F: 10, G: 13 };
 const CARDS = {
   A: ['유체 IN f1', '아이템 OUT i1', '유체 OUT f2'], B: ['아이템 IN i1', '아이템 OUT i2 (필터 Rare Metallic Residue 허용)', '아이템 OUT i3 (같은 필터 거부)'],
@@ -658,7 +662,7 @@ function viewChunk() {
     </div>
     <div><canvas id="lay3d" role="img" aria-label="처리 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
     <div class="legend">${[['--s1', 'MV 기계 · 컨버터'], ['--s2', 'HV 기계 · 트랜스포머'], ['--muted', 'Super Tank'], ['--s5', 'Molten Ore Mixture'], ['--s4', '입구 · 창고 · 출구'], ['--s8', 'LaserIO Node'], ['--s7', 'AE2 storage bus']].map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join('')}</div>
-    <div class="legend">${Object.keys(PIPE).map(k => `<span><i style="background:var(${PIPE[k].c});height:4px;border-radius:2px"></i>${esc(PIPE[k].n)}</span>`).join('')}</div>
+    <div class="legend">${['beam', 'me', 'hv', 'mv', 'in'].map(k => `<span><i style="background:var(${PIPE[k].c});height:4px;border-radius:2px"></i>${esc(PIPE[k].n)}</span>`).join('')}</div>
     <p class="sub" style="margin:10px 0 0">블록 한 칸 = 1m, 바닥 격자가 청크 경계입니다. 레이저 선은 노드끼리 가장 짧게 이은 예시이고, 8칸이 넘는 선(점선)은 Laser Connector로 중계합니다.</p>
   </div>
   <div class="grid2">
@@ -1274,12 +1278,112 @@ function viewEpoxy() {
   </div>`;
 }
 
+/* ---------- 패시브 · EV 준비 (금속 · 초전도 · 케이블 피복) ----------
+   EV 부품: Plate = Titanium (EV 페이지 정제), Cable = Aluminium (jar GTCraftingComponents), 초전도 = Enderium (EV) · 지금 쓰는 HV 초전도 = Lumium (팩 superconductors.js).
+   blast: Aluminium 1700K · VA[MV] (duration = 질량 × 온도 ÷ 50 ≈ 918t), Lumium 1700K · VA[HV] 1000t (Silver 1 · Tin 3 · Glowstone 2),
+   Nichrome 2700K · VA[EV] 1300t (HV 해치 2개 · 게이트 2) → Hot → Vacuum Freezer(게이트 3). 1750K 이하는 Hot ingot이 아님.
+   EV 케이블 피복 (WireRecipeHandler): Rubber 144 · Silicone Rubber 72 · SBR 36 + PVC foil 1.
+   polyvinyl_chloride_from_oxygen LCR 160t: Vinyl Chloride 144 + O₂ 1000 → PVC 216 (CR은 Air로 144).
+   vinyl_chloride_from_chlorine CR LV 160t: Ethylene 1000 + Cl 2000 → VC 1000 + HCl 1000. */
+const EVP_H = { al: 32, lum: 16, nic: 16, cable: 32 };
+function evPrep() {
+  const H = EVP_H, pvc = H.cable / 4 * 144, vc = pvc / 216 * 144, sir = H.cable * 72;
+  const rows = [
+    ['EK', 'EBF · Kanthal + MV 해치 2 (HV · 2,800K)', 'HV', 480, true, 'EBF-K', [['Aluminium 1700K (VA[MV])', H.al, 918], ['Lumium 1700K (VA[HV])', H.lum, 1000]]],
+    ['EN', 'EBF · Kanthal + HV 해치 2 (EV · 2,900K)', 'EV', 1920, true, 'EBF-N', [['Nichrome 2700K (VA[EV])', H.nic, 1300]]],
+    ['VF', 'Vacuum Freezer · MV 해치 2', 'HV', 480, true, 'VF', [['Hot Nichrome', H.nic, 170]]],
+    ['MX', 'Mixer (MV) · Nichrome · Lumium dust', 'MV', 120, false, 'Mix', [['Nichrome (EMI 시간)', H.nic / 5, 300], ['Lumium (EMI 시간)', H.lum / 6, 300]]],
+    ['VC', 'Chemical Reactor · Vinyl Chloride', 'LV', 30, false, 'VCl', [['vinyl_chloride_from_chlorine', vc / 1000, 160]]],
+    ['PV', 'LCR · PVC (MV 해치 2)', 'LV', 30, true, 'LCR-P', [['polyvinyl_chloride_from_oxygen', pvc / 216, 160]]],
+    ['SR', 'Chemical Reactor · Silicone Rubber', 'LV', 30, false, 'SiR', [['silicone_rubber (PDMS는 LCR-P가 번갈아)', sir / 1296, 600]]],
+  ];
+  return rows.map(([id, m, t, eut, hatch2, label, jobs]) => { const u = jobs.reduce((a, [, r, d]) => a + r * d, 0) / 72000; return { id, m, t, eut, hatch2, label, jobs, u, n: Math.max(1, Math.ceil(u / 0.95 - 1e-9)) }; });
+}
+const PWM_EVP = () => evPrep().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+const evpTable = M => `<div class="tscroll"><table><thead><tr><th>기계</th><th>계통</th><th>작업</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+  <tbody>${M.map(g => `<tr><td><b>${esc(g.m)}</b>${g.hatch2 ? ' <small style="color:var(--muted)">해치 2</small>' : ''}</td><td>${g.t}</td><td>${g.jobs.map(([a, r, d]) => `${esc(a)} ${fmt(r, 2)}회 × ${d}t`).join('<br>')}</td><td class="n">${fmt(g.u * 100, 0)}%</td><td class="n"><b>${g.n}</b></td></tr>`).join('')}</tbody></table></div>`;
+function viewEvpMetal() {
+  const H = EVP_H, M = evPrep().filter(g => ['EK', 'EN', 'VF', 'MX'].includes(g.id));
+  return `
+  <h2>패시브 (EV 준비)</h2>${subnav()}
+  <p class="lead">EV 진입 재료를 상시 생산합니다. EV plate는 <b>Titanium</b>(<a href="ev.html#resource/3d">EV 정제 청크</a>), EV 케이블은 <b>Aluminium</b>, 지금 쓰는 HV 초전도는 <b>Lumium</b>, EV 코일은 <b>Nichrome</b>입니다. 해치 2개 기준: Aluminium · Lumium은 지금 있는 Kanthal EBF + MV 해치 2개로 되고, <b>Nichrome만 HV 해치 2개(게이트 2)와 Vacuum Freezer(게이트 3)</b>를 기다립니다. EV 초전도 Enderium(3500K · EV)은 EV 페이지 패시브.</p>
+  <div class="grid2">
+    <div class="card"><h3>시간당 목표</h3>${hbar([['Aluminium', H.al, 'EV 케이블 (jar CABLE[EV])', 'var(--s2)'], ['Lumium', H.lum, 'HV 초전도 케이블 (Mechanics)', 'var(--s2)'], ['Nichrome', H.nic, 'EV 코일 · 게이트 2 · 3 뒤', 'var(--s5)']].map(([a, v, d, c]) => ({ label: a, sub: d, value: v, color: c, text: fmt(v, 0) + ' ingot' })), { cols: ['재료', '/ 시간'], noAxis: true })}</div>
+    <div class="card"><h3>판정</h3><ul class="pts">
+      <li><b>Aluminium</b> 1700K · VA[MV] — Hot ingot 아님(1750K 이하). 지금 됨.</li>
+      <li><b>Lumium</b> 1700K · VA[HV] (Silver 1 · Tin 3 · Glowstone 2) — Kanthal + MV 해치 2개(HV)로 지금 됨.</li>
+      <li><b>Nichrome</b> 2700K · VA[EV] → Kanthal + HV 해치 2개(2,900K), Hot → Vacuum Freezer(VA[HV]). <a href="#gate">게이트 순서도</a> 2 · 3 뒤.</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>기계 대수</h3>${evpTable(M)}</div>`;
+}
+function viewEvpChem() {
+  const H = EVP_H, M = evPrep().filter(g => ['VC', 'PV', 'SR'].includes(g.id));
+  return `
+  <h2>패시브 (EV 준비)</h2>${subnav()}
+  <p class="lead"><b>EV 케이블부터 PVC foil</b>이 피복에 붙습니다(GTCEu <code>WireRecipeHandler</code>). 액체는 Rubber 144 · Silicone Rubber 72 · SBR 36 중 하나 — <b>지금부터 Silicone Rubber로 가면</b> 양이 절반이고, IV 케이블(Rubber 불가)까지 그대로 이어집니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>EV 1x 케이블 ${H.cable}개 / 시간</h3><ul class="pts">
+      <li>PVC foil ${H.cable}장 = PVC ${fmt(H.cable / 4 * 144, 0)}mB (foil 1장 = ingot 1/4 · ${EMI}) → Vinyl Chloride ${fmt(H.cable / 4 * 144 / 216 * 144, 0)}mB.</li>
+      <li>Silicone Rubber ${fmt(H.cable * 72, 0)}mB (또는 Rubber ${fmt(H.cable * 144, 0)}mB).</li>
+      <li>Ethylene은 패시브(LCR 후) 탭의 Polyethylene 라인과 같은 원료 · Chlorine은 HCl 전해 루프.</li>
+      <li>Silicone Rubber의 PDMS(LCR)는 PVC LCR이 번갈아 돌림 — 둘 다 가동률이 낮습니다. PDMS 원료 Methanol은 ${EMI}.</li>
+    </ul></div>
+    <div class="card"><h3>기계 대수</h3>${evpTable(M)}</div>
+  </div>`;
+}
+function buildEvpChunk() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  lk.blk(0, 0, 8, 'p2p', '기지 ME 컨트롤러에서 (HV 단계: GT ME 해치 없음 — AE2 부품 + LaserIO만)', 'P2P');
+  lk.me([[0, 0, 5], [0, 0, 7]]); lk.me([[1, 0, 5], [15, 0, 5]]); lk.me([[0, 0, 9], [0, 0, 12]]); lk.me([[1, 0, 12], [10, 0, 12]]);
+  multi(1, 1, 3, 3, 4, '--s8', 'EBF-K', 'EBF · Kanthal 코일 + MV 해치 2 (HV · 2,800K)|Aluminium · Lumium. 기존 EBF 28대 중 하나');
+  multi(5, 1, 3, 3, 4, '--s5', 'EBF-N', 'EBF · Kanthal 코일 + HV 해치 2 (EV · 2,900K)|Nichrome — 게이트 2 뒤. 그 전에는 자리만');
+  multi(9, 1, 3, 3, 3, '--s1', 'VF', 'Vacuum Freezer · MV 해치 2|Hot Nichrome — 게이트 3 뒤');
+  unit(13, 0, 1, { col: '--s1', label: 'Mix', tip: 'MV Mixer|Nichrome · Lumium dust' });
+  [[2, 'Aluminium · Lumium 패턴'], [6, 'Nichrome 패턴']].forEach(([x, w]) => { lk.part(x, 0, 3, 's', 'pp', w + ' (Blocking)'); lk.me([[x, 0, 4], [x, 0, 4]]); });
+  lk.part(2, 0, 2, 'e', 'iface', 'EBF-K 출력 버스 → Interface (Hot ingot이 아니라 바로 네트워크)');
+  lk.node(6, 4, 2, 'EBF-N 출력', ['Hot Nichrome → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot IN', 'ingot OUT → Interface']); lk.laser([6, 4, 2], [10, 3, 2]);
+  lk.part(10, 0, 3, 's', 'iface', 'VF 출력 → 주 네트워크 (EV 전이라 ME Output Bus 대신 Interface)'); lk.me([[10, 0, 4], [10, 0, 4]]);
+  lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과는 같은 면으로'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.blk(15, 0, 4, 'req', 'Aluminium 256 · Lumium 128 · Nichrome 128 · PVC 8B · Silicone Rubber 8B 유지', 'Req');
+  // 화학 (남쪽): Vinyl Chloride → PVC, PDMS → Silicone Rubber
+  unit(2, 0, 11, { col: '--s3', label: 'VCl', tip: 'LV CR · vinyl_chloride_from_chlorine|Ethylene 1000 + Cl 2000 → VC 1000 + HCl 1000' });
+  multi(4, 9, 3, 3, 3, '--s1', 'LCR-P', 'LCR · MV 해치 2|polyvinyl_chloride_from_oxygen (VC 144 + O₂ 1000 → PVC 216) · PDMS 번갈아');
+  unit(8, 0, 11, { col: '--s3', label: 'SiR', tip: 'LV CR · silicone_rubber|PDMS 9 + Sulfur → 1296' });
+  [2, 8].forEach(x => lk.part(x, 0, 11, 'n', 'pp', x === 2 ? 'Vinyl Chloride 패턴' : 'Silicone Rubber 패턴'));
+  lk.part(5, 0, 11, 's', 'pp', 'PVC · PDMS 패턴'); lk.me([[5, 0, 12], [5, 0, 12]]);
+  lk.node(2, 1, 11, 'VCl', ['VC OUT → LCR-P']); lk.node(5, 3, 10, 'LCR-P', ['↓ VC IN']); lk.laser([2, 1, 11], [5, 3, 10]);
+  ['PVC', 'SiR'].forEach((k, i) => { unit(11 + i, 0, 13, { col: '--good', label: k, tip: `${k} 탱크|주 네트워크 Storage Bus` }); lk.part(11 + i, 0, 13, 'w', 'sbus', `${k} 탱크`); });
+  lk.me([[10, 0, 13], [10, 0, 13]]);
+  unit(14, 0, 14, { col: '--s2', label: 'HV Tr', tip: 'hv_transformer|EBF-N의 HV 해치 간선 (게이트 2 뒤)' }); unit(15, 0, 14, { col: '--s1', label: 'Conv', tip: 'mv_16a_energy_converter|전력' });
+  return built;
+}
+const EVP_NETS = [
+  { n: '주 네트워크', kind: '주', what: 'Aluminium · Lumium · Nichrome, PVC · Silicone Rubber, 원료(Bauxite · Silver · Tin · Glowstone · Ni · Cr · Ethylene · Cl · O₂)', edge: 'P2P → z = 5 · z = 12 간선', seen: '—' },
+  { n: 'LaserIO', kind: '레이저', what: 'Hot Nichrome EBF → VF, Vinyl Chloride → LCR', edge: '1:1', seen: '—' },
+  { n: '(HV 단계 제약)', kind: '—', what: 'GT ME 해치(Input/Output Bus · Hatch)는 EV bus/hatch가 재료라 아직 없음', edge: 'Pattern Provider가 넣고, 출력은 Interface로 자동 배출', seen: 'EV Hull이 생기면 VF · EBF 출력을 ME Output Bus로 교체' },
+];
+function viewEvp3d() {
+  return `
+  <h2>패시브 (EV 준비)</h2>${subnav()}
+  <p class="lead">금속(북쪽)과 피복 화학(남쪽) 한 청크. <b>HV 단계라 GT ME 해치가 없어서</b> 입력은 AE2 Pattern Provider, 출력은 Interface 자동 배출, Hot ingot만 LaserIO로 VF에 보냅니다. EBF-N · VF는 게이트 2 · 3 뒤에 채웁니다.</p>
+  ${layBlock('HV 패시브 (EV 준비) 3D 배치도', [['--s8', 'EBF (MV 해치 2)'], ['--s5', 'EBF (HV 해치 2 · EV)'], ['--s1', 'MV 기계 · LCR · VF'], ['--s3', 'LV 기계'], ['--good', '결과 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'p2p', 'req']) + pwLegend(PWM_EVP(), 3))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(EVP_NETS)}</div>
+  <div class="card"><h3>전력</h3>${pwCard(PWM_EVP(), 3)}</div>`;
+}
+
 const VIEWS = {
   overview: viewOverview, gate: viewGate, power: viewPower, circuit: viewCircuit, next: viewNext,
   resource: { void: viewVoid, chunk: viewChunk, crushed: viewCrushed, persulfate: viewPersulfate },
   ptfe: { boot: viewBoot, lcr: viewLcr },
   passive: { flow: viewPassiveFlow, '3d': viewPassive3d },
   misc: { multi: viewMulti, epoxy: viewEpoxy },
+  prep: { metal: viewEvpMetal, chem: viewEvpChem, '3d': viewEvp3d },
 };
 
 /* ---------- 패시브 화학 청크 (LCR 기준) ----------
@@ -1604,7 +1708,7 @@ startPage({
     if (typeof o.lcrEv === 'boolean') S.lcrEv = o.lcrEv;
   },
   alias: { void: 'resource/void', crushed: 'resource/crushed', persulfate: 'resource/persulfate', layout: 'resource/chunk', c2f4: 'ptfe/lcr' },
-  layouts: [[viewChunk, () => buildChunk(S.veN)], [viewPassive3d, buildChem]],
+  layouts: [[viewChunk, () => buildChunk(S.veN)], [viewPassive3d, buildChem], [viewEvp3d, () => pwWire(buildEvpChunk(), PWM_EVP(), 3, 'Conv')]],
   layoutButton: b => {
     if (b.dataset.n) { S.veN = +b.dataset.n; render(); return true; }
     if (b.dataset.pe) { S.peN = +b.dataset.pe; render(); return true; }
