@@ -353,8 +353,13 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="Argon 발전 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s4', 'ZPM · 융합로 쪽'], ['--s8', 'Plasma Turbine'], ['--s1', '원료 준비'], ['--muted', '탱크'], ['--good', 'Substation']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 7)}</div>
+    <div class="legend">${[['--s4', 'ZPM · 융합로 쪽'], ['--s8', 'Plasma Turbine'], ['--s1', '원료 준비'], ['--muted', '탱크'], ['--good', 'Substation']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['sbus', 'pp', 'meout', 'stock', 'p2p', 'req'])}${pwLegend(PWM(), 7)}</div>
   </div>
+  <div class="card"><h3>네트워크 구성</h3>${logiNets([
+    { n: '연료 서브넷', kind: '서브넷', what: 'Carbon · Magnesium 액체 144mB', edge: 'Extractor → 탱크 → Fusion ME Stocking Input Hatch', seen: '볼 필요 없음 — Requester가 탱크 잔량으로 Extractor 패턴을 돌림' },
+    { n: '플라즈마 서브넷', kind: '서브넷', what: 'Argon 플라즈마', edge: 'Fusion ME Output Hatch → 버퍼 탱크 → 터빈 4대 ME Stocking Input Hatch', seen: '— 발전 전용. 주 네트워크에 올리면 저장소 · 채널만 먹음' },
+    { n: '주 네트워크', kind: '주', what: 'Carbon · Magnesium dust', edge: 'P2P → 서쪽 간선', seen: '—' },
+  ])}</div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
       <li><b>터빈 4대는 Wall Sharing 없이 한 줄</b> — Rotor Holder 면이 서로 막지 않게 2칸 간격 ${EMI}.</li>
@@ -397,8 +402,18 @@ function buildArgonChunk() {
   multi(10, 11, 5, 4, 2, '--good', 'Substation', 'Power Substation|시동 180M 저장 · 기지 송전');
   unit(4, 0, 11, { col: '--muted', label: 'Ar gas', tip: 'Argon 회수|터빈 부산물 (EMI 확인)' });
   const c = (x, z) => [x + 0.5, 3.4, z + 0.5];
-  [[[1, 1], [1, 3]], [[2, 1], [2, 3]], [[1, 3], [-1, 5]], [[-1, 7], [1, 6]], [[1, 6], [14, 6]], [[14, 9], [12, 11]]]
+  [[[1, 1], [1, 3]], [[2, 1], [2, 3]]]
     .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  // 물류: 연료 서브넷(Carbon · Mg 액체) → Fusion Stocking Input Hatch, 플라즈마 서브넷(Fusion ME Output Hatch → 터빈 Stocking Input Hatch)
+  const lk = logiKit({ boxes, pipes });
+  lk.sub([[0, 0, 2], [3, 0, 2]]); lk.part(1, 0, 3, 'n', 'sbus', 'Carbon 액체 (연료 서브넷)'); lk.part(2, 0, 3, 'n', 'sbus', 'Magnesium 액체 (연료 서브넷)');
+  lk.sub([[-1, 0, 2], [-1, 0, 2]]); lk.part(-2, 0, 2, 'e', 'stock', 'Fusion 입력 = 연료 서브넷 재고 (ME Stocking Input Hatch)');
+  lk.part(-2, 0, 7, 'e', 'meout', 'Fusion 출력 → 플라즈마 서브넷 (ME Output Hatch)'); lk.sub([[-1, 0, 7], [0, 0, 7]]); lk.sub([[0, 0, 4], [0, 0, 6]]); lk.sub([[1, 0, 4], [15, 0, 4]]);
+  lk.part(1, 0, 6, 'n', 'sbus', 'Argon 플라즈마 버퍼 (플라즈마 서브넷)');
+  [0, 1, 2, 3].forEach(i => lk.part(5 + i * 3, 1, 5, 'n', 'stock', `Turbine ${i + 1} 입력 = 플라즈마 서브넷 재고`));
+  lk.blk(0, 0, 14, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 14], [3, 0, 14]]); lk.me([[3, 0, 1], [3, 0, 13]]);
+  lk.part(1, 0, 1, 'e', 'pp', 'Carbon dust → 액체 패턴'); lk.part(2, 0, 1, 'e', 'pp', 'Magnesium dust → 액체 패턴');
+  lk.blk(3, 0, 0, 'req', 'Carbon · Magnesium 액체 각 16B 유지 → 모자라면 Extractor 패턴', 'Req');
   return { boxes, pipes };
 }
 

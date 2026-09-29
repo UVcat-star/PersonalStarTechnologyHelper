@@ -362,8 +362,13 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="Zirconium 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s8', 'LuV 기계'], ['--s4', 'ZPM 기계'], ['--s1', '저전압 회수'], ['--muted', '탱크'], ['--good', 'Zirconium · TiCl₄']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 8)}</div>
+    <div class="legend">${[['--s8', 'LuV 기계'], ['--s4', 'ZPM 기계'], ['--s1', '저전압 회수'], ['--muted', '탱크'], ['--good', 'Zirconium · TiCl₄']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['sbus', 'pbuf', 'p2p', 'req'])}${pwLegend(PWM(), 8)}</div>
   </div>
+  <div class="card"><h3>네트워크 구성</h3>${logiNets([
+    { n: '주 네트워크', kind: '주', what: '시약 탱크 6개(H₂SO₄ · HCl · H₂ · NaOH · Carbon · MeOH), Zirconium · TiCl₄', edge: 'P2P → x = 5 · z = 4 · z = 9 · z = 15 간선', seen: '—' },
+    { n: 'ME Pattern Buffer', kind: 'GT ME 해치 (LuV)', what: 'LCR 셋의 패턴 + 입력', edge: 'LCR 남쪽 면', seen: '—' },
+    { n: 'LaserIO', kind: '레이저', what: 'Perchloric Acid 닫힌 고리 (Mixer → 원심 → CR · 원심 → 탱크) · Titanite 단계 사이', edge: '1:1 · 고리가 닫혀 있어 ME 불필요', seen: '—' },
+  ])}</div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
       <li><b>Perchloric은 탱크 하나로 닫힌 고리</b> — Mixer가 빼 가고 회수 반응기 두 대가 채웁니다.</li>
@@ -412,6 +417,13 @@ function buildZrChunk() {
   const c = (x, zz) => [x + 0.5, 1.2, zz + 0.5];
   [[[1, 1], [2, 2]], [[2, 2], [3, 2]], [[3, 2], [3, 5]], [[2, 5], [1, 4]], [[1, 4], [2, 2]], [[3, 2], [7, 3]], [[7, 3], [14, 2]], [[14, 2], [9, 3]], [[9, 3], [14, 5]], [[14, 5], [11, 3]], [[11, 3], [13, 9]], [[14, 5], [14, 9]]]
     .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  // 물류: Perchloric 닫힌 고리는 LaserIO 그대로, 시약 탱크 줄은 주 네트워크, LCR 셋은 ME Pattern Buffer
+  const lk = logiKit({ boxes, pipes });
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [12, 0, 15]]); lk.me([[5, 0, 4], [5, 0, 14]]); lk.me([[6, 0, 9], [12, 0, 9]]); lk.me([[6, 0, 4], [12, 0, 4]]);
+  ['H2SO4', 'HCl', 'H2', 'NaOH', 'Carbon', 'MeOH'].forEach((t, i) => lk.part(6 + i, 0, 8, 's', 'sbus', `${t} 탱크 (주 네트워크)`));
+  [[7, 'titanite_proc_3 (NaOH 6)'], [9, 'titanite_proc_5 (Carbon 2 + HCl 8000)'], [11, 'zirconium_from_zirconium_tetrachloride (H₂ 4000)']].forEach(([x, w]) => lk.part(x, 0, 3, 's', 'pbuf', w));
+  lk.part(13, 0, 9, 'w', 'sbus', 'Zirconium 창고'); lk.part(14, 0, 9, 's', 'sbus', 'TiCl₄ 탱크'); lk.me([[13, 0, 10], [14, 0, 10]]); lk.me([[13, 0, 11], [13, 0, 14]]);
+  lk.blk(12, 0, 12, 'req', `Zirconium ${S.zrN} / 시간 목표 → 재고 64 유지`, 'Req');
   return { boxes, pipes };
 }
 

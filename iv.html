@@ -458,8 +458,13 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="PBI 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 5)}</div>
+    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 · 중간재 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req'])}${pwLegend(PWM(), 5)}</div>
   </div>
+  <div class="card"><h3>네트워크 구성</h3>${logiNets([
+    { n: '중간재 서브넷', kind: '서브넷', what: 'Dichlorobenzidine · Diaminobenzidine · Diphenyl Isophtalate · Phthalic Acid · PBI', edge: 'LCR 4대의 ME Output Hatch → 서브넷 탱크, LCR 입력은 ME Stocking Input Hatch', seen: '반대로 <b>서브넷이 주 네트워크를 읽음</b> — 서브넷 Storage Bus가 주 네트워크 Interface(IF)를 봐서, Stocking Hatch가 Ammonia · Phenol · 황산 같은 원료까지 한 번에 봄 (GTNH식)' },
+    { n: '주 네트워크', kind: '주', what: '원료 탱크 10개 · PBI 탱크 · 앞단 반응기 패턴', edge: 'P2P → 남쪽 · 동쪽 간선', seen: '—' },
+    { n: 'LaserIO', kind: '레이저', what: 'Chlorobenzene → Nitrochlorobenzene → Dichlorobenzidine → 서브넷, 서브넷 PBI → 주 PBI 탱크', edge: '1:1', seen: '—' },
+  ])}</div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
       <li><b>LCR 3대는 벽을 나눠 한 줄로</b>(Wall Sharing) — 9칸이 아니라 7칸.</li>
@@ -503,8 +508,20 @@ function buildPbiChunk() {
   unit(13, 0, 12, { col: '--good', label: 'PBI', tip: 'Super Tank · PBI|ME storage bus → IV Assembler' });
   unit(14, 0, 14, { col: '--s1', label: 'Conv', tip: '컨버터 · 트랜스포머|EV 4A × 6 (LCR 3대 × EV 해치 2)' });
   const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
-  [[[1, 6], [2, 6]], [[2, 6], [4, 6]], [[4, 6], [6, 6]], [[6, 6], [2, 4]], [[11, 4], [4, 4]], [[4, 4], [6, 4]], [[1, 11], [6, 7]], [[13, 11], [6, 4]]]
+  [[[1, 6], [2, 6]], [[2, 6], [4, 6]], [[4, 6], [6, 6]], [[6, 6], [2, 4]]]
     .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  // 물류: 중간재 서브넷이 주 네트워크 Interface를 Storage Bus로 읽는 GTNH식 구성 — LCR의 Stocking Input Hatch 하나로 원료와 중간재를 같이 봄
+  const lk = logiKit({ boxes, pipes });
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [14, 0, 15]]); lk.me([[14, 0, 5], [14, 0, 14]]); lk.me([[0, 0, 8], [0, 0, 14]]); lk.me([[1, 0, 8], [2, 0, 8]]);
+  tanks.forEach((t, i) => lk.part(1 + i, 0, 12, 's', 'sbus', `${t} 탱크 (주 네트워크 버퍼)`)); lk.me([[1, 0, 13], [10, 0, 13]]); lk.part(13, 0, 12, 's', 'sbus', 'PBI 탱크'); lk.me([[13, 0, 13], [13, 0, 14]]);
+  lk.sub([[1, 0, 4], [13, 0, 4]]);
+  [[2, 'Diaminobenzidine'], [4, 'Diphenyl Isophtalate'], [6, 'Polybenzimidazole'], [11, 'Phthalic Acid']].forEach(([x, n]) => { lk.part(x, 0, 3, 's', 'stock', `LCR ${n} — 서브넷 재고(원료 + 중간재)를 입력으로`); lk.part(x, 1, 1, 'n', 'meout', `LCR ${n} 출력 → 중간재 서브넷`); });
+  ['DClBd', 'DAB', 'DPIP', 'Phth'].forEach((t, i) => { unit(8 + i, 0, 5, { col: '--muted', label: t, tip: `Super Tank · ${t}|중간재 서브넷 저장소` }); lk.part(8 + i, 0, 5, 'n', 'sbus', `${t} 탱크 (서브넷)`); });
+  lk.blk(14, 0, 4, 'iface', '주 네트워크 쪽 Interface — 서브넷의 Storage Bus가 이걸 봐서 원료가 서브넷 안에서 보임', 'IF'); lk.part(13, 0, 4, 'e', 'sbus', '중간재 서브넷 → 주 네트워크 Interface (읽기)');
+  [1, 2].forEach(x => lk.part(x, 0, 6, 's', 'pp', ['Chlorobenzene', 'Nitration Mixture'][x - 1] + ' 패턴 (주 네트워크)')); lk.me([[1, 0, 7], [2, 0, 7]]);
+  lk.node(6, 1, 6, 'DClBd', ['유체 OUT Dichlorobenzidine → 서브넷 탱크']); lk.laser([6, 1, 6], [8, 1, 5]);
+  lk.node(13, 1, 5, 'PBI 내보내기', ['서브넷 PBI → 주 네트워크 PBI 탱크']); lk.laser([10, 1, 5], [13, 1, 11]);
+  lk.blk(12, 0, 14, 'req', 'PBI 16B 유지 — 모자라면 Chlorobenzene 패턴부터 연쇄', 'Req');
   return { boxes, pipes };
 }
 

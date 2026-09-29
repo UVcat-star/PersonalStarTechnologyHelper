@@ -398,8 +398,14 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="Nether Star 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 6)}</div>
+    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['sbus', 'pp', 'iface', 'pbuf', 'p2p', 'req'])}${pwLegend(PWM(), 6)}</div>
   </div>
+  <div class="card"><h3>네트워크 구성</h3>${logiNets([
+    { n: '가루 유체 서브넷', kind: '서브넷', what: 'Blaze · Blizz · Blitz · Basalz 액체 — Autoclave 한 번에 720씩', edge: 'Extractor → 탱크 4개 Storage Bus → IF, Autoclave 노드가 탱크에서 뺌', seen: 'IF Storage Bus (읽기)' },
+    { n: 'PCB Coolant 서브넷', kind: '서브넷', what: 'PCB Coolant · Hot PCB Coolant 고리 (Destabiliser 8000 넣고 9600 돌려받음)', edge: '탱크 두 개 · Mixer · Vacuum Freezer(pcb_cooling · 512 EU/t)', seen: '— (닫힌 고리)' },
+    { n: '주 네트워크', kind: '주', what: 'Nether Star · Shard · Raw Naquadah, Cobalt · Platinum · Rhodium dust', edge: 'P2P → 남쪽 · 동쪽 · z = 8 간선', seen: '—' },
+    { n: 'LaserIO', kind: '레이저', what: 'Shard 루프: Hammer → Polarizer → Autoclave → Press → Implosion', edge: '1:1', seen: '—' },
+  ])}</div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
       <li><b>Autoclave는 원소마다 1대</b> — 한 대에 가루 유체 4종이 섞이면 막힙니다(EV 페이지 molten Autoclave와 같은 이유).</li>
@@ -459,6 +465,18 @@ function buildStarChunk() {
   const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
   [[[2, 5], [3, 5]], [[3, 5], [2, 3]], [[11, 3], [5, 5]], [[5, 5], [7, 6]], [[10, 6], [11, 5]], [[11, 5], [2, 5]], [[3, 6], [3, 10]], [[5, 11], [9, 11]], [[12, 5], [11, 1]]]
     .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
+  // 물류: 가루 유체 서브넷(탱크 4개) + PCB Coolant 서브넷, 나머지는 주 네트워크 Pattern Provider · Buffer
+  const lk = logiKit({ boxes, pipes });
+  lk.sub([[1, 0, 0], [12, 0, 0]]); ELEM.forEach((e, i) => lk.part(2 + i * 3, 0, 1, 'n', 'sbus', `${e.p} 가루 유체 탱크 (서브넷)`));
+  lk.blk(13, 0, 0, 'iface', '가루 유체 서브넷 경계 — Extractor가 채우고 Autoclave 노드가 뺌', 'IF');
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [12, 0, 15]]); lk.me([[14, 0, 1], [14, 0, 15]]); lk.part(14, 0, 0, 'w', 'sbus', '주 네트워크 → 가루 유체 서브넷 IF (읽기)');
+  lk.me([[2, 0, 8], [13, 0, 8]]); lk.me([[5, 0, 6], [5, 0, 7]]); lk.me([[12, 0, 6], [12, 0, 7]]); lk.me([[11, 0, 6], [11, 0, 7]]); lk.me([[5, 0, 9], [5, 0, 11]]);
+  ELEM.forEach((e, i) => lk.part(3 + i * 3, 0, 1, 's', 'pp', `${e.p} 가루 → 유체 패턴 (결과는 IF 쪽으로)`));
+  lk.part(5, 0, 5, 's', 'pp', 'Impure Nether Star 패턴 (Infused 4종 — Autoclave 노드가 Press 입력으로 모음)');
+  lk.part(8, 0, 7, 's', 'pp', 'Nether Star 패턴 (Impure + 폭약)'); lk.part(12, 0, 5, 's', 'pp', 'Blizz · Blitz · Basalz 가루 패턴'); lk.part(11, 0, 5, 's', 'sbus', 'Nether Star 버퍼');
+  lk.part(4, 0, 11, 'e', 'pbuf', 'Dimensional Destabiliser 입력 — Shard 1 + PCB Coolant 8000 (Pattern Buffer)');
+  lk.sub([[6, 0, 13], [8, 0, 13]]); lk.part(6, 0, 11, 's', 'sbus', 'PCB Coolant (냉각 서브넷)'); lk.part(7, 0, 11, 's', 'sbus', 'Hot PCB Coolant (냉각 서브넷)');
+  lk.blk(13, 0, 8, 'req', 'Nether Star 4 · Energized Shard 16 유지 — 남는 Shard만 Destabiliser로', 'Req');
   return { boxes, pipes };
 }
 

@@ -713,7 +713,7 @@ function viewPrepMetal() {
   const n = S.veN, R = prepRates(n), M = prepMachines(n).filter(g => ['MX', 'MM', 'EN', 'ER', 'VF'].includes(g.id));
   const rows = [
     ['Tungstensteel', R.tssNet, 'IV Hull(plate 8) · IV 부품'], ['HSS-G', R.hssg, 'HSS-G 코일(IV Assembler) · IV 부품'],
-    ['Tungsten', R.w, 'IV 케이블(Tungsten) · Tungsten Carbide'], ['RTM Alloy', R.rtm, 'RTM 코일 16개 = 2x wire 128'],
+    ['Tungsten', R.w, 'IV 해치 케이블(Tungsten) · Tungsten Carbide — 기계 케이블은 Platinum (jar CABLE[IV])'], ['RTM Alloy', R.rtm, 'RTM 코일 16개 = 2x wire 128'],
     ['Enderium', R.enderium, 'EV 초전도 케이블 (Mechanics · 3500K · EV)'], ['Shellite', R.shellite, 'IV 초전도 케이블 (4400K · IV → RTM + EV 해치 2)'],
   ];
   return `
