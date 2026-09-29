@@ -131,8 +131,12 @@ const LCR_PTFE_MB = LCR_PTFE.reduce((a, b) => a + b.mb, 0);
 /* ---------- topics ---------- */
 TIER.EV = { c: 'var(--s5)', name: 'EV 레시피 (HV 해치 2개)' };
 TIER.GOAL = { c: 'var(--good)', name: '목표' };
+TIER.OK = { c: 'var(--s3)', name: '이미 있음' };
+TIER.CR = { c: 'var(--s6)', name: '클린룸 안 레시피' };
+TIER.GATE = { c: 'var(--critical)', name: '게이트' };
 const TOPICS = [
   { id: 'overview', name: '개요' },
+  { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'power', name: '1 · 전력' },
   { id: 'resource', name: '2 · 자원', subs: [['void', 'Void 체인'], ['chunk', '한 청크 배치 · 3D'], ['crushed', 'Crushed Ore'], ['persulfate', 'Sodium Persulfate']] },
   { id: 'ptfe', name: '3 · PTFE → LCR', subs: [['boot', '첫 LCR 만들기'], ['lcr', 'LCR 이후 C2F4 양산']] },
@@ -150,7 +154,7 @@ function viewOverview() {
   return `
   <h2>개요</h2>
   <p class="lead">HV에서 할 일을 주제별로 묶었습니다. 위쪽 <b>Void Extractor</b> 토글(MV 해치 2~4대)을 바꾸면 모든 탭의 수치가 따라 바뀝니다.
-  순서는 <b>자원 청크 → PTFE로 LCR(MV 해치 2개) → 패시브 화학 → 클린룸(EV · IV 회로, HV 해치) → HV 해치 2개로 EV 레시피를 돌려 첫 Titanium</b>입니다.</p>
+  순서는 <a href="#gate">0 · 게이트 순서도</a>를 따릅니다: <b>클린룸 → Workstation · LPIC → Vacuum Freezer · HV 해치 2개 → Nichrome 코일 · 첫 Titanium</b>. 멀티블럭은 지금도 MV 해치 2개로 HV 전압이라, PTFE → LCR과 패시브 화학은 게이트와 상관없는 곁가지입니다.</p>
   ${callout('ok', '✓', `<b>Theta 2에서 레시피를 다시 가져왔습니다.</b> 이 페이지가 쓰는 레시피는 바뀐 것이 없습니다. KubeJS는 파일 구조가 통째로 바뀌었지만(<code>default/</code> · <code>hardmode/</code> 분리 폐지) Void 체인 · Ore Factory · Chemical Plant 레시피를 ID별로 비교하면 같고, GTCEu jar(1.7.0b → 1.7.1b)는 화학 · 회로 레시피 클래스와 재료 정의가 그대로입니다.`)}
   <div class="tiles">
     ${tile('Void Extractor', n, '대 · MV', `사이클 ${CYC}t · 시간당 ${fmt(cph(), 0)}사이클`)}
@@ -194,24 +198,24 @@ function viewOverview() {
       <div class="tscroll"><table>
         <thead><tr><th>기계</th><th class="n">지금</th><th>어디에 필요</th></tr></thead>
         <tbody>
-          <tr><td>HV Electrolyzer · HV Centrifuge</td><td class="n">0</td><td>2 처리 청크 E · F · G</td></tr>
+          <tr><td>HV Cutter</td><td class="n">0</td><td>4 <code>cut_lpic</code>(480 · 클린룸) → HV 해치</td></tr>
+          <tr><td>HV Autoclave</td><td class="n">0</td><td>5 <code>raw_ilmenite</code> · <code>raw_bauxite</code>(480)</td></tr>
           <tr><td>HV 에너지 해치</td><td class="n">0</td><td>5 Distillation Tower · EBF (EV 레시피용 2개씩). LPIC가 클린룸 필요 → 4 탭 다음</td></tr>
           <tr><td>Large Chemical Reactor</td><td class="n">0</td><td>3 · 이후 화학 단축 레시피</td></tr>
           <tr><td>Cleanroom · HV Circuit Assembler</td><td class="n">0</td><td>4 Workstation · Mainframe</td></tr>
           <tr><td>Distillation Tower · Vacuum Freezer</td><td class="n">0</td><td>5 Titanium</td></tr>
-          <tr><td>Kanthal Coil</td><td class="n">?</td><td>Titanium 추출 2141K ${EMI} 지금 EBF 코일 종류</td></tr>
         </tbody></table></div>
     </div>
     <div class="card">
       <h3>이미 있는 것</h3>
       <p class="sub">새로 짓지 않고 재배정합니다.</p>
       ${hbar([
-        { label: 'Electric Blast Furnace', sub: '에너지 해치는 전부 MV', value: 28, color: 'var(--s8)', text: '28대' },
+        { label: 'Electric Blast Furnace', sub: 'Kanthal 코일 · MV 해치 2개 = HV 2,800K', value: 28, color: 'var(--s8)', text: '28대' },
         { label: 'Electric Ore Factory', value: 21, color: 'var(--s4)', text: '21대' },
         { label: 'MV Chemical Reactor', sub: 'LV 6 · HV 1 별도', value: 19, color: 'var(--s1)', text: '19대' },
         { label: 'MV Mixer', value: 15, color: 'var(--s1)', text: '15대' },
-        { label: 'MV Electrolyzer · Centrifuge', sub: 'LV 20 · 5 별도', value: 16, color: 'var(--s1)', text: '10 · 6대' },
-        { label: 'mv_16a_energy_converter', sub: 'hv_16a 5대 별도', value: 15, color: 'var(--s1)', text: '15대' },
+        { label: 'MV Electrolyzer · Centrifuge', sub: 'HV 2 · 4대 별도', value: 27, color: 'var(--s1)', text: '13 · 14대' },
+        { label: 'mv_16a_energy_converter', sub: 'hv_16a 6대 별도', value: 15, color: 'var(--s1)', text: '15대' },
         { label: 'MV Laser Engraver · Circuit Assembler', value: 7, color: 'var(--s1)', text: '5 · 2대' },
       ], { cols: ['기계', '대수'], noAxis: true })}
     </div>
@@ -224,6 +228,153 @@ function viewOverview() {
       <li>Raw 광석 1개를 Macerator에 넣으면 Crushed가 몇 개인지 (Titanium 예상치는 1개로 계산 — 2개면 두 배)</li>
       <li>Electric Ore Factory의 병렬 수, LCR · Cleanroom 구조(케이싱 최소 개수, 크기 범위)는 게임 안 미리보기로</li>
     </ul>
+  </div>`;
+}
+
+/* ---------- 0 게이트 순서도 ----------
+   HV 해치가 없는 지금은 MV 해치 2개 = HV 전압(480 EU/t)이 멀티블럭의 상한이다. 그래서 진짜 게이트는
+   EV(1,920 EU/t) 레시피와 클린룸 레시피뿐이고, Kanthal은 MV에서 이미 만들었다.
+   전압 · 온도는 GTCEu jar(재료 blast 정의, CircuitRecipes, MachineRecipeLoader)와 팩 KubeJS에서 확인. */
+const COIL = { Cupronickel: 1800, Kanthal: 2700, Nichrome: 3600 };
+const heat = (coil, tier) => COIL[coil] + 100 * (tier - 2);        // tier: MV=2, HV=3, EV=4 (해치 합산 전압)
+const GATE_WS = [['Distillation Tower 컨트롤러', 4], ['Vacuum Freezer 컨트롤러', 2], ['EV Universal Circuit 퀘스트', 1]];
+const GATE_HATCH = [['Distillation Tower', 2], ['Nichrome EBF (Kanthal 코일 그대로)', 2], ['Ore Factory · EV 티어', 2]];
+const NI_COILS = 16;                                              // EBF 1대분
+const NI_INGOT = NI_COILS * 8;                                    // 2x wire 1개 = ingot 1개
+const NI_BLAST_T = 1300;                                          // nichrome blast: VA[EV] · 1300t / dust
+// [레시피, id, blast K (0 = 해당 없음), EU/t, 돌리는 곳, 판정: now / ev / cr]
+const GATE_RECIPES = [
+  ['Stainless Steel', 'blast · stainless_steel', 1700, 480, 'Kanthal EBF + MV 해치 2', 'now'],
+  ['Silicon Boule', 'silicon_boule', 1784, 120, 'Kanthal EBF', 'now'],
+  ['Phosphorus Boule', 'phosphorus_boule', 2484, 480, 'Kanthal EBF + MV 해치 2', 'now'],
+  ['Rutile (Ilmenite)', 'rutile_from_ilmenite_fix (팩)', 1700, 480, 'Kanthal EBF + MV 해치 2', 'now'],
+  ['Titanium (TiCl4)', 'titanium_from_tetrachloride', 2141, 480, 'Kanthal EBF + MV 해치 2', 'now'],
+  ['Hot Titanium · Hot Nichrome 냉각', 'vacuum_freezer', 0, 480, 'Vacuum Freezer + MV 해치 2', 'now'],
+  ['LPIC 웨이퍼 각인', 'engrave_lpic_silicon', 0, 120, 'MV Laser Engraver · Orange 렌즈', 'now'],
+  ['Workstation (EV 회로)', 'workstation_ev', 0, 120, 'MV Circuit Assembler · 클린룸 안', 'cr'],
+  ['LPIC 절단', 'cut_lpic', 0, 480, 'HV Cutter · 클린룸 안 (900t)', 'cr'],
+  ['Nichrome', 'blast · nichrome', 2700, 1920, 'Kanthal EBF + HV 해치 2', 'ev'],
+  ['Molten Ore Mixture 증류', 'distillation_tower/molten_ore_mixture (팩)', 0, 1920, 'Distillation Tower + HV 해치 2', 'ev'],
+  ['Ilmenite · Bauxite 가공', 'Ore Factory EV 티어 (팩)', 0, 1920, 'Electric Ore Factory + HV 해치 2', 'ev'],
+  ['Tungstensteel · Tungsten', 'blast', 3600, 1920, 'Nichrome EBF + HV 해치 2 (EV 탭)', 'ev'],
+];
+const VERDICT = {
+  now: ['지금 됨', 'var(--good)'],
+  cr: ['클린룸 필요', 'var(--s6)'],
+  ev: ['HV 해치 2개 필요', 'var(--critical)'],
+};
+function viewGate() {
+  const ws = GATE_WS.reduce((a, [, k]) => a + k, 0);
+  const hatch = GATE_HATCH.reduce((a, [, k]) => a + k, 0);
+  const lpic = hatch * 2, wafer = Math.ceil(lpic / 4);
+  const niHours = NI_INGOT * NI_BLAST_T / 72000;
+  // 4 레인: A 회로 · 클린룸, B 해치, C Titanium, D Nichrome
+  const X = [15, 262, 509, 756], W = 229;
+  const Y = { r0: 26, r1: 118, r1b: 190, r2: 284, r3: 378, r4: 472, r5: 566, r6: 638, r7: 732 };
+  const band = [[18, '지금 있음 (세이브 스캔)'], [110, '지금 바로 · 게이트 없음 — 멀티블럭은 MV 해치 2개 = HV 480 EU/t'], [276, '게이트 1 · Cleanroom'],
+    [370, '클린룸 안 (단일 블록 기계)'], [464, '게이트 2 · 3 — 컨트롤러와 해치'], [558, 'EV 레시피 (HV 해치 2개) · 그 뒤'], [724, 'EV 진입']];
+  const node = (id, lane, row, t, s, k, tip, w) => ({ id, x: X[lane], y: Y[row], w: w || W, t, s, k, tip });
+  const chart = flow({
+    label: 'HV 게이트 순서도', h: 800,
+    nodes: [
+      node('a0', 0, 'r0', 'MV Circuit Assembler ×2', 'HV 회로 (Processor Assembly)', 'OK', 'MV Circuit Assembler 2 · MV Laser Engraver 5 · LV Cutter 14 · MV Cutter 8. processor_assembly_hv (MV 120) 이미 제작'),
+      node('b0', 1, 'r0', 'MV 에너지 해치 84개', '2개 = HV 전압 · HV 컨버터 6', 'OK', 'MV 2A × 2 = 4A → HV 1A (EnergyContainerList). hv_16a_energy_converter 6대'),
+      node('c0', 2, 'r0', 'Void Extractor ×1', 'Molten Ore Mixture 생산 중', 'OK', 'D Centrifuge(MV)가 Raw Ore Slurry에서 Molten Ore Mixture를 이미 뽑음. Ore Factory 21대'),
+      node('d0', 3, 'r0', 'Kanthal EBF', `MV 해치 2 → HV · ${fmt(heat('Kanthal', 3), 0)}K`, 'OK', `EBF 28대. 세이브에 Cupronickel · Kanthal 코일. Kanthal ${COIL.Kanthal}K + 100K × (HV − MV) = ${heat('Kanthal', 3)}K. Kanthal ingot(1800K · VA[HV])은 MV 해치 2개 + Cupronickel(1,900K)로 이미 만듦`),
+      node('a1', 0, 'r1', 'Cleanroom 재료', 'Stainless 로터 · PE plate · Filter', 'HV', 'Stainless Steel 1700K · 480 EU/t → Kanthal EBF + MV 해치 2개로 지금 됨. Plascrete · Cleanroom Glass 1개당 Polyethylene plate 6'),
+      node('b1', 1, 'r1', 'HV Cutter (새로)', '기지에 0대 · 클린룸 안에 둠', 'HV', 'cut_lpic이 VA[HV] 480 · 클린룸이라 LV · MV Cutter로는 못 자름. HV 부품으로 작업대 제작'),
+      node('c1', 2, 'r1', 'Molten Ore Mixture 저장', '증류탑 전까지 탱크에', 'tank', '증류(EV)는 게이트 2 뒤. 그동안 나오는 양은 Super Tank에 모아 두면 증류탑이 서자마자 Titanium이 나옴'),
+      node('d1', 3, 'r1', 'Nichrome dust', 'Mixer · Ni 4 + Cr 1 → 5', 'MV', `코일 ${NI_COILS}개 = Nichrome ingot ${NI_INGOT}. Nickel은 Pentlandite, Chromium은 Chromite(Void 체인 B)`),
+      node('a1b', 0, 'r1b', 'Workstation 부품', 'CPU · RAM 웨이퍼 · Assembly', 'MV', 'CPU · RAM 웨이퍼 각인(MV), Processor Assembly, Diode, Electrum · Blue Alloy — 클린룸 밖에서 미리'),
+      node('b1b', 1, 'r1b', 'HV 해치 부품 · LPIC 웨이퍼', 'Voltage Coil · NaK · Orange 렌즈', 'HV', `engrave_lpic_silicon: Silicon Wafer + Orange 렌즈 → LPIC Wafer (MV 120 · 900t · 클린룸 불필요). 해치 ${hatch}개 = LPIC ${lpic} = 웨이퍼 ${wafer}장. HV Voltage Coil · Sodium Potassium 1000 · Gold 케이블 2 · HV Hull`),
+      node('c1b', 2, 'r1b', 'HV Autoclave (새로)', 'raw_ilmenite · 480 · 기지에 0대', 'HV', 'raw_${type}: Molten X 500 + Stone Dust → Raw X (VA[HV] 160t). 기지에는 LV 1 · MV 6대뿐. Cl · Mg · Carbon도 이 단계에서 비축'),
+      node('d1b', 3, 'r1b', 'Nichrome 코일 부품', 'SS foil · Borosilicate foil', 'HV', `코일 1개: Nichrome 2x wire 8 + Stainless foil 8 + Borosilicate Glass foil 4 + Aluminium 144 (HV Assembler 480 · 팩 coils.js). Borosilicate 제작 경로는 EMI 확인`),
+      { id: 'cr', x: X[0], y: Y.r2, w: X[1] + W - X[0], t: 'Cleanroom', s: '퀘스트 Cleanroom · 안에 MV Circuit Assembler + HV Cutter', k: 'GATE', tip: '컨트롤러: Item Filter 3 · Stainless Steel 로터 2 · HV Hull · HV 모터 2 · HV 회로 1. 천장 Filter Casing, 벽 Plascrete · Cleanroom Glass. 4 탭에 크기별 블록 수' },
+      node('c2', 2, 'r2', 'VF · 증류탑 부품', 'HV 펌프 5 · Frostproof · SS 파이프 2', 'HV', 'Vacuum Freezer: HV 펌프 3 · Frostproof Casing · Gold 케이블 2 / Distillation Tower: Stainless Large Fluid Pipe 2 · HV 펌프 2. EV 회로만 빼고 전부 지금'),
+      node('ws', 0, 'r3', `Workstation ×${ws}`, 'workstation_ev · MV 120 · 400t', 'CR', `EV 회로. 증류탑 4 · Vacuum Freezer 2 · 퀘스트 1. 퀘스트 Micro Processor Computer → EV Universal Circuit이 여기서 끝남`),
+      node('lp', 1, 'r3', `LPIC ×${lpic}`, 'cut_lpic · HV Cutter 480 · 900t', 'CR', 'LPIC Wafer 1장 → LPIC 4 (VA[HV] · 클린룸)'),
+      node('vf', 0, 'r4', 'Vacuum Freezer', 'EV 회로 2 · MV 해치 2로 충분', 'GATE', 'Hot ingot 냉각은 재료별 vacuum 레시피가 VA[HV] 480 (Titanium · Nichrome) → MV 해치 2개 = HV로 돎. HV 해치는 필요 없음'),
+      node('hh', 1, 'r4', `HV 에너지 해치 ×${hatch}`, '2개 = EV 전압 1A', 'GATE', `energy_hatch_hv (HV Assembler 480): HV Hull · Gold 케이블 2 · LPIC 2 · HV Voltage Coil · Sodium Potassium 1000. 2개씩: ${GATE_HATCH.map(([n, k]) => `${n} ${k}`).join(' · ')}`),
+      node('dt', 2, 'r4', 'Distillation Tower', 'EV 회로 4 · HV 해치 2', 'GATE', 'distillation_tower/molten_ore_mixture: 10,000mB · 1200t · EV 1,920 EU/t (팩 crystallisation.js). 출력 7종이라 7층'),
+      node('ni', 3, 'r5', 'Nichrome ingot', `EBF 2700K · 1920 · ${fmt(heat('Kanthal', 4), 0)}K`, 'EV', `blast · nichrome: 2700K · VA[EV] · ${NI_BLAST_T}t. Kanthal EBF에 HV 해치 2개(EV) = ${heat('Kanthal', 4)}K. MV 해치 2개(HV)면 전압이 모자람. Hot ingot → Vacuum Freezer. ${NI_INGOT}개 = EBF 1대로 약 ${fmt(niHours, 1)}시간`),
+      node('il', 2, 'r5', 'Ilmenite · Bauxite', 'Autoclave → Ore Factory EV', 'EV', 'Molten Ilmenite 1000 · Bauxite 1500 / 증류 1회 → Raw → Ore Factory EV 티어(Persulfate · 1,920 EU/t, HV 해치 2개)'),
+      node('nc', 3, 'r6', `Nichrome Coil ×${NI_COILS}`, `HV Assembler · ${fmt(heat('Nichrome', 4), 0)}K`, 'HV', `Nichrome 코일 + HV 해치 2개 = ${heat('Nichrome', 4)}K → Tungsten 3600K · Tungstensteel 3000K (EV 페이지)`),
+      node('ti', 2, 'r6', 'Titanium ingot', 'TiCl4 → EBF 2141K (HV) → VF', 'HV', 'rutile_from_ilmenite_fix 1700K · titanium_tetrachloride(HV CR) · titanium_from_tetrachloride 2141K VA[HV] 800t → Kanthal EBF + MV 해치 2개(2,800K)면 충분. 막는 것은 원료(증류)와 Vacuum Freezer뿐'),
+      { id: 'ev', x: X[0], y: Y.r7, w: X[3] + W - X[0], t: 'EV 진입', s: 'Titanium → EV Hull · EV 기계 · EV Cutter → cut_pic(EV · 클린룸) → EV 에너지 해치', k: 'GOAL', tip: 'EV Hull = Titanium plate 8 + Aluminium 케이블 2. EV 에너지 해치의 PIC는 cut_pic(VA[EV] · 클린룸)이라 EV Cutter(Titanium)가 먼저. 이어서 ev.html' },
+    ],
+    edges: [
+      { a: 'cr', b: 'ws', fs: 'b', ts: 't', fo: -123 },
+      { a: 'cr', b: 'lp', fs: 'b', ts: 't', fo: 123 },
+      { a: 'ws', b: 'vf' },
+      { a: 'ws', b: 'dt', fs: 'b', ts: 't', k: 18 },
+      { a: 'lp', b: 'hh' },
+      { a: 'hh', b: 'dt' },
+      { a: 'hh', b: 'ni', fs: 'b', ts: 't', fo: 40, k: 22 },
+      { a: 'hh', b: 'il', fs: 'b', ts: 'l', l: 'Ore Factory', lt: 0.6 },
+      { a: 'vf', b: 'ni', fs: 'b', ts: 't', fo: -30, to: -40, k: 22, dash: true },
+      { a: 'vf', b: 'ti', fs: 'b', ts: 'l', dash: true, l: 'Hot ingot', lt: 0.7 },
+      { a: 'dt', b: 'il' }, { a: 'il', b: 'ti' }, { a: 'ni', b: 'nc' },
+      { a: 'ti', b: 'ev', fs: 'b', ts: 't', to: 123 },
+    ],
+  }).replace(/(<svg[^>]*>)/, '$1' + band.map(([y, l]) => `<line x1="10" y1="${y + 2}" x2="990" y2="${y + 2}" stroke="var(--axis)" stroke-dasharray="4 5"/><text x="12" y="${y - 2}" class="elabel" style="font-weight:600">${esc(l)}</text>`).join(''));   // 띠를 먼저 그려 화살표가 위에 오게
+  const verdict = v => `<span class="chip"><i style="background:${VERDICT[v][1]}"></i>${VERDICT[v][0]}</span>`;
+  return `
+  <h2>0 · 게이트 순서도</h2>
+  <p class="lead">HV에서 할 일을 <b>막고 있는 것(게이트)</b> 기준으로 다시 짰습니다. 지금 기지에는 HV 에너지 해치가 없어서 멀티블럭은 <b>MV 해치 2개 = HV 전압(480 EU/t)</b>까지 돕니다.
+  그래서 HV 해치가 없어도 되는 레시피가 생각보다 많고, 진짜 게이트는 <b>클린룸</b>, 거기서 나오는 <b>Workstation · LPIC</b>, 그리고 <b>EV(1,920 EU/t) 레시피를 여는 HV 해치 2개</b>뿐입니다.</p>
+  ${callout('ok', '✓', `<b>Kanthal은 MV에서 끝났습니다.</b> Kanthal ingot은 1800K · 480 EU/t라 MV 해치 2개 + Cupronickel(1,900K)로 만들었고, Kanthal EBF + MV 해치 2개 = <b>${fmt(heat('Kanthal', 3), 0)}K</b>입니다. HV 단계의 코일은 <b>Nichrome</b>이고, 그 blast가 EV 전압이라 HV 해치 2개가 필요합니다.`)}
+  <div class="tiles">
+    ${tile('게이트 1', '클린룸', '', 'Workstation · LPIC의 전제')}
+    ${tile('Workstation', ws, '개', GATE_WS.map(([n, k]) => `${n.split(' ')[0]} ${k}`).join(' · '))}
+    ${tile('HV 에너지 해치', hatch, '개', `LPIC ${lpic}개 = LPIC 웨이퍼 ${wafer}장`)}
+    ${tile('Nichrome ingot', NI_INGOT, '개', `코일 ${NI_COILS}개분 · EBF 1대 ${fmt(niHours, 1)}시간`)}
+  </div>
+  <div class="card">
+    <h3>순서도</h3>
+    <p class="sub">위에서 아래로 진행합니다. 빨간 띠가 게이트, 초록 띠가 이미 있는 것입니다. 같은 줄의 준비물은 게이트를 기다리지 않고 지금 만들어 두면 됩니다. 노드에 마우스를 올리면 레시피 ID와 수치가 나옵니다.</p>
+    ${chart}
+    ${tierLegend(['OK', 'MV', 'HV', 'CR', 'GATE', 'EV', 'GOAL', 'tank'])}
+  </div>
+  <div class="card">
+    <h3>단계별 할 일 · 막는 것 · 풀리는 것</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>단계</th><th>할 일</th><th>막는 것</th><th>풀리는 것</th></tr></thead>
+      <tbody>
+        <tr><td><b>0 · 지금 있음</b></td><td>Kanthal EBF 28대(MV 해치) · HV 단일 기계(Assembler 2 · Centrifuge 4 · Electrolyzer 2 · CR 1 · Mixer · Bath · Wiremill · Extruder 5 · Bender 3) · MV Circuit Assembler 2 · MV Laser Engraver 5 · Void Extractor 1</td><td>—</td><td>HV 레시피 전부. 멀티블럭은 MV 해치 2개로 HV</td></tr>
+        <tr><td><b>1 · 게이트 없음</b></td><td>Stainless Steel · Polyethylene plate(클린룸 벽) · Item Filter · <b>HV Cutter</b> · <b>HV Autoclave</b> · LPIC · CPU · RAM 웨이퍼 · HV 해치 부품 · HV 펌프 5 · Frostproof · Stainless Large Pipe 2 · Nichrome dust · 코일 부품 · Molten Ore Mixture 비축</td><td>없음 (재료와 시간만)</td><td>게이트 1 · 2 · 3의 재료가 전부 갖춰짐</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 1 · Cleanroom</b></td><td>컨트롤러 · Filter Casing · Plascrete · Glass · Passthrough Hatch. 안에 MV Circuit Assembler 1대 옮기고 HV Cutter 설치</td><td>Polyethylene 양 (7×7×5면 plate 약 730 · 4 탭 표)</td><td><code>workstation_ev</code> · <code>cut_lpic</code> · 퀘스트 Cleanroom</td></tr>
+        <tr><td><b>2 · 클린룸 안</b></td><td>Workstation ${ws} · LPIC ${lpic}</td><td>없음</td><td>퀘스트 Micro Processor Computer → <b>EV Universal Circuit</b></td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 2 · HV 해치 ×2</b></td><td>energy_hatch_hv ${hatch}개 (HV Assembler)</td><td>LPIC</td><td>EV 레시피: Nichrome blast · Molten Ore Mixture 증류 · Ore Factory EV 티어</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 3 · Vacuum Freezer</b></td><td>컨트롤러(EV 회로 2) · Frostproof Casing · <b>MV 해치 2개면 충분</b></td><td>Workstation</td><td>Hot Nichrome · Hot Titanium 냉각 (VA[HV])</td></tr>
+        <tr><td><b>3 · Nichrome · Titanium</b></td><td>Nichrome ${NI_INGOT} → 코일 ${NI_COILS} / 증류 → Autoclave → Ore Factory EV → Rutile → TiCl4 → EBF → VF</td><td>게이트 2 · 3 (+ Distillation Tower의 EV 회로 4)</td><td>Nichrome EBF ${fmt(heat('Nichrome', 4), 0)}K · Titanium</td></tr>
+        <tr><td><b style="color:var(--good)">EV 진입</b></td><td>EV Hull(Titanium plate 8) · EV 기계 · EV Cutter → <code>cut_pic</code>(EV · 클린룸) → EV 해치</td><td>Titanium</td><td><a href="ev.html">EV 페이지</a></td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>해치 2개 기준 레시피 판정</h3>
+    <p class="sub">EBF 실효 온도 = 코일 + 100K × (멀티블럭 티어 − MV). 지금 Kanthal + MV 해치 2개 = <b>${fmt(heat('Kanthal', 3), 0)}K · 480 EU/t</b>, HV 해치 2개를 달면 <b>${fmt(heat('Kanthal', 4), 0)}K · 1,920 EU/t</b>. 단일 블록 기계는 해치를 합칠 수 없어 자기 전압까지입니다.</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>레시피</th><th>ID</th><th class="n">온도</th><th class="n">EU/t</th><th>돌리는 곳</th><th>판정</th></tr></thead>
+      <tbody>${GATE_RECIPES.map(([n, id, k, eut, where, v]) => `<tr><td>${esc(n)}</td><td><code>${esc(id)}</code></td><td class="n">${k ? fmt(k, 0) + 'K' : '—'}</td><td class="n">${fmt(eut, 0)}</td><td>${esc(where)}</td><td>${verdict(v)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">Ore Factory의 Ilmenite · Bauxite가 EV 티어인 것은 팩 <code>ore_factory_processing.js</code>의 티어 표에서, 나머지 전압은 GTCEu jar에서 읽었습니다. 단일 블록 Macerator 계열로 crushed Ilmenite를 dust로 만드는 우회로가 있는지는 ${EMI}.</p>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>기지에 없는 단일 블록 기계</h3>
+      <ul class="pts">
+        <li><b>HV Cutter</b> — <code>cut_lpic</code>(480 · 클린룸). LV 14 · MV 8대뿐이라 HV 해치 경로의 숨은 게이트입니다.</li>
+        <li><b>HV Autoclave</b> — <code>raw_ilmenite</code> · <code>raw_bauxite</code>(480). LV 1 · MV 6대뿐.</li>
+        <li><b>HV Circuit Assembler</b> — Mainframe(IV 회로 · 480)용. EV 진입에는 필요 없음.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>게이트와 상관없는 곁가지</h3>
+      <ul class="pts">
+        <li><b>PTFE → LCR</b>(3 탭) — MV 해치 2개로 돌고 황산 · Persulfate가 편해지지만 클린룸 · HV 해치 · Titanium 어느 것도 막고 있지 않습니다.</li>
+        <li><b>HV crushed · Sodium Persulfate</b>(2 탭) — Ore Factory HV 티어용. Titanium 쪽 Ore Factory EV 티어도 Persulfate를 써서 게이트 2 전에 깔아 두면 좋습니다.</li>
+        <li><b>Void Extractor 증설</b> — 지금 1대. 증류탑이 서기 전까지 Molten Ore Mixture 비축량이 곧 첫 Titanium 양입니다.</li>
+      </ul>
+    </div>
   </div>`;
 }
 
@@ -976,7 +1127,7 @@ function viewNext() {
         { id: 'el', x: 650, y: 300, w: 160, t: 'Electrolyzer', s: '15 Bauxite', k: 'MV', tip: 'bauxite_electrolysis: → 6 Aluminium + 1 Rutile + Oxygen 9000 (270t, 2 EU/t)' },
         { id: 'ru', x: 860, y: 300, w: 120, t: 'Rutile', s: fmt(TI.per10k, 2) + '개', k: 'tank' },
         { id: 'cr', x: 860, y: 420, w: 120, t: 'HV CR', s: 'TiCl4 1000', k: 'HV', tip: 'titanium_tetrachloride: Rutile 1 + Carbon 2 + Chlorine 4000 → TiCl4 1000 + CO 2000 (400t, 480 EU/t)' },
-        { id: 'eb2', x: 650, y: 500, w: 160, t: 'EBF 2141K', s: 'Kanthal 코일 · + Mg 2', k: 'HV', tip: 'titanium_from_tetrachloride: TiCl4 1000 + Magnesium 2 → Hot Titanium Ingot + Magnesium Chloride 6 (800t, 480 EU/t, Titanium 1941K + 200)' },
+        { id: 'eb2', x: 650, y: 500, w: 160, t: 'EBF 2141K', s: 'Kanthal · MV 해치 2 · + Mg 2', k: 'HV', tip: 'titanium_from_tetrachloride: TiCl4 1000 + Magnesium 2 → Hot Titanium Ingot + Magnesium Chloride 6 (800t, VA[HV] 480 EU/t, Titanium 1941K + 200). 지금 있는 Kanthal EBF + MV 해치 2개(2,800K)로 됨' },
         { id: 'vf', x: 440, y: 500, w: 160, t: 'Vacuum Freezer', s: 'Hot → Ingot', k: 'HV', tip: '컨트롤러: HV 펌프 3 · EV 회로 2 · Frostproof Casing · Gold 케이블 2. 시간은 EMI 확인' },
         { id: 'ti', x: 220, y: 500, w: 170, t: 'Titanium Ingot', s: fmt(TI.per10k, 2) + '개 / 증류 1회', k: 'GOAL' },
         { id: 'mg', x: 860, y: 510, w: 120, t: 'MgCl2 전해', s: 'Mg · Cl 회수', k: 'MV', tip: 'Magnesium Chloride 6 → Magnesium 2 + Chlorine 4000 (분해 레시피 · EMI 확인). Mg와 Cl이 닫힌 루프' },
@@ -1005,21 +1156,21 @@ function viewNext() {
         <li><b>EV 회로</b>(4 탭 Workstation) — Distillation Tower 4개 · Vacuum Freezer 2개.</li>
         <li><b>HV 에너지 해치 2개씩</b> — Distillation Tower, EBF, EV 티어 Ore Factory. LPIC 때문에 클린룸 다음에 만듭니다(4 탭). 기지에 HV 해치가 아직 없습니다.</li>
         <li><b>Distillation Tower</b> <code>CBC / FMF / CBC</code>: EV 회로 4 · Stainless Steel Large Fluid Pipe 2 · HV 펌프 2 · Hull 1 (${EMI} Hull 티어). 출력 7종이라 <b>출력 층 7개</b>.</li>
-        <li><b>Kanthal 코일 EBF</b> — Titanium 추출이 2141K. Cupronickel(1800K)은 HV 해치로 +100K, HV 해치 2개(EV)로도 +200K라 2000K에서 모자랍니다.</li>
-        <li><b>Nichrome 코일도 HV에서</b> — Nichrome ingot(2700K)은 Kanthal + HV 해치 2개(2,900K)로 녹고, 코일은 HV Assembler(480). Nichrome EBF에 HV 해치 2개면 3,800K → Tungsten(3600K) · Tungstensteel까지 됩니다. 단계별 표는 <a href="common.html#coil">공용 › 코일 사다리</a>.</li>
+        <li><b>EBF는 지금 것 그대로</b> — Titanium 추출(2141K · 480 EU/t)은 이미 있는 Kanthal EBF + MV 해치 2개(2,800K)로 됩니다. Kanthal은 MV에서 끝났습니다.</li>
+        <li><b>Nichrome 코일</b> — Nichrome blast는 2700K · <b>EV 1,920 EU/t</b>라 Kanthal EBF에 <b>HV 해치 2개</b>(2,900K)를 달아야 하고, Hot ingot이라 <b>Vacuum Freezer</b>도 필요합니다. 코일은 HV Assembler(480). Nichrome EBF에 HV 해치 2개면 3,800K → Tungsten(3600K) · Tungstensteel까지. 단계별 표는 <a href="common.html#coil">공용 › 코일 사다리</a>.</li>
         <li><b>Vacuum Freezer</b> <code>PPP / CMC / WCW</code>: HV 펌프 3 · EV 회로 2 · Frostproof Casing(Aluminium plate 6 + Frame) · Gold 케이블 2.</li>
       </ol>
     </div>
     <div class="card">
-      <h3>Kanthal 코일 16개 (EBF 1대)</h3>
+      <h3>Nichrome 코일 ${NI_COILS}개 (EBF 1대)</h3>
       <div class="tscroll"><table>
-        <thead><tr><th>단계</th><th>레시피</th><th class="n">16개분</th></tr></thead>
+        <thead><tr><th>단계</th><th>레시피</th><th class="n">${NI_COILS}개분</th></tr></thead>
         <tbody>
-          <tr><td>Kanthal dust</td><td>Mixer MV: Iron 1 + Aluminium 1 + Chromium 1 → 3</td><td class="n">Cr 43</td></tr>
-          <tr><td>Kanthal ingot</td><td>EBF(Cupronickel로 됨) → Hot → Chemical Bath 물 100 (MV)</td><td class="n">128</td></tr>
-          <tr><td>Kanthal Coil</td><td>Assembler MV: Kanthal 2x wire 8 + Aluminium foil 8 + Copper 144</td><td class="n">16</td></tr>
+          <tr><td>Nichrome dust</td><td>Mixer: Nickel 4 + Chromium 1 → 5</td><td class="n">Cr ${Math.ceil(NI_INGOT / 5)}</td></tr>
+          <tr><td>Nichrome ingot</td><td>EBF 2700K · <b>EV 1,920</b> · ${NI_BLAST_T}t (Kanthal + HV 해치 2개) → Hot → <b>Vacuum Freezer</b> (HV 480)</td><td class="n">${NI_INGOT}</td></tr>
+          <tr><td>Nichrome Coil</td><td>HV Assembler 480 (팩): Nichrome 2x wire 8 + Stainless foil 8 + Borosilicate Glass foil 4 + Aluminium 144</td><td class="n">${NI_COILS}</td></tr>
         </tbody></table></div>
-      <p class="sub" style="margin:10px 0 0">Chromium은 Void 체인 B 단계의 <code>Chromite</code> dust에서, Aluminium은 Bauxite 전해에서도 나옵니다. Hot Kanthal은 Chemical Bath로 식혀서 Vacuum Freezer 전에 만들 수 있습니다.</p>
+      <p class="sub" style="margin:10px 0 0">Hot Nichrome을 식히는 Chemical Bath 레시피는 없습니다(jar의 Bath 냉각은 Kanthal · Silicon · Black · Red · Blue Steel뿐). ${NI_INGOT}개 blast는 EBF 1대로 약 ${fmt(NI_INGOT * NI_BLAST_T / 72000, 1)}시간. Borosilicate Glass 제작 경로는 ${EMI}.</p>
     </div>
   </div>
   <div class="card">
@@ -1036,10 +1187,10 @@ function viewNext() {
 function viewMulti() {
   const rows = [
     ['Cleanroom', '4 · 회로', 'HV', 'Item Filter 3 · Stainless Steel 로터 2 · HV Hull · HV 모터 2 · HV 회로 1', 'Filter Casing · Plascrete', '없음'],
-    ['Large Chemical Reactor', '3 · PTFE', 'HV', 'HV 회로 4 · Stainless Steel 로터 1 · PTFE Large Pipe 2 · HV 모터 · HV Hull', 'Chemically Inert Casing (PTFE)', '없음'],
+    ['Large Chemical Reactor', '3 · PTFE', 'MV 해치 2 (= HV)', 'HV 회로 4 · Stainless Steel 로터 1 · PTFE Large Pipe 2 · HV 모터 · HV Hull', 'Chemically Inert Casing (PTFE)', '없음'],
     ['Distillation Tower', '5 · Titanium', 'HV 해치 ×2', 'EV 회로 4 · Stainless Steel Large Pipe 2 · HV 펌프 2 · Hull', '출력 7층', '없음'],
-    ['Vacuum Freezer', '5 · Titanium', 'HV', 'HV 펌프 3 · EV 회로 2 · Frostproof Casing · Gold 케이블 2', 'Frostproof Casing', '없음'],
-    ['Electric Blast Furnace', '5 · Kanthal', 'HV', '있음 (28대)', 'Kanthal Coil 16', '28대 · MV 해치'],
+    ['Vacuum Freezer', '0 · 게이트 3', 'MV 해치 2 (= HV)', 'HV 펌프 3 · EV 회로 2 · Frostproof Casing · Gold 케이블 2', 'Frostproof Casing', '없음'],
+    ['Electric Blast Furnace', '5 · Nichrome', 'MV 해치 2 → HV 해치 2', '있음 (28대)', 'Kanthal 있음 → Nichrome Coil 16', '28대 · MV 해치'],
     ['Electric Ore Factory', '2 · 자원', 'HV (B는 ×2)', '있음 (21대)', '—', '21대'],
   ];
   return `
@@ -1054,10 +1205,10 @@ function viewMulti() {
     <div class="card">
       <h3>짓는 순서</h3>
       <ol class="steps">
-        <li><b>Large Chemical Reactor</b> — PTFE만 있으면 됨. 이후 화학이 전부 편해짐.</li>
-        <li><b>Cleanroom</b> — Polyethylene을 가장 많이 먹음. LCR의 단축 레시피와 무관하게 먼저 지어도 됨.</li>
-        <li><b>Distillation Tower · Vacuum Freezer</b> — EV 회로(Workstation) 6개가 먼저.</li>
-        <li><b>EBF 코일 교체</b> — Kanthal 16개. HV 해치 2개를 같이 달면 EV 레시피도 돌아감.</li>
+        <li><b>Cleanroom</b> — 게이트 1. Polyethylene을 가장 많이 먹음. 안에 MV Circuit Assembler와 새 HV Cutter.</li>
+        <li><b>Vacuum Freezer · Distillation Tower</b> — EV 회로(Workstation) 6개가 먼저. Vacuum Freezer는 MV 해치 2개로 충분, 증류탑은 HV 해치 2개.</li>
+        <li><b>Nichrome 코일</b> — Kanthal EBF 1대에 HV 해치 2개를 달아 Nichrome을 굽고(EV), 그 코일로 EBF 1대를 교체.</li>
+        <li><b>Large Chemical Reactor</b> — 곁가지. PTFE만 있으면 MV 해치 2개로 돌고 이후 화학이 편해지지만 게이트를 막지 않음.</li>
       </ol>
     </div>
     <div class="card">
@@ -1124,7 +1275,7 @@ function viewEpoxy() {
 }
 
 const VIEWS = {
-  overview: viewOverview, power: viewPower, circuit: viewCircuit, next: viewNext,
+  overview: viewOverview, gate: viewGate, power: viewPower, circuit: viewCircuit, next: viewNext,
   resource: { void: viewVoid, chunk: viewChunk, crushed: viewCrushed, persulfate: viewPersulfate },
   ptfe: { boot: viewBoot, lcr: viewLcr },
   passive: { flow: viewPassiveFlow, '3d': viewPassive3d },
