@@ -32,6 +32,7 @@
 <div id="tip" role="tooltip"></div>
 
 <script src="assets/charts.js"></script>
+<script src="assets/gate.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
 <script src="assets/logi3d.js"></script>
@@ -69,6 +70,7 @@ const WET = [
 /* ---------- topics ---------- */
 const TOPICS = [
   { id: 'overview', name: '로드맵' },
+  { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'entry', name: '1 · ZPM 진입 · 연구' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · Fusion MK2 · 자원', subs: [['route', 'MK2 · 플라즈마'], ['elem', 'Fusion 원소 패시브'], ['3d', '원소 로 · 3D']] },
@@ -139,6 +141,77 @@ function viewOverview() {
   </div>`;
 }
 
+/* ---------- 0 게이트 순서도 ----------
+   LuV 게이트 순서도 다음 단계. 멀티블럭은 LuV 해치 2개 = ZPM(122,880). ZPM에서 새로 막는 것: (1) 연구(CWU) — Research Station,
+   (2) ZPM 단일 블록(특히 Trinium 코일 · Fusion Coil을 만드는 ZPM Assembler), (3) Fusion MK2. */
+const ZPM_V = { now: ['지금 됨 (LuV 해치 2)', 'var(--good)'], coil: ['Trinium 코일 뒤', 'var(--s4)'], zpms: ['ZPM 단일 블록', 'var(--s8)'], cwu: ['연구 (CWU)', 'var(--s6)'], al: ['Assembly Line', 'var(--s7)'] };
+function viewGate() {
+  const chart = gateFlow('ZPM 게이트 순서도',
+    [[18, 'LuV에서 가져옴 (luv.html 게이트 순서도 끝)'], [110, '게이트 없음 — 멀티블럭은 LuV 해치 2개 = ZPM 122,880 · 단일 블록은 LuV 32,768'], [276, '게이트 1 · 연구 (CWU) · ZPM 단일 블록'],
+     [370, 'ZPM 단일 블록 · 연구 레시피'], [464, '게이트 2 · ZPM 해치 · Fusion Coil'], [558, 'ZPM 해치 2개 = UV · 게이트 3 · Fusion MK2'], [724, 'UV 진입']],
+    [
+      ['a0', 0, 'r0', 'LuV 단일 블록', 'Assembler · Cutter · CA · Engraver', 'OK', 'LuV 게이트 1'],
+      ['b0', 1, 'r0', 'LuV 해치', '2개 = ZPM 122,880', 'OK', 'LuV 게이트 2'],
+      ['c0', 2, 'r0', 'Fusion MK1', 'He 플라즈마 · Europium', 'OK', 'LuV 게이트 3'],
+      ['d0', 3, 'r0', 'Naquadah 코일 EBF', 'LuV 해치 2 = 7,700K', 'OK', 'Trinium · Naquadah Alloy · Dragonsteel'],
+      ['a1', 0, 'r1', 'Research Station · HPCA', 'Assembly Line 100,000', 'ZPM', 'Data Bank · LuV Sensor 8 · ZPM 회로 8 … (ZPM 페이지 1 탭). Assembly Line 100,000 EU/t ≤ ZPM — 해치 전압은 EMI 확인'],
+      ['b1', 1, 'r1', 'ZPM 부품 · Hull', 'Assembly Line 24,000 · Naq Alloy plate', 'LuV', 'ZPM Motor · Pump … 8종이 24,000 EU/t (LuV 전압으로 됨). ZPM Hull = Naquadah Alloy plate 8 · VG 케이블 2'],
+      ['c1', 2, 'r1', 'Dragonsteel · Naquadah Alloy', 'Naq 코일 + LuV 해치 2', 'LuV', 'Dragonsteel 7100K · VA[ZPM] (7,700K) · Naquadah Alloy 7200K · VA[LuV] — LuV 페이지 5 탭'],
+      ['d1', 3, 'r1', 'Argon 플라즈마 발전', 'MK2 전에는 MK1 He', 'LuV', 'ZPM 발전은 MK2 뒤 — 4 탭'],
+      ['a1b', 0, 'r1b', 'Data Bank · Data Orb', 'LuV 퀘스트 · AL 6,000', 'IV', '연구 결과를 담는 설비'],
+      ['b1b', 1, 'r1b', 'ZPM Voltage Coil 재료', 'Europium fine · 자석', 'LuV', 'Fusion MK1 Europium'],
+      ['c1b', 2, 'r1b', 'Naquadria Sulfate 비축', 'LuV Naquadah 정제', 'tank', 'EBF 9000K · ZPM → Trinium 코일 뒤'],
+      ['d1b', 3, 'r1b', 'QRAM · Living SMD 재료', 'Sterile Cleanroom (EMI)', 'LuV', 'Wetware 계열'],
+      ['rs', 0, 'r2', 'Research Station', '연구 = CWU/t · HPCA 부품 수', 'GATE', 'Fusion MK2 16 CWU · Crystal Mainframe 16 · Wetware Computer 64 · Heat Chamber 16'],
+      ['zasm', 1, 'r2', 'ZPM Assembler', 'Trinium 코일 · Fusion Coil · Coil', 'GATE', 'Assembler 멀티블럭은 해치 2개 불가 → 단일 블록'],
+      ['zca', 2, 'r2', 'ZPM Circuit Assembler', 'UV 회로 2 · ZPM Emitter', 'GATE', 'Wetware Processor · Assembly (38,400) · Neuro Processor. 작업대 회로 칸 = UV 회로 → Crystal Mainframe(연구) 뒤'],
+      ['zcut', 3, 'r2', 'ZPM Cutter · CR', 'QRAM 웨이퍼 61,440', 'GATE', 'QRAM · Chip'],
+      ['cm', 0, 'r3', 'Crystal Mainframe (UV 회로)', 'Assembly Line 61,440 · 16 CWU', 'CR', 'HSS-E Frame 2 · Crystal Computer 2 · … (ZPM 페이지 2 탭)'],
+      ['tc', 1, 'r3', 'Trinium 코일', 'LuV 해치 2 = 9,501K · ZPM 해치 2 = 9,601K', 'ZPM', 'HSS-E Frame · Trinium 2x wire 8 · Enriched Naq foil 8 · Niobium Nitride foil 16 · Naquadah 144'],
+      ['ww', 2, 'r3', 'Wetware 회로', 'ZPM CA 38,400 · Sterile', 'CR', 'wetware_processor · assembly'],
+      ['qr', 3, 'r3', 'QRAM', 'ZPM Cutter', 'CR', '—'],
+      ['hat', 0, 'r4', 'ZPM 에너지 해치', 'Assembly Line 122,880 · ZPM Hull · VG 4 · UHPIC 2 · Coil 2', 'GATE', 'energy_hatch_zpm 600t · NaK 8,000 · Solder 1,440', 2],
+      ['fc', 2, 'r4', 'Fusion Coil', 'ZPM Assembler 122,880', 'GATE', 'Superconducting Coil 계열 (EMI 재료)'],
+      ['nq', 3, 'r4', 'Naquadria', 'EBF 9000K · Trinium 코일 + LuV 해치 2', 'ZPM', 'naquadria_sulfate_separation VA[ZPM] 600t (9,501K) — 3 탭 원소 패시브'],
+      ['uvr', 0, 'r5', 'UV 레시피 (멀티블럭)', 'ZPM 해치 2 = UV 524,288', 'ZPM', 'Prismalium 9000K · VA[ZPM]은 Trinium + LuV 해치 2로 이미 됨 (5 탭)'],
+      ['mk2', 2, 'r5', 'Fusion MK2', 'Fusion Coil · UV 회로 4 · UHPIC 96', 'GATE', 'zpm_fusion_reactor (Assembly Line ZPM · 16 CWU): Naquadria double plate · Europium double plate · LuV Field Gen 2 · URhN wire 32'],
+      ['pr', 3, 'r5', 'Prismalium · Darmstadtium', 'UV 준비 (5 탭)', 'ZPM', 'Darmstadtium은 MK2 원소 로'],
+      ['ar', 2, 'r6', 'Argon 발전 · 원소 로', 'Radon → Duranium · Darmstadtium', 'ZPM', '4 탭 · 3 탭'],
+      ['sg', 3, 'r6', 'Stargate 부품', 'Assembly Line 61,440', 'ZPM', 'UV 페이지 1 탭 — Abydos'],
+      ['uv', 0, 'r7', 'UV 진입', 'Stargate → Abydos(Zirconium) → Complex 반사판 → Tritanium · Americium · UV Assembler → Tritanium 코일', 'GOAL', 'uv.html', 4],
+    ],
+    [
+      { a: 'a1', b: 'rs', fs: 'b', ts: 't', k: 20 }, { a: 'b1', b: 'zasm', fs: 'b', ts: 't', k: 20 }, { a: 'rs', b: 'cm' }, { a: 'zasm', b: 'tc' }, { a: 'cm', b: 'zca', fs: 'r', ts: 'b', dash: true },
+      { a: 'zca', b: 'ww' }, { a: 'zcut', b: 'qr' }, { a: 'tc', b: 'hat', fs: 'b', ts: 't', to: 123 }, { a: 'tc', b: 'nq', fs: 'r', ts: 't', dash: true },
+      { a: 'zasm', b: 'fc', fs: 'r', ts: 't', dash: true }, { a: 'hat', b: 'uvr', fs: 'b', ts: 't', fo: -123 }, { a: 'fc', b: 'mk2' }, { a: 'nq', b: 'pr' },
+      { a: 'mk2', b: 'ar' }, { a: 'sg', b: 'uv', fs: 'b', ts: 't', to: 385 },
+    ]);
+  return `
+  <h2>0 · 게이트 순서도</h2>
+  <p class="lead"><a href="luv.html#gate">LuV 게이트 순서도</a>의 다음 단계입니다. LuV 해치 2개 멀티블럭이 이미 ZPM(122,880)이라 <b>Dragonsteel · Naquadah Alloy · ZPM 부품</b>은 ZPM 전력 없이 됩니다. ZPM에서 새로 막는 것은 <b>연구(CWU)</b>, <b>ZPM 단일 블록</b>(Trinium 코일 · Fusion Coil을 만드는 ZPM Assembler), <b>Fusion MK2</b>입니다.</p>
+  ${callout('info', 'i', '<b>Naquadria는 ZPM 해치가 필요 없습니다.</b> 9000K · VA[ZPM]이라 Trinium 코일 + LuV 해치 2개(9,501K)면 녹습니다. 이 페이지의 이전 표가 "ZPM 해치 2"로 적었던 것을 바로잡았습니다. Trinium 코일 자체가 ZPM Assembler(단일 블록) 뒤라 그게 진짜 게이트입니다.')}
+  <div class="card"><h3>순서도</h3><p class="sub">위에서 아래로. 빨간 띠가 게이트. 노드에 마우스를 올리면 설명.</p>${chart}${tierLegend(['OK', 'IV', 'LuV', 'ZPM', 'CR', 'GATE', 'GOAL', 'tank'])}</div>
+  <div class="card"><h3>단계별 할 일 · 막는 것 · 풀리는 것</h3>${gateStages([
+    ['0 · LuV에서 가져옴', 'LuV 단일 블록 · LuV 해치 · Fusion MK1 · Naquadah 코일 EBF', '—', 'ZPM 레시피 (멀티블럭)', ''],
+    ['1 · 게이트 없음', 'Research Station · HPCA · ZPM 부품(AL 24,000) · ZPM Hull · Dragonsteel · Naquadah Alloy · Naquadria Sulfate 비축', 'Trinium · Naquadah 양', '게이트 1 재료', ''],
+    ['게이트 1 · 연구 · ZPM 단일 블록', 'Research Station(CWU) · ZPM Assembler · Circuit Assembler · Cutter · CR', 'ZPM 부품 · UV 회로(연구)', 'Trinium 코일 · Crystal Mainframe · Wetware · QRAM', 'gate'],
+    ['게이트 2 · ZPM 해치 · Fusion Coil', 'energy_hatch_zpm (AL) · Fusion Coil (ZPM Assembler)', 'UHPIC · ZPM Voltage Coil', 'UV 레시피 (멀티블럭)', 'gate'],
+    ['게이트 3 · Fusion MK2', 'zpm_fusion_reactor (AL · 16 CWU)', 'Fusion Coil · UV 회로 4 · UHPIC 96 · Naquadria', 'Argon 발전 · 원소 로(Radon · Duranium · Darmstadtium)', 'gate'],
+    ['UV 진입', 'Stargate → Abydos · Complex 반사판 · UV Assembler', 'Zirconium (Abydos)', '<a href="uv.html#gate">UV 게이트</a>', 'goal'],
+  ])}</div>
+  <div class="card"><h3>해치 2개 기준 레시피 판정</h3><p class="sub">Naquadah 코일 7,200K · Trinium 코일 9,001K. LuV 해치 2개(ZPM) = 코일 + 500K, ZPM 해치 2개(UV) = + 600K.</p>${gateVerdicts([
+    ['Dragonsteel', 'blast · dragonsteel (팩)', 7100, 122880, 'Naq 코일 + LuV 해치 2 (7,700K)', 'now'],
+    ['ZPM 부품 8종', 'assembly_line · *_zpm', 0, 24000, 'Assembly Line (LuV 전압)', 'now'],
+    ['Research Station', 'research_station', 0, 100000, 'Assembly Line', 'al'],
+    ['Naquadria', 'naquadria_sulfate_separation', 9000, 122880, 'Trinium 코일 + LuV 해치 2 (9,501K)', 'coil'],
+    ['Prismalium (UV 초전도)', 'blast · prismalium (팩)', 9000, 122880, 'Trinium 코일 + LuV 해치 2', 'coil'],
+    ['Trinium 코일 · Fusion Coil · ZPM Voltage Coil', 'coil_trinium · fusion_coil · voltage_coil_zpm', 0, 122880, 'ZPM Assembler', 'zpms'],
+    ['Wetware Processor', 'wetware_processor (팩)', 0, 38400, 'ZPM Circuit Assembler · Sterile', 'zpms'],
+    ['Crystal Mainframe (UV 회로)', 'crystal_processor_mainframe (팩)', 0, 61440, 'Assembly Line · 16 CWU', 'cwu'],
+    ['Fusion MK2', 'zpm_fusion_reactor (팩)', 0, 122880, 'Assembly Line · 16 CWU', 'cwu'],
+  ], ZPM_V)}</div>`;
+}
+
 /* ---------- 1 ZPM 진입 · 연구 ---------- */
 function viewEntry() {
   return `
@@ -171,7 +244,7 @@ function viewEntry() {
         <tr><td><b>ZPM Circuit Assembler</b></td><td>Wetware Processor · Assembly · Neuro Processor(80,000)</td></tr>
         <tr><td><b>ZPM Assembler</b></td><td>Trinium 코일 · Fusion Coil · ZPM Voltage Coil · Living SMD(61,440)</td></tr>
         <tr><td><b>ZPM Cutter · CR</b></td><td>QRAM 웨이퍼(61,440) · Chip</td></tr>
-        <tr><td><b>EBF (ZPM 해치 2)</b></td><td><code>naquadria_sulfate_separation</code>(122,880) · Naquadria 9,000K</td></tr>
+        <tr><td><b>EBF (LuV 해치 2 = ZPM)</b></td><td><code>naquadria_sulfate_separation</code>(122,880) · Naquadria 9,000K — Trinium 코일 + LuV 해치 2개 = 9,501K</td></tr>
       </tbody></table></div>
       <p class="sub" style="margin:8px 0 0">Wetware 계열은 <b>Sterile Cleanroom</b>(Stem Cells) ${EMI}.</p></div>
   </div>`;
@@ -507,7 +580,7 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, elem: viewElem, '3d': viewElem3d }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewUvMetal, '3d': viewUv3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, elem: viewElem, '3d': viewElem3d }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewUvMetal, '3d': viewUv3d }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({

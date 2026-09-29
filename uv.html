@@ -32,6 +32,7 @@
 <div id="tip" role="tooltip"></div>
 
 <script src="assets/charts.js"></script>
+<script src="assets/gate.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
 <script src="assets/logi3d.js"></script>
@@ -80,6 +81,7 @@ const F3 = [
 /* ---------- topics ---------- */
 const TOPICS = [
   { id: 'overview', name: '로드맵' },
+  { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'entry', name: '1 · UV 진입 · Abydos' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · 반사판 3 융합', subs: [['route', '반사판 3 · 레시피'], ['elem', '원소 패시브'], ['3d', '원소 로 · 3D']] },
@@ -146,6 +148,73 @@ function viewOverview() {
       <li><b>Chemical Plant</b>는 Assembly Line VHA[UHV] · UV 회로 4 · 연구 64 CWU(<code>abydos_multis.js</code>) — UHV.</li>
     </ul></div>
   </div>`;
+}
+
+/* ---------- 0 게이트 순서도 ----------
+   ZPM 게이트 순서도 다음 단계. 멀티블럭은 ZPM 해치 2개 = UV(524,288). UV에서 새로 막는 것: (1) Abydos(Stargate) — Zirconium,
+   (2) Complex 반사판 → Tritanium · Americium, (3) UV Assembler → Tritanium 코일 · UV Voltage Coil(Tritanium fine) → UV 해치, (4) Fusion MK3(Neutronium). */
+const UV_V = { now: ['지금 됨 (ZPM 해치 2)', 'var(--good)'], aby: ['Abydos 뒤', 'var(--s4)'], refl: ['Complex 반사판 뒤', 'var(--s5)'], uvs: ['UV 단일 블록', 'var(--s7)'], mk3: ['Fusion MK3', 'var(--critical)'] };
+function viewGate() {
+  const chart = gateFlow('UV 게이트 순서도',
+    [[18, 'ZPM에서 가져옴 (zpm.html 게이트 순서도 끝)'], [110, '게이트 없음 — 멀티블럭은 ZPM 해치 2개 = UV 524,288 · 단일 블록은 ZPM 131,072'], [276, '게이트 1 · Abydos (Stargate)'],
+     [370, 'Abydos 자원'], [464, '게이트 2 · Complex 반사판 · UV Assembler'], [558, '게이트 3 · Tritanium 코일 · UV 해치'], [724, 'UHV 진입']],
+    [
+      ['a0', 0, 'r0', 'ZPM 단일 블록 · 연구', 'Assembler · CA · Research Station', 'OK', 'ZPM 게이트 1'],
+      ['b0', 1, 'r0', 'ZPM 해치', '2개 = UV 524,288', 'OK', 'ZPM 게이트 2'],
+      ['c0', 2, 'r0', 'Fusion MK2', 'Argon · 원소 로', 'OK', 'Radon → Duranium · Darmstadtium · Lutetium'],
+      ['d0', 3, 'r0', 'Trinium 코일 EBF', 'LuV 2 = 9,501K · ZPM 2 = 9,601K', 'OK', 'Naquadria · Prismalium'],
+      ['a1', 0, 'r1', 'Stargate 부품', 'Assembly Line 61,440', 'ZPM', 'stargate_component_assembly → Classic Stargate 링 · 셰브론 · 베이스'],
+      ['b1', 1, 'r1', 'UV 부품 · Hull', 'Assembly Line 100,000 · Darmstadtium plate', 'ZPM', 'UV 부품 8종이 100,000 EU/t — ZPM 전압. UV Hull = Darmstadtium plate 8 · YBCO 케이블 2'],
+      ['c1', 2, 'r1', 'UV 회로', 'Crystal · Wetware Mainframe (AL)', 'ZPM', 'crystal_processor_mainframe 61,440 · wetware_processor_computer 64,000'],
+      ['d1', 3, 'r1', 'Prismalium · YBCO', 'UV 준비 (ZPM 5 탭)', 'ZPM', 'Prismalium 9000K · VA[ZPM] · YBCO 4500K · VA[IV]'],
+      ['a1b', 0, 'r1b', 'CSG · Dimensional Finder', 'Abydos Coordinate Crystal', 'ZPM', 'Field Stabiliser · Dialer · DPU · Classic DHD'],
+      ['b1b', 1, 'r1b', 'Duranium 비축', 'MK2 원소 로', 'tank', 'Tritanium 원료 (Complex 반사판 뒤)'],
+      ['c1b', 2, 'r1b', 'Lutetium · Chromium 비축', 'MK1 · MK2', 'tank', 'Americium 원료'],
+      ['d1b', 3, 'r1b', 'Naquadria 비축', 'Neutronium 원료', 'tank', 'Americium 216 + Naquadria 288 → Neutronium'],
+      ['ab', 0, 'r2', 'Abydos', 'Stargate · DHD', 'GATE', 'Adventures in Abydos 챕터', 2],
+      ['uvasm', 2, 'r2', 'UV Assembler', 'Tritanium 코일 · UV Coil', 'GATE', '단일 블록. UV Voltage Coil = Magnetic Dysprosium rod + Tritanium fine 16 → Tritanium이 먼저'],
+      ['uvmix', 3, 'r2', 'UV Mixer', 'ENTED · RTAN · Melodium · Stellarium', 'GATE', 'UHV 초전도 재료'],
+      ['zr', 0, 'r3', 'Zirconium 패시브', 'Titanite 라인 · 4 탭', 'UV', 'Titanite → … → ZrCl₄ → Zirconium (Electrolyzer 50,000 = ZPM 해치 2)'],
+      ['tm', 1, 'r3', 'Temples · Bacteria', 'Runic 재료 · Wetware', 'UV', 'Abydos 챕터'],
+      ['cr', 0, 'r4', 'Complex 반사판', 'Trinaquadalloy + Zirconium double plate', 'GATE', '반사판 3 (LuV 제작). MK2에 끼우면 반사판 3 레시피', 2],
+      ['tri', 2, 'r4', 'Tritanium · Americium', 'MK2 + Complex · 3 탭', 'ZPM', 'tritanium Ti 288 + Duranium 144 · americium Lu 144 + Cr 144 (둘 다 시동 200M)'],
+      ['tc', 3, 'r4', 'Tritanium 코일', 'UV Assembler · 10,800K', 'UV', 'ZPM 해치 2개(UV) = 11,400K → Melodium, UV 해치 2개(UHV) = 11,500K → Stellarium'],
+      ['hat', 0, 'r5', 'UV 에너지 해치', 'Assembly Line 491,520 · YBCO 4 · UHPIC 2 · UV Coil 2', 'GATE', 'energy_hatch_uv 800t · NaK 10,000 · Solder 2,880', 2],
+      ['mk3', 2, 'r5', 'Fusion MK3', 'UV Fusion · 시동 640M', 'GATE', 'Neutronium (시동 600M) · Americium 플라즈마(반사판 4)'],
+      ['mel', 3, 'r5', 'Melodium', 'Tritanium 코일 + ZPM 해치 2', 'UV', '10000K · VA[UV] — 5 탭'],
+      ['neu', 2, 'r6', 'Neutronium', 'MK3 · 72초', 'UV', 'UHV plate'],
+      ['stel', 3, 'r6', 'Stellarium', 'Tritanium 코일 + UV 해치 2', 'UHV', '10799K · VA[UHV] — UV 해치 뒤'],
+      ['uhv', 0, 'r7', 'UHV 진입', 'UHV Hull(Neutronium plate 8 · Europium 케이블 2) · Stellarium 초전도 · UHV 해치 — uhv.html', 'GOAL', 'uhv.html', 4],
+    ],
+    [
+      { a: 'a1', b: 'ab', fs: 'b', ts: 't', to: -123 }, { a: 'a1b', b: 'ab', fs: 'b', ts: 't', to: -60 }, { a: 'ab', b: 'zr', fs: 'b', ts: 't', fo: -123 }, { a: 'ab', b: 'tm', fs: 'b', ts: 't', fo: 123 },
+      { a: 'zr', b: 'cr', fs: 'b', ts: 't', to: -123 }, { a: 'cr', b: 'tri' }, { a: 'uvasm', b: 'tc', fs: 'r', ts: 't', dash: true }, { a: 'tri', b: 'tc' },
+      { a: 'tc', b: 'hat', fs: 'b', ts: 't', to: 123, dash: true }, { a: 'tri', b: 'mk3' }, { a: 'tc', b: 'mel' }, { a: 'mk3', b: 'neu' }, { a: 'hat', b: 'stel', fs: 'r', ts: 'l', dash: true },
+      { a: 'neu', b: 'uhv', fs: 'b', ts: 't', to: 145 },
+    ]);
+  return `
+  <h2>0 · 게이트 순서도</h2>
+  <p class="lead"><a href="zpm.html#gate">ZPM 게이트 순서도</a>의 다음 단계입니다. ZPM 해치 2개 멀티블럭이 이미 UV(524,288)라 <b>UV 부품 · UV 회로 · Stargate 부품</b>은 UV 전력 없이 됩니다. UV의 진짜 관문은 <b>Abydos</b>(Stargate) — 거기서 나오는 <b>Zirconium</b>이 Complex 반사판이 되고, 그래야 <b>Tritanium</b>이 나와 UV Assembler의 Tritanium 코일 · UV Voltage Coil → UV 해치가 이어집니다.</p>
+  ${callout('info', 'i', '<b>Tritanium이 UV의 병목입니다.</b> UV Voltage Coil(Tritanium fine 16) · Tritanium 코일 · UV 부품이 전부 Tritanium이고, Tritanium은 Complex 반사판(Zirconium · Abydos) 뒤에야 Fusion으로 나옵니다. Duranium은 ZPM 원소 로에서 미리 쌓아 두세요.')}
+  <div class="card"><h3>순서도</h3><p class="sub">위에서 아래로. 빨간 띠가 게이트. 노드에 마우스를 올리면 설명.</p>${chart}${tierLegend(['OK', 'ZPM', 'UV', 'GATE', 'GOAL', 'tank'])}</div>
+  <div class="card"><h3>단계별 할 일 · 막는 것 · 풀리는 것</h3>${gateStages([
+    ['0 · ZPM에서 가져옴', 'ZPM 단일 블록 · 연구 · ZPM 해치 · Fusion MK2 · Trinium 코일 EBF', '—', 'UV 레시피 (멀티블럭)', ''],
+    ['1 · 게이트 없음', 'Stargate 부품 · CSG · UV 부품 · UV Hull · UV 회로 · Prismalium · YBCO · Duranium · Lutetium · Naquadria 비축', '—', 'Stargate 완성', ''],
+    ['게이트 1 · Abydos', 'Classic Stargate · DHD · Abydos Coordinate Crystal', 'Stargate 부품', 'Zirconium · Temples · Bacteria', 'gate'],
+    ['게이트 2 · Complex 반사판 · UV Assembler', 'Complex 반사판 → MK2 · UV Assembler · UV Mixer', 'Zirconium', 'Tritanium · Americium → Tritanium 코일', 'gate'],
+    ['게이트 3 · UV 해치 · MK3', 'energy_hatch_uv (AL) · Fusion MK3', 'Tritanium(Coil) · UV 회로', 'UHV 레시피 (멀티블럭) · Neutronium', 'gate'],
+    ['UHV 진입', 'Neutronium plate · Stellarium · UHV 해치', 'Neutronium (MK3 72초)', '<a href="uhv.html">UHV 페이지</a>', 'goal'],
+  ])}</div>
+  <div class="card"><h3>해치 2개 기준 레시피 판정</h3><p class="sub">Tritanium 코일 10,800K: ZPM 해치 2개(UV) 11,400K · UV 해치 2개(UHV) 11,500K.</p>${gateVerdicts([
+    ['UV 부품 8종', 'assembly_line · *_uv', 0, 100000, 'Assembly Line (ZPM 전압)', 'now'],
+    ['Prismalium', 'blast · prismalium (팩)', 9000, 122880, 'Trinium 코일 + LuV 해치 2', 'now'],
+    ['Titanite 전해 (Zirconium 라인)', 'titanite_proc_4 (팩)', 0, 50000, 'Electrolyzer 멀티블럭 + ZPM 해치 2', 'aby'],
+    ['Tritanium', 'fusion · tritanium (팩)', 0, 30720, 'MK2 + Complex 반사판', 'refl'],
+    ['Americium', 'fusion · americium (팩)', 0, 49152, 'MK2 + Complex 반사판', 'refl'],
+    ['Tritanium 코일 · UV Voltage Coil', 'coil_tritanium · voltage_coil_uv', 0, 491520, 'UV Assembler', 'uvs'],
+    ['Melodium', 'blast · melodium (팩)', 10000, 491520, 'Tritanium 코일 + ZPM 해치 2 (11,400K)', 'uvs'],
+    ['Neutronium', 'fusion · neutronium (팩)', 0, 117964, 'Fusion MK3 (시동 600M)', 'mk3'],
+  ], UV_V)}</div>`;
 }
 
 /* ---------- 1 UV 진입 · Abydos ---------- */
@@ -501,7 +570,7 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, elem: viewUvElem, '3d': viewUvElem3d }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewUhvMetal, '3d': viewUhv3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, elem: viewUvElem, '3d': viewUvElem3d }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewUhvMetal, '3d': viewUhv3d }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({

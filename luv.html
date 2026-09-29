@@ -32,6 +32,7 @@
 <div id="tip" role="tooltip"></div>
 
 <script src="assets/charts.js"></script>
+<script src="assets/gate.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
 <script src="assets/logi3d.js"></script>
@@ -43,7 +44,7 @@ const S = { nsN: 4, topic: 'overview', sub: {}, layGhost: true, layPipes: true, 
 Object.assign(TIER, {
   LV: { c: 'var(--s3)', name: 'LV 기계' }, HV: { c: 'var(--s2)', name: 'HV 기계' },
   EV: { c: 'var(--s5)', name: 'EV 기계' }, IV: { c: 'var(--s7)', name: 'IV 기계 · IV 레시피' },
-  LuV: { c: 'var(--s8)', name: 'LuV 기계 · LuV 레시피' }, GOAL: { c: 'var(--good)', name: '목표' },
+  LuV: { c: 'var(--s8)', name: 'LuV 기계 · LuV 레시피' }, ZPM: { c: 'var(--s4)', name: 'ZPM 레시피' }, GOAL: { c: 'var(--good)', name: '목표' },
 });
 
 /* ---------- constants ----------
@@ -73,6 +74,7 @@ const CRYSTAL = [
 /* ---------- topics ---------- */
 const TOPICS = [
   { id: 'overview', name: '로드맵' },
+  { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'entry', name: '1 · LuV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · Naquadah · Fusion', subs: [['route', '처리 경로'], ['naq', 'Naquadah 패시브'], ['fusion', 'Fusion 원소 패시브'], ['3d', 'Naquadah 청크 · 3D'], ['fuel3d', 'Fusion 연료 청크 · 3D'], ['power', '전력 · 64A']] },
@@ -141,6 +143,82 @@ function viewOverview() {
       <li>발전은 LuV 동안 Extreme Combustion 여러 대, Fusion MK1 + Plasma Turbine은 기당 ~7만 EU/t로 보조 — <a href="common.html#power">공용 › 발전</a>.</li>
     </ul></div>
   </div>`;
+}
+
+/* ---------- 0 게이트 순서도 ----------
+   IV 게이트 순서도(iv.html#gate) 다음 단계. 멀티블럭은 IV 해치 2개 = LuV(30,720)라 Naquadah 분리 · Twinite · Osmiridium blast는 이미 돈다.
+   LuV에서 새로 막는 것: (1) LuV 단일 블록(Assembler · Cutter · Circuit Assembler · Laser Engraver), 그중 LuV Assembler가 만드는
+   Naquadah 코일 · Superconducting Coil · Voltage Coil, (2) ZPM을 여는 LuV 해치(Assembly Line), (3) Fusion MK1. 수치는 jar 재료 blast 정의 · 팩 스크립트. */
+const LUV_V = { now: ['지금 됨 (IV 해치 2)', 'var(--good)'], coil: ['Naquadah 코일 뒤', 'var(--s4)'], luvs: ['LuV 단일 블록', 'var(--s8)'], al: ['Assembly Line', 'var(--s7)'], luvh: ['LuV 해치 2개', 'var(--critical)'] };
+function viewGate() {
+  const chart = gateFlow('LuV 게이트 순서도',
+    [[18, 'IV에서 가져옴 (iv.html 게이트 순서도 끝)'], [110, '게이트 없음 — 멀티블럭은 IV 해치 2개 = LuV 30,720 · 단일 블록은 IV 8,192'], [276, '게이트 1 · LuV 단일 블록'],
+     [370, 'LuV 단일 블록 레시피'], [464, '게이트 2 · LuV 해치 · Superconducting Coil'], [558, 'LuV 해치 2개 = ZPM · 게이트 3 · Fusion MK1'], [724, 'ZPM 진입']],
+    [
+      ['a0', 0, 'r0', 'IV 단일 블록 · Quantum', 'Assembler · Cutter · Mixer · CA', 'OK', 'IV 게이트 1 · 3'],
+      ['b0', 1, 'r0', 'IV 해치 ×4', '2개 = LuV 30,720', 'OK', 'IV 게이트 2'],
+      ['c0', 2, 'r0', 'Nano Mainframe · Quantum Computer', 'LuV 회로', 'OK', 'nano_mainframe_luv (EV CA) · quantum_computer_luv (IV CA)'],
+      ['d0', 3, 'r0', 'HSS-G 코일 EBF', 'IV 해치 2 = 5,800K', 'OK', 'HSS-S · HSS-E · Twinite'],
+      ['a1', 0, 'r1', 'Assembly Line', 'LuV 부품 6,000 · 해치 1개로', 'IV', 'assembly_line_casing · control_casing (IV Assembler). LuV Motor · Pump · Piston … 8종이 6,000 EU/t'],
+      ['b1', 1, 'r1', 'UHPIC 웨이퍼', 'LCR + IV 해치 2 · 클린룸', 'IV', 'uhpic_wafer: HPIC 웨이퍼 + InGaP 8 + Naquadah 576 (LuV · 1200t). 멀티블럭 클린룸 인식 EMI 확인'],
+      ['c1', 2, 'r1', 'ZPM 회로 (Assembly Line)', 'quantum_processor_mainframe 30,720', 'IV', '팩이 ZPM 회로를 Assembly Line으로 옮김 — Fusion MK1 · LuV Circuit Assembler에 필요'],
+      ['d1', 3, 'r1', 'Naquadah 분리 · Twinite', 'LCR + IV 해치 2 · HSS-G EBF', 'LuV', 'naquadah_separation VA[LuV] · Twinite 5300K VA[LuV] (HSS-G + IV 해치 2 = 5,800K) — 3 탭 · 5 탭'],
+      ['a1b', 0, 'r1b', 'LuV Hull · 부품', 'RPP plate 8 · NbTi 케이블 2', 'IV', 'jar PLATE[LuV] = Rhodium-Plated Palladium, CABLE[LuV] = Niobium-Titanium (IV 페이지 5 탭 패시브)'],
+      ['b1b', 1, 'r1b', 'Osmiridium · Samarium 자석', 'Voltage Coil 재료', 'IV', 'Osmiridium blast 4500K · VA[LuV] (RTM + IV 해치 2). dust는 LuV Mixer 또는 GCYM Large Mixer + IV 해치 2. Samarium 5400K · VA[EV]'],
+      ['c1b', 2, 'r1b', 'Crystal 재료', 'Raw Crystal Chip · Europium', 'IV', 'raw_crystal_chip (Autoclave 320 · 클린룸) · 재성장에 Europium 16 → Fusion MK1'],
+      ['d1b', 3, 'r1b', 'Nether Star → Naquadah', '4 탭 루프 · 3 탭 정제', 'LuV', 'Dimensional Destabiliser (LuV Hull) → Raw Naquadah'],
+      ['asm', 0, 'r2', 'LuV Assembler', 'Naq 코일 · 각종 Coil', 'GATE', 'Assembler 멀티블럭은 해치 2개 불가 → 단일 블록'],
+      ['cut', 1, 'r2', 'LuV Cutter', 'cut_uhpic · Large Cutter 대안', 'GATE', 'GCYM Large Cutter + IV 해치 2개도 LuV'],
+      ['lca', 2, 'r2', 'LuV Circuit Assembler', 'ZPM 회로 2 · LuV Emitter', 'GATE', 'Circuit Assembler 작업대 회로 칸 = 한 단계 위(ZPM) 회로 → Assembly Line ZPM 회로'],
+      ['le', 3, 'r2', 'LuV Laser Engraver', 'crystal_cpu 10,000 · 클린룸', 'GATE', '대형 각인기 대안은 EMI 확인'],
+      ['vc', 0, 'r3', 'LuV Voltage Coil', 'Samarium rod + Osmiridium fine 16', 'LuV', 'voltage_coil_luv (LuV Assembler 30,720)'],
+      ['uh', 1, 'r3', 'UHPIC', 'cut_uhpic · 클린룸', 'CR', 'UHPIC 웨이퍼 → UHPIC 2. Fusion MK1 컨트롤러 64개 · ZPM · UV 해치'],
+      ['cc', 2, 'r3', 'Crystal 회로', 'crystal_processor · assembly 9,600', 'CR', 'IV · LuV 회로'],
+      ['nc', 3, 'r3', 'Naquadah 코일', 'LuV Assembler · IV 해치 2 = 7,600K', 'LuV', 'Enriched Naquadah(7000K · IV) · Trinium(LuV) · Naquadah Alloy(7200K · LuV)가 여기서 열림'],
+      ['hat', 0, 'r4', 'LuV 에너지 해치', 'Assembly Line 30,720 · HPIC 2 · NbTi 4 · Coil 2 · LuV 회로', 'GATE', 'energy_hatch_luv 400t. Assembly Line에 IV 해치 2개로 LuV를 만드는지는 EMI 확인 — 안 되면 IV 트랜스포머 승압', 2],
+      ['sc', 2, 'r4', 'Superconducting Coil', 'ITBTC 2x 32 · NbTi foil 32 · Trinium 3,456', 'GATE', 'LuV Assembler. ITBTC: Mixer LuV In 4 · Sn 2 · Ba 2 · Ti · Cu 7 + O₂'],
+      ['tr', 3, 'r4', 'Trinium · Enriched Naq', 'Naq 코일 EBF', 'LuV', 'trinium_sulfide_separation VA[LuV] · enriched_naquadah_sulfate 7000K VA[IV] — 3 탭 패시브'],
+      ['zr', 0, 'r5', 'ZPM 레시피 (멀티블럭)', 'LuV 해치 2 = ZPM 122,880', 'ZPM', 'Dragonsteel 7100K · VA[ZPM] (Naq 코일 + LuV 해치 2 = 7,700K) · Research Station (Assembly Line 100,000)'],
+      ['fu', 2, 'r5', 'Fusion MK1', 'SC Coil · ZPM 회로 4 · UHPIC 64', 'GATE', 'luv_fusion_reactor (Assembly Line LuV): Superconducting Coil · ZPM 회로 4 · Pu-241 double plate · Osmiridium double plate · IV Field Gen 2 · UHPIC 64 · ITBTC 32'],
+      ['nqa', 3, 'r5', 'Naquadah Alloy', '7200K · LuV · Naq 코일 + IV 해치 2', 'LuV', 'ZPM plate (5 탭 패시브)'],
+      ['he', 2, 'r6', 'He 플라즈마 · Europium', 'D · T · Nd 패시브 (3 탭)', 'LuV', 'Europium → Crystal 재성장 · ZPM Motor'],
+      ['zp', 3, 'r6', 'ZPM 준비 합금 패시브', 'Osmiridium · Dragonsteel', 'LuV', '5 탭'],
+      ['zpm', 0, 'r7', 'ZPM 진입', 'ZPM Hull(Naquadah Alloy plate 8 · VG 케이블 2) → 연구(CWU) · ZPM 단일 블록 · ZPM 해치(Assembly Line 122,880)', 'GOAL', 'zpm.html', 4],
+    ],
+    [
+      { a: 'a1b', b: 'asm', fs: 'b', ts: 't' }, { a: 'b1b', b: 'asm', fs: 'b', ts: 't', to: 40 }, { a: 'c1', b: 'lca', fs: 'b', ts: 't', k: 20 },
+      { a: 'asm', b: 'vc' }, { a: 'cut', b: 'uh' }, { a: 'lca', b: 'cc' }, { a: 'le', b: 'cc', dash: true },
+      { a: 'vc', b: 'hat', fs: 'b', ts: 't', to: -123 }, { a: 'uh', b: 'hat', fs: 'b', ts: 't', to: 123 }, { a: 'nc', b: 'tr' }, { a: 'tr', b: 'sc', fs: 'l', ts: 'r' },
+      { a: 'hat', b: 'zr', fs: 'b', ts: 't', fo: -123 }, { a: 'sc', b: 'fu' }, { a: 'tr', b: 'nqa' },
+      { a: 'fu', b: 'he' }, { a: 'nqa', b: 'zp' }, { a: 'zp', b: 'zpm', fs: 'b', ts: 't', to: 385 },
+    ]);
+  return `
+  <h2>0 · 게이트 순서도</h2>
+  <p class="lead"><a href="iv.html#gate">IV 게이트 순서도</a>의 다음 단계입니다. IV 해치 2개 멀티블럭이 이미 LuV(30,720)라 <b>Naquadah 분리 · Twinite · Osmiridium · UHPIC 웨이퍼</b>는 LuV 전력 없이 됩니다. LuV에서 새로 막는 것은 <b>LuV 단일 블록</b>(특히 Naquadah 코일 · Superconducting Coil을 만드는 LuV Assembler), <b>LuV 해치</b>, 그리고 <b>Fusion MK1</b>입니다.</p>
+  ${callout('info', 'i', '<b>Naquadah 코일이 LuV의 첫 관문입니다.</b> Enriched Naquadah(7000K) · Trinium · Naquadah Alloy(7200K)가 전부 이 코일을 기다리고, Trinium이 Superconducting Coil → Fusion MK1로 이어집니다. 코일 재료의 Naquadah는 분리 전 그대로의 dust라 Nether Star 루프만 돌면 바로 됩니다.')}
+  <div class="card"><h3>순서도</h3><p class="sub">위에서 아래로. 빨간 띠가 게이트, 초록 띠가 IV에서 가져온 것. 노드에 마우스를 올리면 레시피 ID와 수치.</p>${chart}${tierLegend(['OK', 'IV', 'LuV', 'CR', 'GATE', 'ZPM', 'GOAL'])}</div>
+  <div class="card"><h3>단계별 할 일 · 막는 것 · 풀리는 것</h3>${gateStages([
+    ['0 · IV에서 가져옴', 'IV 단일 블록 · Quantum 회로 · IV 해치 4 · HSS-G 코일 EBF', '—', 'LuV 레시피 (멀티블럭)', ''],
+    ['1 · 게이트 없음', 'Assembly Line · LuV 부품 · UHPIC 웨이퍼 · ZPM 회로(AL) · LuV Hull · Osmiridium · Nether Star → Naquadah', 'HPIC · Naquadah 양', '게이트 1 재료', ''],
+    ['게이트 1 · LuV 단일 블록', 'LuV Assembler · Cutter · Circuit Assembler · Laser Engraver', 'LuV 부품(AL) · ZPM 회로 2(CA)', 'Voltage Coil · UHPIC · Crystal 회로 · Naquadah 코일', 'gate'],
+    ['게이트 2 · LuV 해치 · SC Coil', 'energy_hatch_luv (AL) · Superconducting Coil (Trinium 3,456)', 'Naquadah 코일 → Trinium', 'ZPM 레시피 (멀티블럭)', 'gate'],
+    ['게이트 3 · Fusion MK1', 'luv_fusion_reactor (AL)', 'SC Coil · UHPIC 64 · Pu-241 (EMI)', 'He 플라즈마 · Europium · Lutetium', 'gate'],
+    ['ZPM 진입', 'ZPM Hull · 연구(CWU) · ZPM 단일 블록 · ZPM 해치', 'Naquadah Alloy · Research Station', '<a href="zpm.html#gate">ZPM 게이트</a>', 'goal'],
+  ])}</div>
+  <div class="card"><h3>해치 2개 기준 레시피 판정</h3><p class="sub">Naquadah 코일 7,200K: IV 해치 2개(LuV) 7,600K · LuV 해치 2개(ZPM) 7,700K. HSS-G 5,400K: IV 해치 2개 5,800K.</p>${gateVerdicts([
+    ['Naquadah 분리', 'naquadah_separation', 0, 30720, 'LCR + IV 해치 2', 'now'],
+    ['Twinite (LuV 초전도)', 'blast · twinite', 5300, 30720, 'HSS-G EBF + IV 해치 2 (5,800K)', 'now'],
+    ['Osmiridium', 'blast · osmiridium', 4500, 30720, 'RTM · HSS-G EBF + IV 해치 2', 'now'],
+    ['UHPIC 웨이퍼', 'uhpic_wafer', 0, 30720, 'LCR + IV 해치 2 · 클린룸 (EMI)', 'now'],
+    ['Enriched Naquadah', 'enriched_naquadah_sulfate_separation', 7000, 7680, 'Naq 코일 + EV 해치 2 (7,500K)', 'coil'],
+    ['Trinium', 'trinium_sulfide_separation', 7200, 30720, 'Naq 코일 + IV 해치 2 (7,600K)', 'coil'],
+    ['Naquadah Alloy', 'blast · naquadah_alloy', 7200, 30720, 'Naq 코일 + IV 해치 2', 'coil'],
+    ['Naquadah 코일 · Voltage Coil · SC Coil', 'coil_naquadah · voltage_coil_luv · superconducting_coil', 0, 30720, 'LuV Assembler', 'luvs'],
+    ['UHPIC 절단', 'cut_uhpic', 0, 30720, 'LuV Cutter · 클린룸', 'luvs'],
+    ['Crystal CPU', 'crystal_cpu', 0, 10000, 'LuV Laser Engraver · 클린룸', 'luvs'],
+    ['LuV 해치 · Fusion MK1 · ZPM 회로', 'energy_hatch_luv · luv_fusion_reactor · quantum_processor_mainframe', 0, 30720, 'Assembly Line', 'al'],
+    ['Dragonsteel (ZPM 초전도)', 'blast · dragonsteel (팩)', 7100, 122880, 'Naq 코일 + LuV 해치 2 (7,700K)', 'luvh'],
+  ], LUV_V)}</div>`;
 }
 
 /* ---------- 1 LuV 진입 · 해치 ---------- */
@@ -714,7 +792,7 @@ function viewNext() {
   </div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, naq: viewNaq, fusion: viewFusionFuel, '3d': viewNaq3d, fuel3d: viewFuel3d, power: viewNaqPower }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewZpmMetal, '3d': viewZpm3d }, next: viewNext };
+const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, naq: viewNaq, fusion: viewFusionFuel, '3d': viewNaq3d, fuel3d: viewFuel3d, power: viewNaqPower }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewZpmMetal, '3d': viewZpm3d }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
