@@ -34,12 +34,14 @@
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
+<script src="assets/logi3d.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
 /* ---------- state ---------- */
 const S = { nsN: 4, topic: 'overview', sub: {}, layGhost: true, layPipes: true, layLabels: true };
 Object.assign(TIER, {
+  LV: { c: 'var(--s3)', name: 'LV 기계' }, HV: { c: 'var(--s2)', name: 'HV 기계' },
   EV: { c: 'var(--s5)', name: 'EV 기계' }, IV: { c: 'var(--s7)', name: 'IV 기계 · IV 레시피' },
   LuV: { c: 'var(--s8)', name: 'LuV 기계 · LuV 레시피' }, GOAL: { c: 'var(--good)', name: '목표' },
 });
@@ -73,9 +75,10 @@ const TOPICS = [
   { id: 'overview', name: '로드맵' },
   { id: 'entry', name: '1 · LuV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
-  { id: 'resource', name: '3 · Naquadah · Fusion' },
+  { id: 'resource', name: '3 · Naquadah · Fusion', subs: [['route', '처리 경로'], ['naq', 'Naquadah 패시브'], ['fusion', 'Fusion 원소 패시브'], ['3d', 'Naquadah 청크 · 3D'], ['fuel3d', 'Fusion 연료 청크 · 3D'], ['power', '전력 · 64A']] },
   { id: 'passive', name: '4 · 패시브 (Nether Star)', subs: [['flow', '흐름'], ['3d', '3D 배치'], ['power', '전력 · 64A']] },
-  { id: 'next', name: '5 · ZPM 준비' },
+  { id: 'prep', name: '5 · 패시브 (ZPM 준비)', subs: [['metal', '금속 · 초전도'], ['3d', '청크 · 3D']] },
+  { id: 'next', name: '6 · ZPM 준비' },
 ];
 
 /* ---------- 로드맵 ---------- */
@@ -216,7 +219,7 @@ function viewCircuit() {
 /* ---------- 3 Naquadah · Fusion ---------- */
 function viewResource() {
   return `
-  <h2>3 · Naquadah · Fusion</h2>
+  <h2>3 · Naquadah · Fusion</h2>${subnav()}
   <p class="lead">Naquadah는 <b>Dimensional Destabiliser</b>(LuV Hull · 팩)가 Nether Star Shard 1개 + PCB Coolant 8,000으로 <b>Raw Naquadah 20</b>을 캡니다(4,096 EU/t · 1200t). Raw Naquadah를 광석 라인으로 dust까지 내린 뒤 GTCEu 정제 체인으로 Enriched Naquadah · Trinium · Naquadria를 뽑습니다.</p>
   ${flow({
     label: 'Naquadah 정제', h: 420,
@@ -351,7 +354,7 @@ function viewPower() {
   ${pwCard(PWM(), 6, `<li>이 청크는 IV 이하 기계뿐이라 LuV 간선은 여유가 큽니다 — ZPM의 Heat Chamber 경로로 바꿀 때 쓸 자리.</li>`)}`;
 }
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
-Object.assign(PIPE, PW_PIPES);
+Object.assign(PIPE, PW_PIPES, LOGI_PIPES);
 function buildStarChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -381,6 +384,305 @@ function buildStarChunk() {
   return { boxes, pipes };
 }
 
+/* ---------- 3 자원 처리 · Naquadah 패시브 ----------
+   공급: Nether Star 루프(4 탭)의 남는 Shard → Dimensional Destabiliser → Raw Naquadah 20 (팩 dimensional_destabilising.js).
+   Raw → Crushed → Ore Processing Plant(팩 iv 표 · 10개 3200t: Naquadah 19 · Barium 7 · Sulfur 5 · Enriched Naquadah 5).
+   GTCEu NaquadahRecipes: naquadah_separation LCR VA[LuV] 600t (Naq 6 + Fluoroantimonic 1000 → Impure Enriched 2000 + Impure Naquadria 2000 + TiF₃ 4),
+   impure_*_solution_separation Centrifuge VA[EV] 400t (→ Trinium Sulfide 1 / Indium Phosphide 1 + SbF₃ 2 + Solution 1000),
+   *_solution_separation Mixer VA[HV] 100t (+ H₂SO₄ 2000 → Acidic 3000), acidic_*_separation Centrifuge VA[HV] 100t (→ Sulfate 6 + Waste 2000 + F 500),
+   enriched_naquadah_sulfate_separation EBF 7000K VA[IV] 500t (6 + H₂ 2000 → Enriched Naquadah 1), naquadria_sulfate_separation EBF 9000K VA[ZPM] 600t,
+   trinium_sulfide_separation EBF VA[LuV] 750t (TrS 2 + Zn → Trinium 1), titanium_trifluoride_separation EBF 1941K VA[HV] 900t (TiF₃ 4 + H₂ 3000 → Ti 1 + HF 3000),
+   *_waste_separation Distillation VA[HV] 300t (Waste 2000 → Solution 250 되돌림 …), fluoroantimonic_acid CR VA[HV] 300t (SbF₃ 4 + HF 4000 → 1000 + H₂ 2000). */
+const NAQ_SEP = 0.5;                                            // Naquadah dust 중 분리로 보내는 몫 (나머지는 코일 · UHPIC · Naquadah Alloy)
+function naqRates(n) {
+  const raw = n * SURPLUS * 20, dust = raw * 1.9, sep = dust * NAQ_SEP / 6;
+  return { raw, dust, plain: dust * (1 - NAQ_SEP), sep, enr: sep + raw * 0.5, tr: sep / 2, nqr: sep, ti: sep };
+}
+const mk = rows => rows.map(([id, m, t, eut, hatch2, label, jobs]) => { const u = jobs.reduce((a, [, r, d]) => a + r * d, 0) / 72000; return { id, m, t, eut, hatch2, label, jobs, u, n: Math.max(1, Math.ceil(u / 0.95 - 1e-9)) }; });
+function naqMachines(n) {
+  const R = naqRates(n);
+  return mk([
+    ['MC', 'Macerator · Raw Naquadah', 'HV', 480, false, 'Mac', [['Raw → Crushed', R.raw, 150]]],
+    ['OP', 'Ore Processing Plant (팩 · IV)', 'IV', 7680, true, 'Ore Plant', [['plant_ore_processing naquadah ×10', R.raw / 10, 3200]]],
+    ['LN', 'LCR · Naquadah 분리 (IV 해치 2 = LuV)', 'LuV', 30720, true, 'LCR-N', [['naquadah_separation', R.sep, 600]]],
+    ['CE', 'Centrifuge · Impure 용액 (EV)', 'EV', 1920, false, 'Cent-EV', [['impure_enriched', R.sep, 400], ['impure_naquadria', R.sep, 400]]],
+    ['MH', 'Mixer · 용액 + 황산 (HV)', 'HV', 480, false, 'Mix-HV', [['enriched_solution', R.sep, 100], ['naquadria_solution', R.sep, 100]]],
+    ['CH', 'Centrifuge · Acidic 용액 (HV)', 'HV', 480, false, 'Cent-HV', [['acidic_enriched', R.sep, 100], ['acidic_naquadria', R.sep, 100]]],
+    ['DW', 'Distillation Tower · Waste (HV 해치)', 'HV', 480, true, 'DT-W', [['enriched_waste', R.sep, 300], ['naquadria_waste', R.sep, 300]]],
+    ['EE', 'EBF · Enriched (Naq 코일 + EV 해치 2 = 7,500K)', 'IV', 7680, true, 'EBF-Enr', [['enriched_naquadah_sulfate', R.sep, 500]]],
+    ['ET', 'EBF · Trinium (Naq 코일 + IV 해치 2 = 7,600K)', 'LuV', 30720, true, 'EBF-Tr', [['trinium_sulfide_separation', R.tr, 750]]],
+    ['EI', 'EBF · Titanium (TiF₃)', 'HV', 480, true, 'EBF-Ti', [['titanium_trifluoride', R.ti, 900]]],
+    ['CF', 'Chemical Reactor · Fluoroantimonic', 'HV', 480, false, 'CR-F', [['fluoroantimonic_acid', R.sep, 300], ['antimony_trifluoride', R.sep / 2, 60]]],
+    ['VF', 'Vacuum Freezer · IV 해치 2', 'LuV', 30720, true, 'VF', [['Hot Enriched · Trinium', R.sep + R.tr, 300]]],
+  ]);
+}
+const PWM_N = () => naqMachines(S.nsN).map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+const mTable = M => `<div class="tscroll"><table><thead><tr><th>기계</th><th>계통</th><th>작업</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+  <tbody>${M.map(g => `<tr><td><b>${esc(g.m)}</b>${g.hatch2 ? ' <small style="color:var(--muted)">해치 2</small>' : ''}</td><td>${g.t}</td><td>${g.jobs.map(([a, r, d]) => `${esc(a)} ${fmt(r, 2)}회 × ${d}t`).join('<br>')}</td><td class="n">${fmt(g.u * 100, 0)}%</td><td class="n"><b>${g.n}</b></td></tr>`).join('')}</tbody></table></div>`;
+function viewNaq() {
+  const n = S.nsN, R = naqRates(n);
+  return `
+  <h2>3 · Naquadah · Fusion</h2>${subnav()}
+  <p class="lead">Naquadah를 <b>상시 정제</b>합니다. 공급은 Nether Star 루프(시간당 Star ${n}개 · 남는 Shard ${fmt(n * SURPLUS, 1)})에서 나오는 Raw Naquadah ${fmt(R.raw, 0)}입니다. Naquadah dust의 ${Math.round(NAQ_SEP * 100)}%를 분리로 보내 <b>Enriched Naquadah · Trinium · Naquadria · Titanium</b>을 뽑고, 나머지는 그대로 코일 · UHPIC · Naquadah Alloy에 씁니다.</p>
+  <div class="tiles">
+    ${tile('Naquadah dust', fmt(R.dust, 0), '/ 시간', `분리 ${fmt(R.dust * NAQ_SEP, 0)} · 그대로 ${fmt(R.plain, 0)}`)}
+    ${tile('Enriched Naquadah', fmt(R.enr, 1), '/ 시간', `분리 ${fmt(R.sep, 1)} + Ore Plant 부산물 ${fmt(R.raw * 0.5, 1)}`)}
+    ${tile('Trinium', fmt(R.tr, 1), '/ 시간', `Superconducting Coil 1개 = 24 ingot → ${fmt(24 / R.tr, 1)}시간`)}
+    ${tile('Naquadria Sulfate', fmt(R.nqr * 6, 0), '/ 시간', 'EBF 9000K · ZPM — ZPM 페이지까지 보관')}
+  </div>
+  <div class="card"><h3>흐름 (분리 1회 = Naquadah 6)</h3>
+    ${flow({
+      label: 'Naquadah 분리', h: 400,
+      nodes: [
+        { id: 'nq', x: 10, y: 30, w: 150, t: 'Naquadah 6', s: 'Ore Plant 출력', k: 'tank' },
+        { id: 'fa', x: 10, y: 150, w: 150, t: 'Fluoroantimonic 1000', s: 'SbF₃ 4 + HF 4000 · CR', k: 'HV' },
+        { id: 'ln', x: 200, y: 80, w: 170, t: 'LCR · IV 해치 2', s: 'naquadah_separation · 600t', k: 'LuV' },
+        { id: 'ie', x: 420, y: 20, w: 160, t: 'Impure Enriched 2000', s: 'Centrifuge EV', k: 'EV' },
+        { id: 'iq', x: 420, y: 140, w: 160, t: 'Impure Naquadria 2000', s: 'Centrifuge EV', k: 'EV' },
+        { id: 'tf', x: 420, y: 260, w: 160, t: 'TiF₃ 4', s: 'EBF 1941K · H₂ 3000', k: 'HV' },
+        { id: 'en', x: 630, y: 20, w: 170, t: 'Enriched Sulfate 6', s: 'Mixer + 황산 → Centrifuge', k: 'HV' },
+        { id: 'ts', x: 630, y: 100, w: 170, t: 'Trinium Sulfide 1', s: '+ Zinc → EBF LuV', k: 'LuV' },
+        { id: 'qs', x: 630, y: 180, w: 170, t: 'Naquadria Sulfate 6', s: 'EBF 9000K · ZPM', k: 'tank' },
+        { id: 'enq', x: 840, y: 20, w: 140, t: 'Enriched Naq 1', s: 'EBF 7000K · IV', k: 'GOAL' },
+        { id: 'tr', x: 840, y: 100, w: 140, t: 'Trinium ½', k: 'GOAL' },
+        { id: 'ti', x: 630, y: 290, w: 170, t: 'Titanium 1 + HF 3000', s: 'HF는 Fluoroantimonic으로', k: 'GOAL' },
+      ],
+      edges: [
+        { a: 'nq', b: 'ln' }, { a: 'fa', b: 'ln' }, { a: 'ln', b: 'ie' }, { a: 'ln', b: 'iq' }, { a: 'ln', b: 'tf', fs: 'b', ts: 'l' },
+        { a: 'ie', b: 'en' }, { a: 'ie', b: 'ts', fs: 'r', ts: 'l' }, { a: 'iq', b: 'qs' }, { a: 'en', b: 'enq' }, { a: 'ts', b: 'tr' }, { a: 'tf', b: 'ti' },
+        { a: 'ti', b: 'fa', dash: true, fs: 'b', ts: 'b', k: 60, l: 'HF 3000', lt: 0.5 },
+      ],
+    })}
+    ${tierLegend(['HV', 'EV', 'LuV', 'tank', 'GOAL'])}
+    <p class="sub" style="margin:10px 0 0">SbF₃ 2는 Centrifuge에서 되돌아오고, Waste 2000은 증류로 Solution 250 · 황산 500을 되돌립니다. 나머지 부산물(Barium Sulfide · Gallium Sulfide · F 500)은 주 네트워크로.</p>
+  </div>
+  <div class="card"><h3>기계 대수 (Star ${n}개 / 시간)</h3>${mTable(naqMachines(n))}
+    <p class="sub" style="margin:10px 0 0">Ore Processing Plant의 제작 티어 · 크기는 ${EMI}. Raw Naquadah → Crushed가 1:1인지도 ${EMI}. EBF 온도는 해치 2개 기준: Enriched 7000K(VA[IV]) = Naquadah 코일 + EV 해치 2개(7,500K), Trinium(VA[LuV]) = Naquadah 코일 + IV 해치 2개(7,600K).</p></div>`;
+}
+
+/* ---------- 3 자원 처리 · Fusion 원소 패시브 ----------
+   MK1 레시피(팩 fusion_scaling.js · 공용 페이지): Helium 플라즈마 D 1000 + T 1000 → 1000, 7.2초(144t) · Europium Nd 144 + H 3000 → 144, 28.8초.
+   D · T는 IV 페이지와 같은 Liquid Ender Air 증류(200,000mB → D 50,000 · T 10,000)를 Fusion 규모로 키운 것. T가 병목. */
+const FUS = { he: 0.25, eu: 16 };                                // Helium 플라즈마 가동률(원자로 1기 기준) · Europium ingot / 시간
+function fuelRates() {
+  const heRuns = FUS.he * 72000 / 144, T = heRuns * 1000, dist = T / 10000, lea = dist * 200000, na = lea / 24000 * 32000;
+  return { heRuns, D: heRuns * 1000, T, dist, lea, na, air: na / 24000 * 32000, nr: na / 24000 * 3, es: lea / 24000 * 3, euRuns: FUS.eu, dSur: dist * 50000 - heRuns * 1000 };
+}
+function fuelMachines() {
+  const F = fuelRates();
+  return mk([
+    ['GC', 'Gas Collector (Air)', 'LV', 30, false, 'Gas', [['Air 10,000 / 200t (EMI)', F.air / 10000, 200]]],
+    ['LN', 'LCR · Netherrack · End Stone', 'LV', 20, true, 'LCR-S', [['easy_netherrack', F.nr / 32, 2400], ['easy_endstone', F.es / 32, 2400]]],
+    ['MC', 'Macerator · Netherrack · End Stone', 'LV', 30, false, 'Mac', [['→ dust', F.nr + F.es, 150]]],
+    ['MN', 'Mixer · Nether Air', 'HV', 256, false, 'Mix-NA', [['nether_air_mix', F.na / 24000, 1200]]],
+    ['ME', 'Mixer · Ender Air', 'HV', 256, false, 'Mix-EA', [['ender_air_mix', F.lea / 24000, 1200]]],
+    ['VF', 'Vacuum Freezer · EV 해치 2', 'IV', 7680, true, 'VF', [['liquid_ender_air', F.lea / 4000, 80]]],
+    ['DT', 'Distillation Tower · EV 해치 2', 'IV', 7680, true, 'DT', [['distill_liquid_ender_air', F.dist, 2000]]],
+  ]);
+}
+const PWM_F = () => fuelMachines().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+function viewFusionFuel() {
+  const F = fuelRates();
+  return `
+  <h2>3 · Naquadah · Fusion</h2>${subnav()}
+  <p class="lead"><b>Fusion 원소를 상시 공급</b>합니다. MK1이 쓰는 원료는 D · T(Helium 플라즈마)와 Neodymium · Hydrogen(Europium)이고, <b>Tritium이 병목</b>입니다 — Liquid Ender Air 200,000mB를 증류해야 T 10,000이 나옵니다. 아래는 원자로 1기를 Helium 플라즈마에 ${Math.round(FUS.he * 100)}% 쓰는 기준이고, 비율을 올리면 전부 같은 배수로 늡니다.</p>
+  <div class="tiles">
+    ${tile('Helium 플라즈마', fmt(F.heRuns, 0), '회 / 시간', `원자로 1기 ${Math.round(FUS.he * 100)}% · D · T 각 ${fmt(F.T / 1000, 0)}B`)}
+    ${tile('Liquid Ender Air', fmt(F.lea / 1000, 0), 'B / 시간', `증류 ${fmt(F.dist, 1)}회 · Ender Air 같은 양`)}
+    ${tile('남는 Deuterium', fmt(F.dSur / 1000, 0), 'B / 시간', 'T 기준으로 돌리면 D는 5배 남음 → 탱크 · 다른 플라즈마')}
+    ${tile('Europium', FUS.eu, 'ingot / 시간', `원자로 ${fmt(FUS.eu * 576 / 72000 * 100, 0)}% · Neodymium ${FUS.eu}`)}
+  </div>
+  <div class="card"><h3>흐름</h3>
+    ${flow({
+      label: 'Fusion 연료', h: 300,
+      nodes: [
+        { id: 'air', x: 10, y: 30, w: 140, t: 'Air', s: `${fmt(F.air / 1000, 0)}B · Gas Collector`, k: 'src' },
+        { id: 'nr', x: 10, y: 140, w: 140, t: 'Netherrack · End Stone', s: 'LCR (Lava + Redstone · Glowstone)', k: 'LV' },
+        { id: 'na', x: 190, y: 30, w: 150, t: 'Nether Air', s: 'Mixer HV · 1200t', k: 'HV' },
+        { id: 'ea', x: 380, y: 30, w: 150, t: 'Ender Air', s: 'Mixer HV · 1200t', k: 'HV' },
+        { id: 'le', x: 570, y: 30, w: 170, t: 'Liquid Ender Air', s: 'VF · EV 해치 2 · 80t', k: 'IV' },
+        { id: 'dt', x: 780, y: 30, w: 200, t: '증류 · EV 해치 2', s: '200,000 → D 50k · T 10k · Rn 1k', k: 'IV' },
+        { id: 'fu', x: 780, y: 170, w: 200, t: 'Fusion MK1', s: 'He 플라즈마 · Europium', k: 'GOAL' },
+        { id: 'nd', x: 570, y: 170, w: 170, t: 'Neodymium · H₂', s: 'Bastnasite · 전해', k: 'src' },
+      ],
+      edges: [{ a: 'air', b: 'na' }, { a: 'nr', b: 'na', fs: 'r', ts: 'b' }, { a: 'na', b: 'ea' }, { a: 'nr', b: 'ea', fs: 'r', ts: 'b', dash: true }, { a: 'ea', b: 'le' }, { a: 'le', b: 'dt' }, { a: 'dt', b: 'fu', l: 'D · T' }, { a: 'nd', b: 'fu' }],
+    })}
+    ${tierLegend(['LV', 'HV', 'IV', 'GOAL', 'src'])}
+  </div>
+  <div class="card"><h3>기계 대수</h3>${mTable(fuelMachines())}
+    <p class="sub" style="margin:10px 0 0">Gas Collector의 Air 레시피 양 · 시간은 ${EMI}. 팩에는 Tritium을 다른 곳에서 얻는 경로가 있을 수 있습니다 — Nuclear Fission 챕터 ${EMI}. Europium은 IV 페이지 Bastnasite(Ore Factory EV)의 Neodymium.</p></div>`;
+}
+
+function buildNaqChunk() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
+  lk.me([[0, 0, 6], [0, 0, 14]]); lk.me([[1, 0, 6], [15, 0, 6]]); lk.me([[1, 0, 13], [15, 0, 13]]);
+  // 북: Raw → Crushed → Ore Plant → LCR
+  unit(1, 0, 1, { col: '--s2', label: 'Mac', tip: 'HV Macerator|Raw Naquadah → Crushed. 입력은 Nether Star 청크에서 레이저' });
+  lk.node(1, 1, 1, 'Mac', ['↓ Raw Naquadah IN (Nether Star 청크)', 'Crushed OUT → Ore Plant']);
+  multi(3, 1, 5, 5, 5, '--s7', 'Ore Plant', 'Ore Processing Plant (팩 · IV)|Crushed Naquadah 10 + Persulfate → Naq 19 · Ba 7 · S 5 · Enriched 5. 크기는 EMI 확인. 남쪽 ME Output Bus');
+  lk.laser([1, 1, 1], [3, 1, 2]); lk.part(5, 0, 5, 's', 'meout', 'Ore Plant 출력 → 주 네트워크'); lk.part(3, 0, 3, 'w', 'stock', 'Sodium Persulfate (Stocking)');
+  multi(9, 1, 3, 3, 3, '--s8', 'LCR-N', 'LCR · IV 해치 2 (LuV)|naquadah_separation 600t. 서쪽 Pattern Provider(Naq 6 + Fluoroantimonic 1000) · 동쪽 ME Output Hatch → 용액 서브넷');
+  lk.part(10, 0, 3, 's', 'pp', 'Naquadah 6 + Fluoroantimonic 1000 패턴 (LuV 뒤 Pattern Buffer)');
+  lk.part(11, 1, 2, 'e', 'meout', 'Impure Enriched · Impure Naquadria → 용액 서브넷'); lk.part(11, 0, 2, 'e', 'meout', 'TiF₃ → 주 네트워크 (ME Output Bus)');
+  // 용액 서브넷 (동쪽 열)
+  lk.sub([[12, 1, 2], [12, 1, 4]]); lk.sub([[12, 0, 4], [15, 0, 4]]);
+  ['ImpE', 'ImpQ', 'AcE', 'AcQ'].forEach((k, i) => { unit(12 + i, 0, 3, { col: '--muted', label: k, tip: `Super Tank · ${['Impure Enriched', 'Impure Naquadria', 'Acidic Enriched', 'Acidic Naquadria'][i]} 용액|용액 서브넷` }); lk.part(12 + i, 0, 3, 's', 'sbus', `${k} 탱크`); });
+  lk.blk(15, 0, 5, 'iface', '용액 서브넷 경계 — 단일 블록 원심 · Mixer는 여기서 LaserIO로 받음', 'IF');
+  // 가운데: 원심 · Mixer · 증류 (용액 사이클)
+  [['Cent-EV', '--s5', 'EV Centrifuge · impure_*_solution_separation 400t|→ Trinium Sulfide · Indium Phosphide · SbF₃ + Solution'], ['Mix-HV', '--s2', 'HV Mixer · *_solution_separation 100t|Solution 1000 + 황산 2000 → Acidic 3000'], ['Cent-HV', '--s2', 'HV Centrifuge · acidic_*_separation 100t|→ Sulfate 6 + Waste 2000 + F 500']]
+    .forEach(([l, c, t], i) => { unit(12 + i, 0, 8, { col: c, label: l, tip: t }); lk.node(12 + i, 1, 8, l, ['↓ 용액 IN (IF에서)', 'OUT → 다음 단계 · 고체는 주 네트워크']); lk.part(12 + i, 0, 8, 's', 'iface', `${l} 고체 출력 자동 배출`); });
+  lk.laser([15, 1, 5], [12, 1, 8]); lk.laser([12, 1, 8], [13, 1, 8]); lk.laser([13, 1, 8], [14, 1, 8]); lk.laser([14, 1, 8], [15, 1, 5]);
+  lk.me([[12, 0, 9], [14, 0, 9]]); lk.me([[13, 0, 10], [13, 0, 12]]);
+  multi(8, 8, 3, 3, 4, '--s2', 'DT-W', 'Distillation Tower · HV 해치 2|*_waste_separation 300t → Solution 250 · 황산 500 되돌림 + Barium · Gallium Sulfide');
+  lk.laser([14, 1, 8], [9, 4, 9]); lk.node(9, 4, 9, 'DT-W', ['↓ Waste IN', 'Solution OUT → IF']); lk.part(9, 0, 10, 's', 'meout', '부산물 → 주 네트워크');
+  // 남: EBF 셋 + VF + Fluoroantimonic
+  multi(1, 9, 3, 3, 4, '--s7', 'EBF-Enr', 'EBF · Naquadah 코일 + EV 해치 2 (IV · 7,500K)|enriched_naquadah_sulfate 500t · Enriched Sulfate 6 + H₂ 2000');
+  multi(5, 9, 3, 3, 4, '--s8', 'EBF-Tr', 'EBF · Naquadah 코일 + IV 해치 2 (LuV · 7,600K)|trinium_sulfide_separation 750t · TrS 2 + Zinc');
+  [[2, 11, 'Enriched Sulfate 6 + H₂ 2000'], [6, 11, 'Trinium Sulfide 2 + Zinc 1']].forEach(([x, z, w]) => lk.part(x, 0, z, 's', 'pp', w + ' 패턴'));
+  lk.node(2, 4, 10, 'EBF-Enr', ['Hot OUT → VF']); lk.node(6, 4, 10, 'EBF-Tr', ['Hot OUT → VF']);
+  multi(9, 12, 3, 3, 3, '--s8', 'VF', 'Vacuum Freezer · IV 해치 2|Hot Enriched Naquadah (VA[IV]) · Hot Trinium. ME Output Bus');
+  lk.laser([2, 4, 10], [10, 3, 13]); lk.laser([6, 4, 10], [10, 3, 13]); lk.node(10, 3, 13, 'VF', ['↓ Hot ingot IN']); lk.part(11, 0, 13, 'e', 'meout', 'ingot → 주 네트워크');
+  unit(5, 0, 14, { col: '--s2', label: 'EBF-Ti', tip: 'EBF · titanium_trifluoride_separation (1941K · HV) — 기존 EBF 하나를 씀|TiF₃ 4 + H₂ 3000 → Ti 1 + HF 3000 (자리 표시)' });
+  unit(6, 0, 14, { col: '--s2', label: 'CR-F', tip: 'HV CR · fluoroantimonic_acid 300t|SbF₃ 4 + HF 4000 → Fluoroantimonic 1000 + H₂ 2000' });
+  unit(7, 0, 14, { col: '--s3', label: 'SbF3', tip: 'LV CR · antimony_trifluoride|Sb₂O₃ 5 + HF 6000 → SbF₃ 8' });
+  [5, 6, 7].forEach(x => lk.part(x, 0, 14, 'n', 'pp', ['TiF₃', 'Fluoroantimonic', 'SbF₃'][x - 5] + ' 패턴'));
+  unit(2, 0, 14, { col: '--good', label: 'Naq', tip: 'Naquadah 창고' }); unit(3, 0, 14, { col: '--good', label: 'EnrN', tip: 'Enriched Naquadah 창고' }); unit(4, 0, 14, { col: '--good', label: 'Tr', tip: 'Trinium 창고' });
+  [2, 3, 4].forEach(x => lk.part(x, 0, 14, 'n', 'sbus', ['Naquadah', 'Enriched', 'Trinium'][x - 2] + ' 창고'));
+  lk.blk(1, 0, 12, 'req', 'Enriched Naquadah 64 · Trinium 32 · Fluoroantimonic 8B 유지 (Naquadah dust는 분리 몫만 패턴으로)', 'Req');
+  unit(14, 0, 15, { col: '--s8', label: 'LuV Tr', tip: 'iv_transformer (승압)|LCR-N · EBF-Tr · VF의 IV 해치 간선' });
+  unit(15, 0, 15, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
+  return built;
+}
+const NAQ_NETS = [
+  { n: '주 네트워크', kind: '주', what: 'Naquadah dust · Enriched · Trinium · Titanium, 부산물(Ba · S · Ga · In), Fluoroantimonic · Zinc · H₂ · 황산', edge: 'P2P → x = 0 · z = 6 · z = 13 간선', seen: '—' },
+  { n: '용액 서브넷', kind: '서브넷', what: 'Impure · Acidic 용액 4종 — 분리 한 번에 4,000mB씩 나와 사이클을 돎', edge: 'LCR-N ME Output Hatch → 탱크 4개 → IF → 원심 · Mixer · 원심 · 증류 (레이저) → IF', seen: 'IF Storage Bus로 잔량만. 용액은 네 단계를 돌며 한 기계가 다음 기계의 입력이라 주 네트워크 채널을 쓰지 않게' },
+  { n: 'LaserIO', kind: '레이저', what: 'Raw → Mac → Ore Plant, 용액 사이클, Hot ingot → VF', edge: '1:1', seen: '—' },
+  { n: 'Stocking · Pattern Buffer', kind: 'GT ME 해치', what: 'Ore Plant의 Persulfate(Stocking), LCR-N · EBF의 패턴(LuV부터 Pattern Buffer)', edge: 'IV · LuV 게이트 뒤 교체', seen: '—' },
+];
+function viewNaq3d() {
+  return `
+  <h2>3 · Naquadah · Fusion</h2>${subnav()}
+  <p class="lead">Naquadah 정제 청크입니다. 북쪽이 Raw → Ore Plant → 분리 LCR, 동쪽이 <b>용액 서브넷</b>(Impure · Acidic 용액 4종)과 그 사이클을 도는 원심 · Mixer, 남쪽이 EBF 셋과 Fluoroantimonic 재생입니다.</p>
+  ${layBlock('Naquadah 청크 3D 배치도', [['--s8', 'IV 해치 2개 (LuV)'], ['--s7', 'EV 해치 2개 (IV) · Ore Plant'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s3', 'LV 기계'], ['--muted', '용액 탱크'], ['--good', '결과 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_N(), 6))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(NAQ_NETS)}</div>`;
+}
+function buildFuelChunk() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built), M = Object.fromEntries(fuelMachines().map(g => [g.id, g.n]));
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [15, 0, 15]]); lk.me([[0, 0, 7], [0, 0, 14]]);
+  for (let i = 0; i < M.GC; i++) unit(1 + i, 0, 1, { col: '--s3', label: 'Gas' + (i + 1), tip: 'LV Gas Collector · Air|→ 공기 서브넷' });
+  multi(1, 3, 3, 3, 3, '--s7', 'LCR-S', 'LCR · MV 해치 2|easy_netherrack · easy_endstone (20 EU/t)');
+  unit(5, 0, 4, { col: '--s3', label: 'Mac', tip: 'Macerator|Netherrack · End Stone → dust' }); lk.node(5, 1, 4, 'Mac', ['↓ 블록 IN (LCR)', 'dust OUT → Mixer 노드']); lk.laser([2, 3, 4], [5, 1, 4]);
+  for (let i = 0; i < M.MN; i++) unit(7 + i, 0, 1, { col: '--s2', label: 'NA' + (i + 1), tip: 'HV Mixer · nether_air_mix|Netherrack dust 3 + Air 32,000 → Nether Air 24,000' });
+  for (let i = 0; i < M.ME; i++) unit(7 + i, 0, 3, { col: '--s2', label: 'EA' + (i + 1), tip: 'HV Mixer · ender_air_mix|End Stone dust 3 + Nether Air 32,000 → Ender Air 24,000' });
+  // 공기 서브넷: Air · Nether Air · Ender Air (유량이 커서 주 네트워크와 분리)
+  lk.sub([[1, 0, 2], [12, 0, 2]]); lk.sub([[6, 0, 2], [6, 0, 6]]); lk.sub([[7, 0, 4], [12, 0, 4]]);
+  for (let i = 0; i < M.MN; i++) lk.part(7 + i, 0, 1, 'n', 'pp', 'Nether Air 패턴 — Air는 공기 서브넷 Interface에서, dust는 주 네트워크에서');
+  for (let i = 0; i < M.ME; i++) lk.part(7 + i, 0, 3, 's', 'pp', 'Ender Air 패턴');
+  ['Air', 'NAir', 'EAir'].forEach((k, i) => { unit(13 + i, 0, 2, { col: '--muted', label: k, tip: `Super Tank · ${k}|공기 서브넷 저장소` }); lk.part(13 + i, 0, 2, 'w', 'sbus', `${k} 탱크`); });
+  lk.sub([[12, 0, 1], [15, 0, 1]]);
+  multi(7, 7, 3, 3, 3, '--s7', 'VF', 'Vacuum Freezer · EV 해치 2 (IV)|liquid_ender_air 80t · Ender Air는 ME Stocking Input Hatch로 공기 서브넷에서 바로');
+  lk.part(7, 0, 8, 'w', 'stock', 'Ender Air (공기 서브넷 재고)'); lk.sub([[6, 0, 8], [6, 0, 8]]);
+  multi(11, 7, 3, 3, 10, '--s7', 'DT', 'Distillation Tower · EV 해치 2 (IV) · 10층|distill_liquid_ender_air 2000t. 층마다 ME Output Hatch → 기체 서브넷');
+  lk.laser([8, 3, 8], [12, 1, 7]); lk.node(8, 3, 8, 'VF', ['Liquid Ender Air OUT → DT']); lk.node(12, 1, 7, 'DT 입력', ['↓ LEA IN']);
+  for (let y = 1; y <= 8; y++) lk.part(13, y, 9, 'e', 'meout', `증류탑 ${y}층`);
+  lk.sub([[14, 1, 9], [14, 8, 9]]); lk.sub([[14, 0, 9], [14, 0, 12]]); lk.sub([[8, 0, 12], [15, 0, 12]]);
+  ['D', 'T', 'He', 'Rn', 'Xe', 'Kr', 'NO₂'].forEach((g, i) => { unit(8 + i, 0, 13, { col: g === 'D' || g === 'T' ? '--s5' : '--muted', label: g, tip: `Super Tank · ${g}|기체 서브넷 — D · T는 Fusion으로` }); lk.part(8 + i, 0, 13, 'n', 'sbus', `${g} 탱크`); });
+  lk.blk(15, 0, 13, 'p2p', 'D · T → Fusion MK1 입력 해치 (ME P2P · 기체 서브넷 쪽)', 'P2P→Fu');
+  lk.blk(1, 0, 13, 'req', 'D · T 각 64B 유지 → 모자라면 Gas Collector부터 연쇄', 'Req');
+  unit(3, 0, 14, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer|VF · DT의 EV 해치 간선' }); unit(4, 0, 14, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
+  return built;
+}
+const FUEL_NETS = [
+  { n: '공기 서브넷', kind: '서브넷', what: 'Air · Nether Air · Ender Air — 시간당 수백 B라 주 네트워크 저장소를 채우지 않게', edge: 'Gas Collector → 탱크 → Mixer 두 단 → VF (Stocking Input Hatch)', seen: '볼 필요 없음. 탱크 잔량은 Level Emitter로 Gas Collector 켜고 끄기' },
+  { n: '기체 서브넷', kind: '서브넷', what: '증류 출력 8종 — D · T는 Fusion으로, Rn · Xe는 주 네트워크가 가져감', edge: '증류탑 층마다 ME Output Hatch → 탱크 7개 · Fusion 쪽 ME P2P', seen: '탱크 Interface Storage Bus (우선순위 낮게)' },
+  { n: '주 네트워크', kind: '주', what: 'Lava · Redstone · Glowstone, Radon · Xenon 결과', edge: 'P2P → 남쪽 · 서쪽 간선', seen: '—' },
+];
+function viewFuel3d() {
+  const F = fuelRates();
+  return `
+  <h2>3 · Naquadah · Fusion</h2>${subnav()}
+  <p class="lead">Fusion 연료 청크입니다(Helium 플라즈마 ${Math.round(FUS.he * 100)}% 기준 — Liquid Ender Air ${fmt(F.lea / 1000, 0)}B / 시간). <b>공기 서브넷</b>이 Air → Nether Air → Ender Air를, <b>기체 서브넷</b>이 증류 출력을 들고, D · T만 ME P2P로 Fusion 원자로에 넘어갑니다.</p>
+  ${layBlock('Fusion 연료 청크 3D 배치도', [['--s7', 'EV 해치 2개 (IV)'], ['--s2', 'HV Mixer'], ['--s3', 'LV 기계'], ['--s5', 'D · T 탱크'], ['--muted', '기체 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_F(), 6))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(FUEL_NETS)}</div>
+  <div class="card"><h3>전력</h3>${pwCard(PWM_F(), 6)}</div>`;
+}
+function viewNaqPower() {
+  return `
+  <h2>3 · Naquadah · Fusion</h2>${subnav()}
+  <p class="lead">Naquadah 청크에 <b>LuV 64A</b>를 배정합니다. LuV 레시피(분리 · Trinium)는 IV 해치 2개 멀티블럭입니다.</p>
+  ${pwCard(PWM_N(), 6)}`;
+}
+
+/* ---------- 5 패시브 · ZPM 준비 ----------
+   ZPM 부품: Plate = Naquadah Alloy, Cable = Vanadium-Gallium (jar), 초전도 = Dragonsteel (팩: W 4 + MgB₂ 8 + Cd 2, 7100K · VA[ZPM] 1800t).
+   Mixer: naquadah_alloy Naq 2 + Osmiridium 1 + Trinium 2 → 4 (IV 400t), osmiridium Os 1 + Ir 3 → 4 (LuV 300t).
+   blast: Naquadah Alloy 7200K · VA[LuV] 1000t, Osmiridium 4500K · VA[LuV] 900t, Europium 6000K · VA[IV] 180t. 피복은 LuV와 같음(PPS · PVC · SiR). */
+const ZPM_H = { nqa: 16, osm: 8, drg: 16, vg: 32 };
+function zpmPrep() {
+  const H = ZPM_H;
+  return mk([
+    ['MX', 'Mixer (LuV) · Osmiridium · Naq Alloy', 'LuV', 30720, false, 'Mix', [['Naquadah Alloy', H.nqa / 4, 400], ['Osmiridium', H.osm / 4, 300], ['Dragonsteel dust (EMI)', H.drg / 14, 400], ['Vanadium-Gallium', H.vg / 4, 400]]],
+    ['EL', 'EBF · Naq 코일 + IV 해치 2 (LuV · 7,600K)', 'LuV', 30720, true, 'EBF-L', [['Naquadah Alloy 7200K', H.nqa, 1000], ['Osmiridium 4500K', H.osm, 900], ['Vanadium-Gallium 4500K (EV)', H.vg, 1200]]],
+    ['EZ', 'EBF · Naq 코일 + LuV 해치 2 (ZPM · 7,700K)', 'ZPM', 122880, true, 'EBF-Z', [['Dragonsteel 7100K (ZPM)', H.drg, 1800]]],
+    ['VF', 'Vacuum Freezer · IV 해치 2', 'LuV', 30720, true, 'VF', [['Hot ingot 전부', H.nqa + H.osm + H.drg + H.vg, 300]]],
+  ]);
+}
+const PWM_Z = () => zpmPrep().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+function viewZpmMetal() {
+  const H = ZPM_H;
+  return `
+  <h2>5 · 패시브 (ZPM 준비)</h2>${subnav()}
+  <p class="lead">ZPM 진입 재료입니다 — plate <b>Naquadah Alloy</b>, 케이블 <b>Vanadium-Gallium</b>, 초전도 <b>Dragonsteel</b>, 그리고 Naquadah Alloy에 들어가는 <b>Osmiridium</b>. 해치 2개 기준: Naquadah Alloy · Osmiridium(VA[LuV])은 Naquadah 코일 + IV 해치 2개, Dragonsteel(VA[ZPM])만 LuV 해치 2개. 케이블 피복은 LuV와 같아서(PPS · PVC · Silicone Rubber) 새 화학은 없고 IV · EV 페이지 라인을 늘립니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>시간당 목표</h3>${hbar([['Naquadah Alloy', H.nqa, 'ZPM Hull · 부품 plate'], ['Vanadium-Gallium', H.vg, 'ZPM 케이블'], ['Dragonsteel', H.drg, 'ZPM 초전도 (Mechanics)'], ['Osmiridium', H.osm, 'Naquadah Alloy · LuV Voltage Coil']].map(([a, v, d]) => ({ label: a, sub: d, value: v, color: 'var(--s8)', text: fmt(v, 0) + ' ingot' })), { cols: ['재료', '/ 시간'], noAxis: true })}</div>
+    <div class="card"><h3>원료</h3><ul class="pts">
+      <li>Naquadah Alloy 16 = Naquadah 8 + Osmiridium 4 + Trinium 8 — Trinium ${fmt(naqRates(S.nsN).tr, 1)} / 시간(3 탭)이라 <b>Trinium이 병목</b>. Naquadah 분리 몫을 늘리면 같이 늡니다.</li>
+      <li>Osmiridium 8 = Osmium 2 + Iridium 6 — IV 페이지 정제 시간당 각 ${fmt(47 / 7, 1)}.</li>
+      <li>Dragonsteel: Tungsten 4 · Magnesium Diboride 8 · Cadmium 2 (팩). MgB₂ 2500K · VA[HV].</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>기계 대수</h3>${mTable(zpmPrep())}</div>`;
+}
+function buildZpmPrep() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  lk.blk(0, 0, 8, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[0, 0, 6], [0, 0, 7]]); lk.me([[0, 0, 5], [15, 0, 5]]);
+  multi(1, 1, 3, 3, 4, '--s8', 'EBF-L', 'EBF · Naquadah 코일 + IV 해치 2 (LuV · 7,600K)|Naquadah Alloy · Osmiridium · Vanadium-Gallium. 남쪽 ME Pattern Buffer (LuV)');
+  multi(5, 1, 3, 3, 4, '--s4', 'EBF-Z', 'EBF · Naquadah 코일 + LuV 해치 2 (ZPM · 7,700K)|Dragonsteel 1800t. Pattern Buffer Proxy로 EBF-L과 패턴 공유');
+  multi(9, 1, 3, 3, 3, '--s8', 'VF', 'Vacuum Freezer · IV 해치 2|Hot ingot 전부. ME Output Bus');
+  unit(13, 0, 1, { col: '--s8', label: 'Mix', tip: 'LuV Mixer (또는 GCYM Large Mixer + IV 해치 2)|Osmiridium · Naquadah Alloy · Dragonsteel · VG dust' });
+  lk.part(2, 0, 3, 's', 'pbuf', 'EBF-L 패턴 + 입력 (ME Pattern Buffer)'); lk.part(6, 0, 3, 's', 'proxy', 'EBF-Z → EBF-L의 Pattern Buffer 공유'); lk.me([[2, 0, 4], [2, 0, 4]]); lk.me([[6, 0, 4], [6, 0, 4]]);
+  lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]);
+  lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과는 같은 면으로'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.node(2, 4, 2, 'EBF-L', ['Hot → VF']); lk.node(6, 4, 2, 'EBF-Z', ['Hot → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot']);
+  lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
+  lk.blk(15, 0, 4, 'req', 'Naquadah Alloy 128 · VG 256 · Dragonsteel 128 · Osmiridium 64 유지', 'Req');
+  unit(14, 0, 7, { col: '--s4', label: 'ZPM Tr', tip: 'luv_transformer (승압)|EBF-Z의 LuV 해치 간선' }); unit(15, 0, 7, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
+  return built;
+}
+function viewZpm3d() {
+  return `
+  <h2>5 · 패시브 (ZPM 준비)</h2>${subnav()}
+  <p class="lead">LuV부터 <b>ME Pattern Buffer</b>를 씁니다 — 패턴과 입력 버스 · 해치가 한 칸이라 EBF 입력이 섞이지 않고, <b>Proxy</b>로 두 번째 EBF가 같은 버퍼를 공유합니다(GTNH식 멀티블럭 자동화).</p>
+  ${layBlock('ZPM 준비 청크 3D 배치도', [['--s8', 'IV 해치 2개 (LuV)'], ['--s4', 'LuV 해치 2개 (ZPM)']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'proxy', 'pp', 'meout', 'p2p', 'req']) + pwLegend(PWM_Z(), 6))}
+  <div class="card"><h3>전력</h3>${pwCard(PWM_Z(), 6)}</div>`;
+}
+
 /* ---------- 5 ZPM 준비 ---------- */
 function viewNext() {
   const temps = [
@@ -389,7 +691,7 @@ function viewNext() {
     ['Naquadah Alloy · Trinium', 7200, 'Naquadah · LuV 해치 2', 7700], ['Naquadria', 9000, 'Trinium · ZPM 해치 2', 9601],
   ];
   return `
-  <h2>5 · ZPM 준비</h2>
+  <h2>6 · ZPM 준비</h2>
   <p class="lead">ZPM 부품 8종은 Assembly Line <b>24,000 EU/t — LuV 전압</b>입니다. 재료는 <b>Osmiridium · Europium · Samarium Magnetic · Vanadium-Gallium</b>. ZPM 해치(Assembly Line 122,880)는 LuV 해치 2개 Assembly Line ${EMI} 또는 LuV 트랜스포머.</p>
   <div class="card"><h3>코일과 blast 온도</h3>
     <p class="sub">LuV에서 <b>Naquadah 코일</b>(LuV Assembler: HSS-G Frame · Naquadah 2x wire 8 · Osmium foil 8 · Niobium Nitride foil 8 · Tungstensteel 144)을 만들고 LuV 해치 2개로 7,700K. <a href="common.html#coil">공용 › 코일 사다리</a>.</p>
@@ -412,14 +714,14 @@ function viewNext() {
   </div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, naq: viewNaq, fusion: viewFusionFuel, '3d': viewNaq3d, fuel3d: viewFuel3d, power: viewNaqPower }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewZpmMetal, '3d': viewZpm3d }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'luv-web',
   save: () => ({ nsN: S.nsN }),
   load: o => { if ([2, 4, 8].includes(o.nsN)) S.nsN = o.nsN; },
-  layouts: [[viewPassive3d, () => pwWire(buildStarChunk(), PWM(), 6, 'IV Tr')]],
+  layouts: [[viewPassive3d, () => pwWire(buildStarChunk(), PWM(), 6, 'IV Tr')], [viewNaq3d, () => pwWire(buildNaqChunk(), PWM_N(), 6, 'Conv')], [viewFuel3d, () => pwWire(buildFuelChunk(), PWM_F(), 6, 'Conv')], [viewZpm3d, () => pwWire(buildZpmPrep(), PWM_Z(), 6, 'Conv')]],
   afterRender: () => document.querySelectorAll('#nsn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.ns === S.nsN)),
 });
 document.getElementById('nsn').addEventListener('click', e => {
