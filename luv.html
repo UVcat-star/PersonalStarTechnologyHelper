@@ -471,9 +471,9 @@ function buildStarChunk() {
   lk.blk(13, 0, 0, 'iface', '가루 유체 서브넷 경계 — Extractor가 채우고 Autoclave 노드가 뺌', 'IF');
   lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [12, 0, 15]]); lk.me([[14, 0, 1], [14, 0, 15]]); lk.part(14, 0, 0, 'w', 'sbus', '주 네트워크 → 가루 유체 서브넷 IF (읽기)');
   lk.me([[2, 0, 8], [13, 0, 8]]); lk.me([[5, 0, 6], [5, 0, 7]]); lk.me([[12, 0, 6], [12, 0, 7]]); lk.me([[11, 0, 6], [11, 0, 7]]); lk.me([[5, 0, 9], [5, 0, 11]]);
-  ELEM.forEach((e, i) => lk.part(3 + i * 3, 0, 1, 's', 'pp', `${e.p} 가루 → 유체 패턴 (결과는 IF 쪽으로)`));
-  lk.part(5, 0, 5, 's', 'pp', 'Impure Nether Star 패턴 (Infused 4종 — Autoclave 노드가 Press 입력으로 모음)');
-  lk.part(8, 0, 7, 's', 'pp', 'Nether Star 패턴 (Impure + 폭약)'); lk.part(12, 0, 5, 's', 'pp', 'Blizz · Blitz · Basalz 가루 패턴'); lk.part(11, 0, 5, 's', 'sbus', 'Nether Star 버퍼');
+  ELEM.forEach((e, i) => lk.single(3 + i * 3, 0, 1, 's', `${e.p} 가루 → 유체 패턴`));
+  lk.single(5, 0, 5, 's', 'Impure Nether Star 패턴 (Infused 4종 — Autoclave 노드가 Press 입력으로 모음)');
+  lk.part(8, 0, 7, 's', 'pp', 'Nether Star 패턴 (Impure + 폭약)'); lk.single(12, 0, 5, 's', 'Blizz · Blitz · Basalz 가루 패턴'); lk.part(11, 0, 5, 's', 'sbus', 'Nether Star 버퍼');
   lk.part(4, 0, 11, 'e', 'pbuf', 'Dimensional Destabiliser 입력 — Shard 1 + PCB Coolant 8000 (Pattern Buffer)');
   lk.sub([[6, 0, 13], [8, 0, 13]]); lk.part(6, 0, 11, 's', 'sbus', 'PCB Coolant (냉각 서브넷)'); lk.part(7, 0, 11, 's', 'sbus', 'Hot PCB Coolant (냉각 서브넷)');
   lk.blk(13, 0, 8, 'req', 'Nether Star 4 · Energized Shard 16 유지 — 남는 Shard만 Destabiliser로', 'Req');
@@ -647,7 +647,7 @@ function buildNaqChunk() {
   unit(5, 0, 14, { col: '--s2', label: 'EBF-Ti', tip: 'EBF · titanium_trifluoride_separation (1941K · HV) — 기존 EBF 하나를 씀|TiF₃ 4 + H₂ 3000 → Ti 1 + HF 3000 (자리 표시)' });
   unit(6, 0, 14, { col: '--s2', label: 'CR-F', tip: 'HV CR · fluoroantimonic_acid 300t|SbF₃ 4 + HF 4000 → Fluoroantimonic 1000 + H₂ 2000' });
   unit(7, 0, 14, { col: '--s3', label: 'SbF3', tip: 'LV CR · antimony_trifluoride|Sb₂O₃ 5 + HF 6000 → SbF₃ 8' });
-  [5, 6, 7].forEach(x => lk.part(x, 0, 14, 'n', 'pp', ['TiF₃', 'Fluoroantimonic', 'SbF₃'][x - 5] + ' 패턴'));
+  [5, 6, 7].forEach(x => lk.single(x, 0, 14, 'n', ['TiF₃', 'Fluoroantimonic', 'SbF₃'][x - 5] + ' 패턴'));
   unit(2, 0, 14, { col: '--good', label: 'Naq', tip: 'Naquadah 창고' }); unit(3, 0, 14, { col: '--good', label: 'EnrN', tip: 'Enriched Naquadah 창고' }); unit(4, 0, 14, { col: '--good', label: 'Tr', tip: 'Trinium 창고' });
   [2, 3, 4].forEach(x => lk.part(x, 0, 14, 'n', 'sbus', ['Naquadah', 'Enriched', 'Trinium'][x - 2] + ' 창고'));
   lk.blk(1, 0, 12, 'req', 'Enriched Naquadah 64 · Trinium 32 · Fluoroantimonic 8B 유지 (Naquadah dust는 분리 몫만 패턴으로)', 'Req');
@@ -683,8 +683,8 @@ function buildFuelChunk() {
   for (let i = 0; i < M.ME; i++) unit(7 + i, 0, 3, { col: '--s2', label: 'EA' + (i + 1), tip: 'HV Mixer · ender_air_mix|End Stone dust 3 + Nether Air 32,000 → Ender Air 24,000' });
   // 공기 서브넷: Air · Nether Air · Ender Air (유량이 커서 주 네트워크와 분리)
   lk.sub([[1, 0, 2], [12, 0, 2]]); lk.sub([[6, 0, 2], [6, 0, 6]]); lk.sub([[7, 0, 4], [12, 0, 4]]);
-  for (let i = 0; i < M.MN; i++) lk.part(7 + i, 0, 1, 'n', 'pp', 'Nether Air 패턴 — Air는 공기 서브넷 Interface에서, dust는 주 네트워크에서');
-  for (let i = 0; i < M.ME; i++) lk.part(7 + i, 0, 3, 's', 'pp', 'Ender Air 패턴');
+  for (let i = 0; i < M.MN; i++) lk.single(7 + i, 0, 1, 'n', 'Nether Air 패턴 — Air는 공기 서브넷 Interface에서, dust는 주 네트워크에서');
+  for (let i = 0; i < M.ME; i++) lk.single(7 + i, 0, 3, 's', 'Ender Air 패턴');
   ['Air', 'NAir', 'EAir'].forEach((k, i) => { unit(13 + i, 0, 2, { col: '--muted', label: k, tip: `Super Tank · ${k}|공기 서브넷 저장소` }); lk.part(13 + i, 0, 2, 'w', 'sbus', `${k} 탱크`); });
   lk.sub([[12, 0, 1], [15, 0, 1]]);
   multi(7, 7, 3, 3, 3, '--s7', 'VF', 'Vacuum Freezer · EV 해치 2 (IV)|liquid_ender_air 80t · Ender Air는 ME Stocking Input Hatch로 공기 서브넷에서 바로');
@@ -764,7 +764,7 @@ function buildZpmPrep() {
   unit(13, 0, 1, { col: '--s8', label: 'Mix', tip: 'LuV Mixer (또는 GCYM Large Mixer + IV 해치 2)|Osmiridium · Naquadah Alloy · Dragonsteel · VG dust' });
   lk.part(2, 0, 3, 's', 'pbuf', 'EBF-L 패턴 + 입력 (ME Pattern Buffer)'); lk.part(6, 0, 3, 's', 'proxy', 'EBF-Z → EBF-L의 Pattern Buffer 공유'); lk.me([[2, 0, 4], [2, 0, 4]]); lk.me([[6, 0, 4], [6, 0, 4]]);
   lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]);
-  lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과는 같은 면으로'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.single(13, 0, 1, 's', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
   lk.node(2, 4, 2, 'EBF-L', ['Hot → VF']); lk.node(6, 4, 2, 'EBF-Z', ['Hot → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot']);
   lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
   lk.blk(15, 0, 4, 'req', 'Naquadah Alloy 128 · VG 256 · Dragonsteel 128 · Osmiridium 64 유지', 'Req');

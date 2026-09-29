@@ -518,7 +518,7 @@ function buildPbiChunk() {
   [[2, 'Diaminobenzidine'], [4, 'Diphenyl Isophtalate'], [6, 'Polybenzimidazole'], [11, 'Phthalic Acid']].forEach(([x, n]) => { lk.part(x, 0, 3, 's', 'stock', `LCR ${n} — 서브넷 재고(원료 + 중간재)를 입력으로`); lk.part(x, 1, 1, 'n', 'meout', `LCR ${n} 출력 → 중간재 서브넷`); });
   ['DClBd', 'DAB', 'DPIP', 'Phth'].forEach((t, i) => { unit(8 + i, 0, 5, { col: '--muted', label: t, tip: `Super Tank · ${t}|중간재 서브넷 저장소` }); lk.part(8 + i, 0, 5, 'n', 'sbus', `${t} 탱크 (서브넷)`); });
   lk.blk(14, 0, 4, 'iface', '주 네트워크 쪽 Interface — 서브넷의 Storage Bus가 이걸 봐서 원료가 서브넷 안에서 보임', 'IF'); lk.part(13, 0, 4, 'e', 'sbus', '중간재 서브넷 → 주 네트워크 Interface (읽기)');
-  [1, 2].forEach(x => lk.part(x, 0, 6, 's', 'pp', ['Chlorobenzene', 'Nitration Mixture'][x - 1] + ' 패턴 (주 네트워크)')); lk.me([[1, 0, 7], [2, 0, 7]]);
+  [1, 2].forEach(x => lk.single(x, 0, 6, 's', ['Chlorobenzene', 'Nitration Mixture'][x - 1] + ' 패턴 (주 네트워크)')); lk.me([[1, 0, 7], [2, 0, 7]]);
   lk.node(6, 1, 6, 'DClBd', ['유체 OUT Dichlorobenzidine → 서브넷 탱크']); lk.laser([6, 1, 6], [8, 1, 5]);
   lk.node(13, 1, 5, 'PBI 내보내기', ['서브넷 PBI → 주 네트워크 PBI 탱크']); lk.laser([10, 1, 5], [13, 1, 11]);
   lk.blk(12, 0, 14, 'req', 'PBI 16B 유지 — 모자라면 Chlorobenzene 패턴부터 연쇄', 'Req');
@@ -602,7 +602,7 @@ function buildIvRefine() {
   unit(2, 0, 13, { col: '--s3', label: 'Mix-In', tip: 'Mixer · indium_concentrate|Sphalerite + Galena + H₂SO₄ 4000 → Indium Concentrate 1000' });
   unit(3, 0, 13, { col: '--s1', label: 'CR-In', tip: 'CR · indium_concentrate_separation_4x|Concentrate 4000 + Aluminium 16 → Indium' });
   unit(4, 0, 13, { col: '--s3', label: 'Mix-GaP', tip: 'Mixer · indium_gallium_phosphide|Indium + Gallium + Phosphorus → InGaP 3' });
-  [2, 3, 4].forEach(x => { lk.me([[x, 0, 12], [x, 0, 12]]); lk.part(x, 0, 13, 'n', 'pp', ['Indium Concentrate', 'Indium', 'InGaP'][x - 2] + ' 패턴 — 결과는 같은 면으로 배출'); });
+  [2, 3, 4].forEach(x => { lk.me([[x, 0, 12], [x, 0, 12]]); lk.single(x, 0, 13, 'n', ['Indium Concentrate', 'Indium', 'InGaP'][x - 2] + ' 패턴'); });
   ['Ir', 'Os', 'In', 'GaP'].forEach((k, i) => { unit(6 + i, 0, 14, { col: '--good', label: k, tip: `${k} 창고|주 네트워크 Storage Bus` }); lk.part(6 + i, 0, 14, 'n', 'sbus', `${k} 창고`); lk.me([[6 + i, 0, 12], [6 + i, 0, 13]]); });
   lk.blk(10, 0, 13, 'req', `Iridium 64 · Osmium 32 · InGaP 32 · Radon ${RADON_H}mB 재고 유지`, 'Req'); lk.me([[10, 0, 12], [10, 0, 12]]);
   unit(14, 0, 15, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer (승압)|IV 단일 블록 없음 — 해치 쪽 전력용' });
@@ -714,7 +714,7 @@ function buildLuvPrep() {
   unit(14, 0, 1, { col: '--s3', label: 'Mix-LV', tip: 'LV Mixer|Twinite · Manganese Phosphide dust' });
   [[2, 3, 'EBF-R 패턴 3종'], [6, 3, 'EBF-H 패턴 3종']].forEach(([x, z, w]) => { lk.me([[x, 0, 4], [x, 0, 4]]); lk.part(x, 0, z, 's', 'pp', `${w} (Blocking) — LuV에서 ME Pattern Buffer로 교체`); });
   lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(10, 0, 3, 's', 'meout', 'VF 출력 → 주 네트워크');
-  [13, 14].forEach(x => { lk.me([[x, 0, 2], [x, 0, 4]]); lk.part(x, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과는 같은 면으로'); });
+  [13, 14].forEach(x => { lk.me([[x, 0, 2], [x, 0, 4]]); lk.single(x, 0, 1, 's', 'Mixer 패턴'); });
   lk.node(2, 4, 2, 'EBF-R 출력', ['Hot ingot → VF']); lk.node(6, 4, 2, 'EBF-H 출력', ['Hot ingot → VF']); lk.node(10, 3, 2, 'VF 입력', ['↓ Hot ingot']);
   lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
   lk.blk(15, 0, 4, 'req', 'RPP 128 · NbTi 256 · HSS-S 64 · HSS-E 64 · Ruridit 32 · Twinite 64 · PPS 16B', 'Req');
@@ -722,7 +722,7 @@ function buildLuvPrep() {
   unit(3, 0, 11, { col: '--s3', label: 'DCB', tip: 'LV CR · dichlorobenzene|Cl 4000 + Benzene 1000 → DCB 1000 + HCl 2000' });
   unit(4, 0, 11, { col: '--s3', label: 'Na2S', tip: 'LV CR · sodium_sulfide|Na 2 + S → 3' });
   unit(6, 0, 11, { col: '--s1', label: 'PPS', tip: 'CR · polyphenylene_sulfide_from_oxygen|Na₂S 3 + DCB 1000 + O₂ 8000 → PPS 1500 + Salt 4 (전압 EMI 확인)' });
-  [3, 4, 6].forEach(x => lk.part(x, 0, 11, 's', 'pp', ['Dichlorobenzene', 'Sodium Sulfide', 'PPS'][[3, 4, 6].indexOf(x)] + ' 패턴'));
+  [3, 4, 6].forEach(x => lk.single(x, 0, 11, 's', ['Dichlorobenzene', 'Sodium Sulfide', 'PPS'][[3, 4, 6].indexOf(x)] + ' 패턴'));
   lk.node(3, 1, 11, 'DCB', ['유체 OUT → PPS']); lk.node(6, 1, 11, 'PPS', ['↓ DCB IN']); lk.laser([3, 1, 11], [6, 1, 11]);
   unit(8, 0, 14, { col: '--good', label: 'PPS', tip: 'PPS 탱크|주 네트워크 Storage Bus' }); lk.part(8, 0, 14, 'n', 'sbus', 'PPS 탱크'); lk.me([[8, 0, 13], [8, 0, 13]]);
   unit(14, 0, 14, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer (승압)|IV Mixer용' });

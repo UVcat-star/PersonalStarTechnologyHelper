@@ -619,12 +619,12 @@ function buildEvChunk() {
   lk.part(3, 0, 7, 'e', 'pp', 'Rutile 패턴: Ilmenite 10 + Carbon 2 (Blocking Mode)');
   lk.part(3, 0, 6, 'e', 'meout', 'Rutile · Wrought Iron → 주 네트워크');
   unit(5, 0, 7, { col: '--s2', label: 'TiCl4', tip: 'HV CR · titanium_tetrachloride|Rutile + Carbon 2 + Cl 4000 → TiCl4 1000 → 레이저로 EBF Ti 입력 해치' });
-  lk.part(5, 0, 7, 'w', 'pp', 'TiCl4 패턴: Rutile 1 + Carbon 2 + Chlorine 4000');
+  lk.single(5, 0, 7, 'w', 'TiCl4 패턴: Rutile 1 + Carbon 2 + Chlorine 4000');
   lk.node(5, 1, 7, 'TiCl4', ['유체 OUT TiCl4 → EBF Ti']);
   unit(6, 0, 7, { col: '--s1', label: 'Baux', tip: 'Electrolyzer · Bauxite|15 → Al 6 + Rutile. 출력면을 Interface 쪽으로 자동 배출' });
-  lk.part(6, 0, 7, 's', 'pp', 'Bauxite 15 패턴');
+  lk.single(6, 0, 7, 's', 'Bauxite 15 패턴');
   unit(7, 0, 7, { col: '--s1', label: 'MgCl2', tip: 'Electrolyzer · MgCl2|Mg · Cl 회수 (EMI 확인)' });
-  lk.part(7, 0, 7, 's', 'pp', 'MgCl2 패턴');
+  lk.single(7, 0, 7, 's', 'MgCl2 패턴');
   multi(1, 10, 3, 3, 4, '--s8', 'EBF Ti', 'EBF · Titanium|titanium_from_tetrachloride · 2141K · VA[HV] → Kanthal + MV 해치 2 (2,800K)');
   lk.part(3, 0, 11, 'e', 'pp', 'Titanium 패턴: Magnesium 2 (TiCl4는 레이저로)');
   lk.node(2, 4, 11, 'EBF Ti', ['↓ 유체 IN TiCl4', '아이템 OUT Hot Titanium → VF', '유체 OUT MgCl2 → 전해']);
@@ -634,7 +634,7 @@ function buildEvChunk() {
   lk.part(6, 0, 12, 's', 'meout', 'Titanium · Tungsten ingot → 주 네트워크');
   // Tungsten
   unit(9, 0, 10, { col: '--s5', label: 'W-Bath', tip: 'EV Chemical Bath|tungstic_acid_from_tungstate · 960 → Tungstic Acid → 레이저로 W-Elec' });
-  lk.part(9, 0, 10, 'n', 'pp', 'Tungstate 7 + HCl 2000 패턴');
+  lk.single(9, 0, 10, 'n', 'Tungstate 7 + HCl 2000 패턴');
   unit(10, 0, 10, { col: '--s5', label: 'W-Elec', tip: 'EV Electrolyzer|tungstic_acid_electrolysis · 960 → Tungsten dust. 출력면이 Interface' });
   lk.part(10, 0, 10, 'n', 'iface', 'W-Elec 자동 배출 → 주 네트워크');
   lk.node(9, 1, 10, 'W-Bath', ['Tungstic Acid OUT → W-Elec']); lk.laser([9, 1, 10], [10, 1, 10]);
@@ -643,7 +643,7 @@ function buildEvChunk() {
   unit(10, 0, 13, { col: '--s1', label: 'PGS', tip: 'CR · pgs_from_cooperite|Purified + Nitric 100' });
   unit(11, 0, 13, { col: '--s2', label: 'PGS-C', tip: 'HV Centrifuge · pgs_separation|PGS 6 + Aqua Regia 1200' });
   unit(12, 0, 13, { col: '--s1', label: 'Pt', tip: 'Electrolyzer · raw_platinum_separation|Platinum Raw 3 → Platinum' });
-  [9, 10, 11, 12].forEach(x => lk.part(x, 0, 13, 's', 'pp', ['Aqua Regia', 'PGS', 'PGS 분리', 'Platinum'][x - 9] + ' 패턴'));
+  [9, 10, 11, 12].forEach(x => lk.single(x, 0, 13, 's', ['Aqua Regia', 'PGS', 'PGS 분리', 'Platinum'][x - 9] + ' 패턴'));
   // 창고 · 요청
   ['Ti', 'W', 'Pt'].forEach((k, i) => { unit(14, 0, 10 + i, { col: '--good', label: k, tip: `${k} 창고 (Drawer)|주 네트워크 Storage Bus` }); lk.part(14, 0, 10 + i, 'w', 'sbus', `${k} 창고`); });
   lk.blk(13, 0, 9, 'req', 'Ti ingot 512 · Tungsten 256 · Platinum 128 재고 유지 → 모자라면 위 패턴들이 연쇄로 돎', 'Req');
@@ -670,7 +670,6 @@ function viewRefine3d() {
       <li><b>하류는 Pattern Provider + ME Requester</b>: Rutile · TiCl4 · Titanium · Tungstic Acid · PGS 패턴을 주 네트워크 Pattern Provider에 넣고 Requester가 Ti · W · Pt 재고 목표를 지키게 하면, 원료가 들어오는 만큼 연쇄로 돌고 목표에 닿으면 멈춥니다. EBF는 Blocking Mode.</li>
     </ul></div>
     <div class="card"><h3>게임에서 확인할 것</h3><ul class="pts">
-      <li>단일 블록 기계가 결과물을 Pattern Provider 면으로 자동 배출하면 네트워크로 돌아가는지 (AE2 15 · ${EMI})</li>
       <li>증류탑 출력 해치 층 순서와 유체 대응 — 층마다 ME Output Hatch면 순서는 상관없음</li>
       <li>Ore Washer의 Cooperite 세척 레시피 (${EMI})</li>
     </ul></div>
@@ -797,7 +796,7 @@ function buildPrepChunk() {
   unit(14, 0, 1, { col: '--s1', label: 'Mix-MV', tip: 'MV Mixer|Signalum · Black Bronze · Enderium dust' });
   [[2, 3], [6, 3]].forEach(([x, z], i) => { lk.me([[x, 0, 4], [x, 0, 4]]); lk.part(x, 0, z, 's', 'pp', ['EBF-N 패턴 (dust → Hot ingot)', 'EBF-R 패턴'][i]); });
   lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(10, 0, 3, 's', 'meout', 'VF 출력 ingot → 주 네트워크');
-  [13, 14].forEach(x => { lk.me([[x, 0, 2], [x, 0, 4]]); lk.part(x, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과 dust는 같은 Pattern Provider 면으로 자동 배출'); });
+  [13, 14].forEach(x => { lk.me([[x, 0, 2], [x, 0, 4]]); lk.single(x, 0, 1, 's', 'Mixer 패턴'); });
   lk.node(2, 4, 2, 'EBF-N 출력', ['Hot ingot OUT → VF 노드']); lk.node(6, 4, 2, 'EBF-R 출력', ['Hot ingot OUT → VF 노드']); lk.node(10, 3, 2, 'VF 입력', ['↓ Hot ingot IN']);
   lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
   lk.blk(15, 0, 4, 'req', 'Tungstensteel 256 · HSS-G 128 · RTM 128 · Tungsten 128 · Enderium 64 · Shellite 64 재고 유지', 'Req');
@@ -807,7 +806,7 @@ function buildPrepChunk() {
   unit(5, 0, 11, { col: '--s3', label: 'SiR', tip: 'LV Chemical Reactor|silicone_rubber: PDMS 9 + Sulfur 1 → 1296mB' });
   unit(6, 0, 11, { col: '--s3', label: 'PVC', tip: 'LV Chemical Reactor|Vinyl Chloride + Oxygen → PVC (foil은 Bender · Extruder)' });
   unit(7, 0, 11, { col: '--s1', label: 'HCl', tip: 'MV Distillery|Diluted HCl → HCl (회수)' });
-  [5, 6, 7].forEach(x => lk.part(x, 0, 11, 's', 'pp', ['Silicone Rubber 패턴', 'PVC 패턴', 'HCl 회수 패턴'][x - 5]));
+  [5, 6, 7].forEach(x => lk.single(x, 0, 11, 's', ['Silicone Rubber 패턴', 'PVC 패턴', 'HCl 회수 패턴'][x - 5]));
   // HCl 서브넷: LCR의 Diluted HCl → 탱크 → Distillery → HCl 탱크 → LCR (닫힌 루프)
   unit(1, 0, 14, { col: '--muted', label: 'dHCl', tip: 'Super Tank · Diluted HCl|HCl 서브넷' }); unit(2, 0, 14, { col: '--muted', label: 'HCl', tip: 'Super Tank · HCl|HCl 서브넷 — 주 네트워크 HCl과 분리' });
   lk.part(1, 0, 14, 'e', 'sbus', 'Diluted HCl 탱크'); lk.part(2, 0, 14, 'n', 'sbus', 'HCl 탱크');
@@ -833,7 +832,7 @@ function viewPrep3d() {
   <div class="card"><h3>네트워크 구성</h3>${logiNets(PREP_NETS)}</div>
   <div class="card"><h3>배치 원칙</h3><ul class="pts">
     <li><b>EBF-R은 처음부터 EV 해치 2개로</b>: HSS-G(EV 레시피)도 IV 전압에서 1단계 OC로 돌고, Shellite(IV)까지 한 대로 됩니다. EV 해치가 생기기 전에는 HV 해치 2개로 HSS-G만.</li>
-    <li><b>Mixer 결과물은 Pattern Provider로 되돌림</b>: 단일 블록 출력면을 Pattern Provider 쪽으로 두면 결과 dust가 바로 네트워크로(${EMI}). 인터페이스를 따로 둘 필요가 없어 자리가 줍니다.</li>
+    <li><b>단일 블록은 입력 면과 출력 면을 나눔</b>: GT 기계는 출력면으로 입력을 받지 않아서, Pattern Provider는 출력면이 아닌 면에 붙이고 출력면은 Interface(또는 다른 Pattern Provider 면)를 향하게 해 결과를 네트워크로 돌려보냅니다.</li>
     <li><b>HCl만 서브넷</b>: PDMS가 HCl을 넣고 같은 양의 Diluted HCl을 내서, 증류로 되돌리면 HCl은 거의 닫힌 루프입니다. 주 네트워크 HCl(Tungsten 산 처리 · PGS)과 섞이면 한쪽이 굶습니다.</li>
   </ul></div>`;
 }

@@ -412,7 +412,7 @@ function buildArgonChunk() {
   lk.part(1, 0, 6, 'n', 'sbus', 'Argon 플라즈마 버퍼 (플라즈마 서브넷)');
   [0, 1, 2, 3].forEach(i => lk.part(5 + i * 3, 1, 5, 'n', 'stock', `Turbine ${i + 1} 입력 = 플라즈마 서브넷 재고`));
   lk.blk(0, 0, 14, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 14], [3, 0, 14]]); lk.me([[3, 0, 1], [3, 0, 13]]);
-  lk.part(1, 0, 1, 'e', 'pp', 'Carbon dust → 액체 패턴'); lk.part(2, 0, 1, 'e', 'pp', 'Magnesium dust → 액체 패턴');
+  lk.single(1, 0, 1, 'e', 'Carbon dust → 액체 패턴'); lk.single(2, 0, 1, 'e', 'Magnesium dust → 액체 패턴');
   lk.blk(3, 0, 0, 'req', 'Carbon · Magnesium 액체 각 16B 유지 → 모자라면 Extractor 패턴', 'Req');
   return { boxes, pipes };
 }
@@ -485,8 +485,8 @@ function buildElemChunk() {
   // 가운데 (x 3..12, z 3..12)
   lk.blk(3, 0, 12, 'p2p', '기지 ME 컨트롤러에서 (링 밑으로)', 'P2P');
   lk.me([[4, 0, 12], [12, 0, 12]]); lk.me([[3, 0, 3], [3, 0, 11]]); lk.me([[4, 0, 3], [12, 0, 3]]); lk.me([[7, 0, 2], [8, 0, 2]]);
-  for (let i = 0; i < 3; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'HV Fluid Extractor|dust → 144mB (Gallium · Arsenic · Ruthenium · Gold · La · Si · Nd)' }); lk.part(5 + i, 0, 5, 'n', 'pp', 'dust → 액체 패턴 (결과는 같은 면으로)'); }
-  unit(9, 0, 5, { col: '--s2', label: 'Solid', tip: 'HV Fluid Solidifier|144mB → ingot (Ingot Mold)' }); lk.part(9, 0, 5, 'n', 'pp', 'ingot 패턴');
+  for (let i = 0; i < 3; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'HV Fluid Extractor|dust → 144mB (Gallium · Arsenic · Ruthenium · Gold · La · Si · Nd)' }); lk.single(5 + i, 0, 5, 'n', 'dust → 액체 패턴'); }
+  unit(9, 0, 5, { col: '--s2', label: 'Solid', tip: 'HV Fluid Solidifier|144mB → ingot (Ingot Mold)' }); lk.single(9, 0, 5, 'n', 'ingot 패턴');
   lk.me([[5, 0, 4], [9, 0, 4]]);
   multi(5, 8, 3, 3, 4, '--s4', 'EBF-Nq', 'EBF · Trinium 코일 + LuV 해치 2 (ZPM · 9,501K)|naquadria_sulfate_separation 600t. ME Pattern Buffer');
   lk.part(6, 0, 10, 's', 'pbuf', 'Naquadria Sulfate 6 + H₂ 2000'); lk.me([[6, 0, 11], [6, 0, 11]]);
@@ -553,7 +553,7 @@ function buildUvPrep() {
   multi(9, 1, 3, 3, 3, '--s8', 'VF', 'Vacuum Freezer · IV 해치 2|Hot ingot 전부');
   unit(13, 0, 1, { col: '--s7', label: 'Mix', tip: 'IV Mixer|YBCO · MBCCu · WC · Prismalium dust' });
   lk.part(2, 0, 3, 's', 'pbuf', 'EBF-R 패턴 3종 (Pattern Buffer)'); lk.part(6, 0, 3, 's', 'proxy', 'EBF-T — Prismalium 패턴 (Proxy로 같은 버퍼)'); lk.me([[2, 0, 4], [2, 0, 4]]); lk.me([[6, 0, 4], [6, 0, 4]]);
-  lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]); lk.single(13, 0, 1, 's', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
   lk.node(2, 4, 2, 'EBF-R', ['Hot → VF']); lk.node(6, 4, 2, 'EBF-T', ['Hot → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot']); lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
   lk.blk(15, 0, 4, 'req', 'YBCO 256 · Prismalium 128 유지', 'Req');
   unit(14, 0, 7, { col: '--s4', label: 'ZPM Tr', tip: 'luv_transformer|EBF-T 간선' }); unit(15, 0, 7, { col: '--s1', label: 'Conv', tip: '컨버터' });

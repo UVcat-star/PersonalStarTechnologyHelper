@@ -1349,13 +1349,13 @@ function buildEvpChunk() {
   lk.part(2, 0, 2, 'e', 'iface', 'EBF-K 출력 버스 → Interface (Hot ingot이 아니라 바로 네트워크)');
   lk.node(6, 4, 2, 'EBF-N 출력', ['Hot Nichrome → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot IN', 'ingot OUT → Interface']); lk.laser([6, 4, 2], [10, 3, 2]);
   lk.part(10, 0, 3, 's', 'iface', 'VF 출력 → 주 네트워크 (EV 전이라 ME Output Bus 대신 Interface)'); lk.me([[10, 0, 4], [10, 0, 4]]);
-  lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과는 같은 면으로'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.single(13, 0, 1, 's', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
   lk.blk(15, 0, 4, 'req', 'Aluminium 256 · Lumium 128 · Nichrome 128 · PVC 8B · Silicone Rubber 8B 유지', 'Req');
   // 화학 (남쪽): Vinyl Chloride → PVC, PDMS → Silicone Rubber
   unit(2, 0, 11, { col: '--s3', label: 'VCl', tip: 'LV CR · vinyl_chloride_from_chlorine|Ethylene 1000 + Cl 2000 → VC 1000 + HCl 1000' });
   multi(4, 9, 3, 3, 3, '--s1', 'LCR-P', 'LCR · MV 해치 2|polyvinyl_chloride_from_oxygen (VC 144 + O₂ 1000 → PVC 216) · PDMS 번갈아');
   unit(8, 0, 11, { col: '--s3', label: 'SiR', tip: 'LV CR · silicone_rubber|PDMS 9 + Sulfur → 1296' });
-  [2, 8].forEach(x => lk.part(x, 0, 11, 'n', 'pp', x === 2 ? 'Vinyl Chloride 패턴' : 'Silicone Rubber 패턴'));
+  [2, 8].forEach(x => lk.single(x, 0, 11, 'n', x === 2 ? 'Vinyl Chloride 패턴' : 'Silicone Rubber 패턴'));
   lk.part(5, 0, 11, 's', 'pp', 'PVC · PDMS 패턴'); lk.me([[5, 0, 12], [5, 0, 12]]);
   lk.node(2, 1, 11, 'VCl', ['VC OUT → LCR-P']); lk.node(5, 3, 10, 'LCR-P', ['↓ VC IN']); lk.laser([2, 1, 11], [5, 3, 10]);
   ['PVC', 'SiR'].forEach((k, i) => { unit(11 + i, 0, 13, { col: '--good', label: k, tip: `${k} 탱크|주 네트워크 Storage Bus` }); lk.part(11 + i, 0, 13, 'w', 'sbus', `${k} 탱크`); });

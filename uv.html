@@ -482,8 +482,8 @@ function buildUvElem() {
   lk.part(7, 0, 1, 's', 'pbuf', 'Neutronium · Tritanium · Americium 패턴'); lk.part(8, 0, 1, 's', 'meout', '출력 → 주 네트워크');
   lk.blk(3, 0, 12, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
   lk.me([[4, 0, 12], [12, 0, 12]]); lk.me([[3, 0, 3], [3, 0, 11]]); lk.me([[4, 0, 3], [12, 0, 3]]); lk.me([[7, 0, 2], [8, 0, 2]]);
-  for (let i = 0; i < 2; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'Fluid Extractor|dust → 액체' }); lk.part(5 + i, 0, 5, 'n', 'pp', '녹이기 패턴'); }
-  unit(8, 0, 5, { col: '--s2', label: 'Solid', tip: 'Fluid Solidifier|액체 → ingot' }); lk.part(8, 0, 5, 'n', 'pp', 'ingot 패턴'); lk.me([[5, 0, 4], [8, 0, 4]]);
+  for (let i = 0; i < 2; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'Fluid Extractor|dust → 액체' }); lk.single(5 + i, 0, 5, 'n', '녹이기 패턴'); }
+  unit(8, 0, 5, { col: '--s2', label: 'Solid', tip: 'Fluid Solidifier|액체 → ingot' }); lk.single(8, 0, 5, 'n', 'ingot 패턴'); lk.me([[5, 0, 4], [8, 0, 4]]);
   lk.blk(10, 0, 5, 'req', `Tritanium 64 · Americium 64 · Neutronium 32 유지`, 'Req'); lk.me([[10, 0, 4], [10, 0, 4]]);
   lk.blk(6, 0, 9, 'p2p', 'ZPM 원소 로(Duranium · Lutetium · Naquadria)와 같은 주 네트워크 — 이 P2P로 원료가 들어옴', 'P2P');
   unit(12, 0, 11, { col: '--s7', label: 'UV Tr', tip: 'zpm_transformer|MK3 간선' }); unit(12, 0, 10, { col: '--s1', label: 'Conv', tip: '컨버터' });
@@ -539,7 +539,7 @@ function buildUhvPrep() {
   multi(9, 1, 3, 3, 3, '--s4', 'VF', 'Vacuum Freezer · LuV 해치 2|Hot ingot');
   unit(13, 0, 1, { col: '--s7', label: 'Mix', tip: 'UV Mixer|Melodium · Stellarium dust' });
   lk.part(2, 0, 3, 's', 'pbuf', 'Melodium 패턴'); lk.part(6, 0, 3, 's', 'proxy', 'Stellarium — Proxy'); lk.me([[2, 0, 4], [2, 0, 4]]); lk.me([[6, 0, 4], [6, 0, 4]]);
-  lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]); lk.single(13, 0, 1, 's', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
   lk.node(2, 4, 2, 'EBF-U', ['Hot → VF']); lk.node(6, 4, 2, 'EBF-H', ['Hot → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot']); lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
   lk.blk(15, 0, 4, 'req', 'Melodium 128 · Stellarium 64 유지', 'Req');
   unit(14, 0, 7, { col: '--s8', label: 'UHV Tr', tip: 'uv_transformer|EBF-H의 UV 해치 간선' }); unit(15, 0, 7, { col: '--s1', label: 'Conv', tip: '컨버터' });

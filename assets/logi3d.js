@@ -44,6 +44,12 @@ function logiKit(built) {
     blk: (x, y, z, kind, what, label) => box({ x: x + 0.1, y: y + 0.1, z: z + 0.1, w: 0.8, h: 0.8, d: 0.8, col: LOGI_PART[kind].c, label, tip: `${LOGI_PART[kind].n}|${what} — ${LOGI_PART[kind].d}` }),
     // 기계 · 탱크 면에 붙는 부품 (face: n · s · e · w · u)
     part: plate,
+    // 단일 블록 기계: GT 기계는 출력면으로 입력을 받지 않으므로 입력(Pattern Provider)과 출력(Interface)을 다른 면에 둔다
+    single: (x, y, z, inFace, what) => {
+      const out = { n: 's', s: 'n', e: 'w', w: 'e', u: 'n' }[inFace];
+      plate(x, y, z, inFace, 'pp', `${what} — 입력 전용 면 (출력면 아님)`);
+      plate(x, y, z, out, 'iface', `${what.split(' 패턴')[0]} 출력면 → Interface (결과가 네트워크로)`);
+    },
     laser: (a, b) => built.pipes.push({ type: 'laser', pts: [c(a), c(b)] }),
     me: pts => built.pipes.push({ type: 'me', pts: pts.map(c) }),
     sub: pts => built.pipes.push({ type: 'sub', pts: pts.map(c) }),
