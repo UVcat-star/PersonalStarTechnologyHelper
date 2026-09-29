@@ -168,7 +168,7 @@ const EV_HATCH = 4;                                               // IV 레시�
 const EV_SINGLE = [
   ['EV Assembler', 'Robot Arm 2 · Conveyor 2 · EV 회로 2', 'voltage_coil_ev · energy_hatch_ev · rtm_alloy_coil_block (1,920)', '—'],
   ['EV Cutter', 'Motor · Conveyor · EV 회로 2', 'cut_pic (1,920)', '클린룸'],
-  ['EV Circuit Assembler', 'Robot Arm 2 · Emitter · IV 회로 2', 'Nano 회로 (600 · 1,920)', '클린룸'],
+  ['EV Circuit Assembler', 'Robot Arm 2 · Emitter(Quantum Eye) · IV 회로 2', 'Nano 회로 (600 · 1,920) — Radon 뒤', '클린룸'],
   ['EV Chemical Reactor', 'Motor · Rotor · EV 회로 2', 'nano_cpu_wafer (1,920)', '클린룸'],
   ['EV Chemical Bath · Electrolyzer', 'EV 회로 · 나머지 부품 ' + EMI, 'tungstic_acid_* (960) → Tungsten dust', '—'],
 ];
@@ -185,6 +185,10 @@ const EV_GATE_RECIPES = [
   ['EV 에너지 해치', 'energy_hatch_ev', 0, 1920, 'EV Assembler (단일 블록)', 'evs'],
   ['PIC 절단', 'cut_pic', 0, 1920, 'EV Cutter · 클린룸', 'evs'],
   ['Nano CPU 웨이퍼', 'nano_cpu_wafer', 0, 1920, 'EV Chemical Reactor · 클린룸 · 1200t', 'evs'],
+  ['Ender Air (End 없이)', 'easy_endstone · nether_air_mix · ender_air_mix (팩)', 0, 256, 'LCR 20 EU/t → Mixer HV', 'now'],
+  ['Liquid Ender Air', 'liquid_ender_air', 0, 7680, 'Vacuum Freezer + EV 해치 2 · 80t', 'evh'],
+  ['Radon (Ender Air 증류)', 'distill_liquid_ender_air', 0, 7680, 'Distillation Tower + EV 해치 2 · 200,000 → Rn 1000', 'evh'],
+  ['Quantum Eye (EV Emitter 보석)', 'quantum_eye', 0, 480, 'HV Chemical Bath · Ender Eye + Radon 250', 'evh'],
   ['Tungsten dust', 'tungstic_acid_from_tungstate · _electrolysis', 0, 960, 'EV Chemical Bath · EV Electrolyzer', 'evs'],
   ['RTM 코일', 'rtm_alloy_coil_block (팩)', 0, 1920, 'EV Assembler · Nichrome 144', 'evs'],
   ['Iridium · YBCO (IV 금속)', 'blast · iridium / yttrium_barium_cuprate', 4500, 7680, 'RTM EBF + EV 해치 2 (4,800K)', 'evh'],
@@ -205,7 +209,7 @@ function viewGate() {
   const X = [15, 262, 509, 756], W = 229;
   const Y = { r0: 26, r1: 118, r1b: 190, r2: 284, r3: 378, r4: 472, r5: 566, r6: 638, r7: 732 };
   const band = [[18, 'HV에서 가져옴 (hv.html 게이트 순서도 끝)'], [110, '게이트 없음 — 멀티블럭은 HV 해치 2개 = EV 1,920 · 단일 블록은 HV 512'], [276, '게이트 1 · EV 단일 블록 기계 (해치를 합칠 수 없음)'],
-    [370, 'EV 단일 블록 레시피'], [464, '게이트 2 · EV 에너지 해치'], [558, 'EV 해치 2개 = IV 7,680 · 그 뒤'], [724, 'IV 진입']];
+    [370, 'EV 단일 블록 레시피'], [464, '게이트 2 · EV 에너지 해치 → Radon'], [558, 'EV 해치 2개 = IV 7,680 · 게이트 3 · EV Circuit Assembler'], [724, 'IV 진입']];
   const node = (id, lane, row, t, s, k, tip, w) => ({ id, x: X[lane], y: Y[row], w: w || W, t, s, k, tip });
   const chart = flow({
     label: 'EV 게이트 순서도', h: 800,
@@ -218,20 +222,22 @@ function viewGate() {
       node('b1', 1, 'r1', 'Phosphorus Boule', 'EBF 2484K · Kanthal MV 해치 2', 'HV', 'phosphorus_boule: 2484K · HV. Kanthal + MV 해치 2개(2,800K)로 HV 때부터 됨. 웨이퍼는 HV Cutter(클린룸)'),
       node('c1', 2, 'r1', 'HV Circuit Assembler (새로)', 'Robot Arm · HV Emitter · EV 회로 2', 'HV', '작업대 "RIE / CHC / WIW": Robot Arm · 한 단계 위 회로(EV = Workstation) 2 · Emitter. 클린룸 안에 둠'),
       node('d1', 3, 'r1', 'Neodymium · Platinum', 'Bastnasite(OF EV) · PGS 라인', 'HV', 'Neodymium: Bastnasite를 Ore Factory EV 티어(HV 해치 2개) → 2 · 3차 Neodymium. Platinum: Chalcopyrite · Bornite · Cooperite 세척 → PGS → Platinum (3 탭). 둘 다 EV 부품의 원료'),
-      node('a1b', 0, 'r1b', 'EV 부품', 'Motor · Piston · Robot Arm · Emitter', 'HV', 'electric_motor_ev: Aluminium 2x cable · Kanthal 2x wire · Titanium rod · Neodymium magnetic rod. piston_ev: Titanium plate · rod. robot_arm_ev: Motor 2 · Piston · EV 회로. emitter_ev / sensor_ev: Platinum rod · Ender Eye · EV 회로 (작업대)'),
+      node('a1b', 0, 'r1b', 'EV 부품', 'Motor · Piston · Robot Arm · Conveyor', 'HV', 'electric_motor_ev: Aluminium 2x cable · Kanthal 2x wire · Titanium rod · Neodymium magnetic rod. piston_ev: Titanium plate · rod. robot_arm_ev: Motor 2 · Piston · EV 회로. Emitter · Sensor는 보석 칸이 Quantum Eye(Radon)라 게이트 2 뒤'),
       node('b1b', 1, 'r1b', 'HV Laser Engraver (새로)', 'PIC 웨이퍼 · Brown 렌즈 · 480', 'HV', `engrave_pic_phosphorus: Phosphorus Wafer + Brown 렌즈 → PIC Wafer (VA[HV] 900t · 클린룸). 기지는 MV Engraver뿐. PIC ${pic}개 = 웨이퍼 ${picWafer}장`),
       node('c1b', 2, 'r1b', 'Micro Mainframe (IV 회로)', 'mainframe_iv · HV CA · 480', 'CR', '퀘스트 HV Circuit Assembler → Micro Processor Mainframe → IV Universal Circuit이 HV 단계에서 끝남. EV Circuit Assembler 1대에 2개'),
+      node('ea', 2, 'r2', 'Ender Air (End 없이)', 'End Stone → Nether Air → Mixer HV', 'HV', '팩 dimensional_air.js: easy_endstone(LCR · Glowstone 16 + Lava 32000 → End Stone 32) · nether_air_mix · ender_air_mix(Mixer VHA[HV] · 1200t · 24,000mB). Radon 1000에 Liquid Ender Air 200,000'),
       node('d1b', 3, 'r1b', 'Tungstate · HCl 비축', 'Ore Factory EV · 패시브 화학', 'tank', 'Tungstate dust는 HV 해치 2개 Ore Factory로 이미 나옴. Tungsten으로 바꾸는 산 처리가 EV 단일 블록이라 그 전까지 쌓아 둠'),
       node('asm', 0, 'r2', 'EV Assembler', 'Robot Arm 2 · Conveyor 2', 'GATE', 'Assembler 멀티블럭은 해치 2개로 형성되지 않아(Mechanics) 단일 블록이 유일한 길'),
       node('cut', 1, 'r2', 'EV Cutter', '클린룸 안 · Motor · Conveyor', 'GATE', 'cut_pic이 VA[EV] · 클린룸. GCYM Large Cutter + HV 해치 2개도 EV지만 컨트롤러가 IV 부품이라 늦음'),
-      node('eca', 2, 'r2', 'EV Circuit Assembler', '클린룸 · IV 회로 2 · Emitter(Pt)', 'GATE', 'Circuit Assembler 작업대 레시피의 회로 칸은 한 단계 위(IV) 회로 → Micro Mainframe 2개'),
       node('bath', 3, 'r2', 'EV Bath · Electrolyzer', 'Tungsten 산 처리 960', 'GATE', 'tungstic_acid_from_tungstate (Chemical Bath 960 · 210t) → tungstic_acid_electrolysis (Electrolyzer 960 · 210t)'),
       node('vc', 0, 'r3', `EV Voltage Coil ×${EV_HATCH}`, `Nd 자석 rod + Pt fine 16`, 'EV', `voltage_coil_ev (VA[EV] · 200t). 1개당 Platinum ${ptCoil} ingot`),
       node('pic', 1, 'r3', `PIC ×${pic}`, 'cut_pic · 1,920 · 900t', 'CR', 'PIC Wafer 1장 → PIC 4 (VA[EV] · 클린룸)'),
-      node('nano', 2, 'r3', 'Nano 회로', 'Nano CPU(EV CR) · Epoxy 보드', 'CR', 'nano_processor_hv · assembly_ev · computer_iv (600), nano_mainframe_luv (1,920). Nano CPU = nano_cpu_wafer (EV CR · 클린룸). Advanced Circuit Board에 Epoxy (HV 페이지 기타 탭)'),
+      node('ncpu', 2, 'r3', 'Nano CPU 웨이퍼', 'EV Chemical Reactor · 클린룸', 'CR', 'nano_cpu_wafer: CPU 웨이퍼 + Carbon Fibers 16 + Glowstone 576 (VA[EV] · 1200t · 클린룸). EV CR도 게이트 1 단일 블록'),
       node('wd', 3, 'r3', 'Tungsten dust', `${fmt(r * W_RUN, 0)} / 시간 (VE ${n}대)`, 'EV', 'Tungstate 7 + HCl 2000 → Tungstic Acid 7 → Tungsten dust 1'),
       { id: 'hat', x: X[0], y: Y.r4, w: X[1] + W - X[0], t: `EV 에너지 해치 ×${EV_HATCH}`, s: 'energy_hatch_ev · EV Hull · Al 케이블 2 · PIC 2 · Voltage Coil · NaK 2000', k: 'GATE', tip: 'energy_hatch_ev (EV Assembler · VA[EV] · 200t). 2개 = IV 7,680 1A. Super 계열 멀티블럭은 해치 1개만 받아서 따로 1개씩' },
-      node('lvc', 2, 'r4', 'Nano Supercomputer (IV)', 'LuV: Nano Mainframe 1,920', 'CR', 'IV 회로가 Micro Mainframe보다 가볍고, LuV 회로가 처음 나옴'),
+      node('rn', 2, 'r4', 'Radon → Quantum Eye', 'Liquid Ender Air (IV) → 증류', 'EV', 'liquid_ender_air: Vacuum Freezer VA[IV] 80t · distill_liquid_ender_air: 200,000mB → Radon 1000 (+ D 50,000 · T 10,000 · He · Kr · Xe, VA[IV] 2000t) — 둘 다 EV 해치 2개. quantum_eye: Ender Eye + Radon 250 (HV Chemical Bath 480t). 대안 radon_from_uranium_238 (LCR HV · Pu-239 ingot 8 촉매 · U238 + Air 10,000 → Rn 1000 · 4000t) — Pu-239 출처는 EMI 확인'),
+      node('eca', 2, 'r5', 'EV Circuit Assembler', '클린룸 · IV 회로 2 · Emitter', 'GATE', 'Circuit Assembler 작업대: Robot Arm · 한 단계 위(IV) 회로 2 · Emitter. emitter_ev = Platinum rod 4 · Aluminium 케이블 · EV 회로 2 · Quantum Eye'),
+      node('nano', 2, 'r6', 'Nano 회로 (IV · LuV)', 'Nano Supercomputer · Mainframe', 'CR', 'nano_processor_hv · assembly_ev · computer_iv (600), nano_mainframe_luv (1,920). Advanced Circuit Board에 Epoxy (HV 페이지 기타 탭)'),
       node('w', 3, 'r4', 'Tungsten · Tungstensteel', `Nichrome EBF · ${fmt(evHeat('Nichrome', 4), 0)}K → VF`, 'EV', 'Tungsten 3600K · Tungstensteel 3000K, 둘 다 VA[EV] → Nichrome + HV 해치 2개(3,800K). Hot ingot은 Vacuum Freezer (VA[HV])'),
       node('ivr', 0, 'r5', 'IV 레시피 (멀티블럭)', `RTM EBF + EV 해치 2 = ${fmt(evHeat('RTM', 5), 0)}K`, 'IV', `Iridium · YBCO (4500K · VA[IV]) blast, LCR IV 원스텝(tetrafluoroethylene_from_methane 등). RTM ${EV_COIL.RTM}K + 300K = ${evHeat('RTM', 5)}K`),
       node('sup', 1, 'r5', 'Super 멀티블럭', '해치 1개 · EV 해치로 EV', 'EV', 'Super EBF · Super EOF · Super Vacuum Freezer 등은 에너지 해치 1개라 HV 해치 2개 방식이 안 됨'),
@@ -240,10 +246,10 @@ function viewGate() {
       { id: 'iv', x: X[0], y: Y.r7, w: X[3] + W - X[0], t: 'IV 진입', s: 'IV Hull → IV Cutter → cut_hpic(IV · 클린룸) → IV 에너지 해치 · IV Assembler → HSS-G 코일(7,680)', k: 'GOAL', tip: 'energy_hatch_iv: IV Hull · Tungsten 케이블 2 · HPIC 2 · IV Voltage Coil · NaK 3000. 5 탭 IV 준비' },
     ],
     edges: [
-      { a: 'a1b', b: 'asm' }, { a: 'a1b', b: 'cut', fs: 'b', ts: 't', k: 18 }, { a: 'c1b', b: 'eca' },
-      { a: 'asm', b: 'vc' }, { a: 'cut', b: 'pic' }, { a: 'eca', b: 'nano' }, { a: 'bath', b: 'wd' },
+      { a: 'a1b', b: 'asm' }, { a: 'a1b', b: 'cut', fs: 'b', ts: 't', k: 18 },
+      { a: 'asm', b: 'vc' }, { a: 'cut', b: 'pic' }, { a: 'bath', b: 'wd' },
       { a: 'vc', b: 'hat', fs: 'b', ts: 't', to: -123 }, { a: 'pic', b: 'hat', fs: 'b', ts: 't', to: 123 },
-      { a: 'nano', b: 'lvc' }, { a: 'wd', b: 'w' }, { a: 'w', b: 'rtm' }, { a: 'rtm', b: 'ivh' },
+      { a: 'hat', b: 'rn' }, { a: 'rn', b: 'eca' }, { a: 'eca', b: 'nano' }, { a: 'wd', b: 'w' }, { a: 'w', b: 'rtm' }, { a: 'rtm', b: 'ivh' },
       { a: 'hat', b: 'ivr', fs: 'b', ts: 't', fo: -123 }, { a: 'hat', b: 'sup', fs: 'b', ts: 't', fo: 123 },
       { a: 'ivh', b: 'iv', fs: 'b', ts: 't', to: 385 },
     ],
@@ -254,6 +260,7 @@ function viewGate() {
   <p class="lead"><a href="hv.html#gate">HV 게이트 순서도</a>의 다음 단계입니다. HV 해치 2개를 단 멀티블럭은 이미 EV(1,920 EU/t)라 <b>Tungsten · Tungstensteel · RTM · HSS-G blast까지 EV 해치 없이</b> 됩니다.
   EV에서 새로 막는 것은 둘뿐입니다: <b>해치를 합칠 수 없는 단일 블록 기계</b>(Assembler · Cutter · Circuit Assembler · CR · Bath · Electrolyzer)와, <b>IV(7,680) 레시피를 여는 EV 해치 2개</b>.</p>
   ${callout('ok', '✓', `<b>HV에서 이미 되는 것을 먼저 챙기세요.</b> Micro Mainframe(IV 회로)은 HV Circuit Assembler(480 · 클린룸)로 만들어서 퀘스트 <b>IV Universal Circuit</b>이 HV 단계에서 끝나고, EV Circuit Assembler에 이 IV 회로 2개가 들어갑니다. HSS-G도 RTM 코일 + HV 해치 2개(${fmt(evHeat('RTM', 4), 0)}K)로 녹습니다.`)}
+  ${callout('crit', '!', `<b>EV Circuit Assembler는 Radon 뒤입니다.</b> Emitter의 보석 칸이 티어마다 달라서(jar <code>SENSOR_EMITTER_GEM</code>: HV Ender Eye · EV <b>Quantum Eye</b> · IV Quantum Star) EV Emitter에 <code>quantum_eye</code>(Ender Eye + Radon 250)가 들어갑니다. Radon은 Liquid Ender Air(Vacuum Freezer 7,680)를 증류(7,680)해서 얻으니 <b>EV 해치 2개가 먼저</b>입니다. EV Assembler · Cutter는 Emitter가 없어서 먼저 됩니다.`)}
   <div class="tiles">
     ${tile('게이트 1', 'EV 단일 블록', '', `${EV_SINGLE.length}종 · 트랜스포머로 EV 1A`)}
     ${tile('EV 에너지 해치', EV_HATCH, '개', `PIC ${pic} = 웨이퍼 ${picWafer}장 · Voltage Coil ${EV_HATCH}`)}
@@ -272,10 +279,11 @@ function viewGate() {
       <thead><tr><th>단계</th><th>할 일</th><th>막는 것</th><th>풀리는 것</th></tr></thead>
       <tbody>
         <tr><td><b>0 · HV에서 가져옴</b></td><td>Titanium 라인 · Cleanroom · HV 해치 · Vacuum Freezer · Distillation Tower · Nichrome EBF(${fmt(evHeat('Nichrome', 4), 0)}K)</td><td>—</td><td>EV 레시피 전부 (멀티블럭)</td></tr>
-        <tr><td><b>1 · 게이트 없음</b></td><td>HV 트랜스포머 · EV Hull · EV 부품 · Phosphorus Boule · <b>HV Circuit Assembler</b> · <b>HV Laser Engraver</b> · Micro Mainframe · Neodymium · Platinum · Tungstate 비축</td><td>없음 (Titanium · Platinum 양)</td><td>게이트 1 재료 · <b>IV Universal Circuit</b> 퀘스트</td></tr>
-        <tr><td><b style="color:var(--critical)">게이트 1 · EV 단일 블록</b></td><td>${EV_SINGLE.map(([m]) => m).join(' · ')}</td><td>Titanium(Hull · 부품) · Neodymium(Motor) · Platinum(Emitter) · IV 회로(Circuit Assembler)</td><td>EV Voltage Coil · PIC · Nano 회로 · Tungsten dust · RTM 코일</td></tr>
-        <tr><td><b>2 · EV 단일 블록 레시피</b></td><td>Voltage Coil ${EV_HATCH} · PIC ${pic} · Nano CPU · Nano 회로 · Tungsten dust</td><td>Epoxy(Nano 보드) · Glowstone · Carbon Fibers</td><td>IV · LuV 회로 (Nano Supercomputer · Mainframe)</td></tr>
-        <tr><td><b style="color:var(--critical)">게이트 2 · EV 해치</b></td><td>energy_hatch_ev ${EV_HATCH}개 (EV Assembler)</td><td>PIC · Voltage Coil</td><td>멀티블럭 IV 레시피 (Iridium · YBCO · LCR IV) · Super 멀티블럭</td></tr>
+        <tr><td><b>1 · 게이트 없음</b></td><td>HV 트랜스포머 · EV Hull · EV 부품 · Phosphorus Boule · <b>HV Circuit Assembler</b> · <b>HV Laser Engraver</b> · Micro Mainframe · Neodymium · Platinum · Tungstate 비축 · <b>Ender Air</b>(End Stone → Mixer HV)</td><td>없음 (Titanium · Platinum 양)</td><td>게이트 1 재료 · <b>IV Universal Circuit</b> 퀘스트</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 1 · EV 단일 블록</b></td><td>${EV_SINGLE.map(([m]) => m).join(' · ')}</td><td>Titanium(Hull · 부품) · Neodymium(Motor) · Platinum</td><td>EV Voltage Coil · PIC · Nano CPU · Tungsten dust · RTM 코일</td></tr>
+        <tr><td><b>2 · EV 단일 블록 레시피</b></td><td>Voltage Coil ${EV_HATCH} · PIC ${pic} · Nano CPU · Tungsten dust</td><td>Glowstone · Carbon Fibers</td><td>게이트 2 재료</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 2 · EV 해치</b></td><td>energy_hatch_ev ${EV_HATCH}개 (EV Assembler)</td><td>PIC · Voltage Coil</td><td>멀티블럭 IV 레시피 (Iridium · YBCO · LCR IV) · Super 멀티블럭 · <b>Liquid Ender Air → Radon</b></td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 3 · EV Circuit Assembler</b></td><td>Quantum Eye(Ender Eye + Radon 250) → EV Emitter → EV Circuit Assembler(IV 회로 2)</td><td>Radon</td><td>Nano 회로: IV · LuV 회로 (Nano Supercomputer · Mainframe)</td></tr>
         <tr><td><b>3 · 금속 · 코일</b></td><td>Tungsten · Tungstensteel → RTM 코일 → HSS-G</td><td>Tungsten dust (게이트 1의 Bath · Electrolyzer)</td><td>IV Hull · HSS-G (코일은 IV Assembler)</td></tr>
         <tr><td><b style="color:var(--good)">IV 진입</b></td><td>IV Hull · IV 트랜스포머 · IV Cutter → <code>cut_hpic</code> → IV 에너지 해치</td><td>Tungstensteel · HPIC</td><td><a href="iv.html">IV 페이지</a></td></tr>
       </tbody></table></div>
@@ -299,7 +307,7 @@ function viewGate() {
       <h3>기지에 없는 HV 기계 (EV 전에)</h3>
       <ul class="pts">
         <li><b>HV Circuit Assembler</b> — Micro Mainframe(IV 회로). EV Circuit Assembler와 IV Universal Circuit 퀘스트에 필요.</li>
-        <li><b>HV Laser Engraver</b> — <code>engrave_pic_phosphorus</code> · NOR 메모리(480 · 클린룸). HV Emitter(Chrome rod · Flawless Emerald).</li>
+        <li><b>HV Laser Engraver</b> — <code>engrave_pic_phosphorus</code> · NOR 메모리(480 · 클린룸). HV Emitter = Chromium rod · Gold 케이블 · <b>Ender Eye</b> · HV 회로.</li>
         <li>둘 다 클린룸 안. HV 페이지 게이트 1 뒤라면 지금 만들 수 있습니다.</li>
       </ul>
     </div>
