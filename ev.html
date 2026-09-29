@@ -657,19 +657,6 @@ const REFINE_NETS = [
   { n: 'LaserIO', kind: '레이저', what: 'Molten 탱크 → Autoclave → Macerator → Ore Factory, TiCl4 → EBF → VF, Tungstic Acid', edge: '한 기계에서 다음 기계로 바로 가는 1:1 흐름', seen: '— (중간재라 볼 필요 없음)' },
 ];
 
-/* 3D 카드 공용 틀: 조작 버튼 + 캔버스 + 범례 */
-function layBlock(aria, legend) {
-  const pressed = k => `aria-pressed="${S[k]}"`;
-  return `<div class="card">
-    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
-      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
-      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
-    </div>
-    <div><canvas id="lay3d" role="img" aria-label="${aria}" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${legend}</div>
-  </div>`;
-}
-
 function viewRefine3d() {
   return `
   <h2>3 · 자원 처리</h2>${subnav()}

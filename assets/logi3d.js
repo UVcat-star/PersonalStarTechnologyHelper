@@ -59,3 +59,16 @@ function logiNets(nets) {
   return `<div class="tscroll"><table><thead><tr><th>네트워크</th><th>종류</th><th>담는 것</th><th>경계 · 들어오고 나가는 곳</th><th>주 네트워크에서 보는 법</th></tr></thead>
     <tbody>${nets.map(r => `<tr><td><b>${esc(r.n)}</b></td><td>${esc(r.kind)}</td><td>${r.what}</td><td>${r.edge}</td><td>${r.seen}</td></tr>`).join('')}</tbody></table></div>`;
 }
+/* 3D 카드 공용 틀: 조작 버튼 + 캔버스 + 범례. 페이지 상태 S의 lay* 토글을 씀 */
+function layBlock(aria, legend) {
+  const pressed = k => `aria-pressed="${S[k]}"`;
+  return `<div class="card">
+    <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
+      <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
+      <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
+    </div>
+    <div><canvas id="lay3d" role="img" aria-label="${aria}" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${legend}</div>
+  </div>`;
+}
+

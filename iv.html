@@ -34,6 +34,7 @@
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
+<script src="assets/logi3d.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -90,9 +91,10 @@ const TOPICS = [
   { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'entry', name: '1 · IV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
-  { id: 'resource', name: '3 · 자원 처리' },
+  { id: 'resource', name: '3 · 자원 처리', subs: [['route', '처리 경로'], ['3d', '정제 청크 · 3D'], ['power', '전력 · 64A']] },
   { id: 'passive', name: '4 · 패시브 (PBI)', subs: [['flow', '흐름'], ['3d', '3D 배치'], ['power', '전력 · 64A']] },
-  { id: 'next', name: '5 · LuV 준비' },
+  { id: 'prep', name: '5 · 패시브 (LuV 준비)', subs: [['metal', '금속 · 초전도'], ['chem', '피복 화학 (PPS)'], ['3d', '청크 · 3D'], ['power', '전력 · 64A']] },
+  { id: 'next', name: '6 · LuV 준비' },
 ];
 
 /* ---------- 로드맵 ---------- */
@@ -368,7 +370,7 @@ function viewCircuit() {
 /* ---------- 3 자원 처리 ---------- */
 function viewResource() {
   return `
-  <h2>3 · 자원 처리</h2>
+  <h2>3 · 자원 처리</h2>${subnav()}
   <p class="lead">IV에서 새로 뽑아야 하는 것은 <b>Iridium · Osmium</b>(HSS-S · Ruridit · LuV 부품), <b>Indium · Gallium</b>(InGaP → HPIC · Qbit · ASMD Diode), <b>Radon · Xenon · Deuterium · Tritium</b>(Qbit · Neutronium Boule · Fusion)입니다.</p>
   ${flow({
     label: 'IV 정제', h: 470,
@@ -480,7 +482,7 @@ function viewPower() {
   ${pwCard(PWM(), 5, `<li>LCR 3대는 EV 해치 2개(=IV)라 IV 간선에서 EV로 한 단계 내려 해치에 물립니다.</li>`)}`;
 }
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
-Object.assign(PIPE, PW_PIPES);
+Object.assign(PIPE, PW_PIPES, LOGI_PIPES);
 function buildPbiChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -506,6 +508,229 @@ function buildPbiChunk() {
   return { boxes, pipes };
 }
 
+/* ---------- 3 자원 처리 · 정제 청크 ----------
+   Rarest Metal(EV 정제의 PGS 부산물)에서 Iridium · Osmium, Sphalerite · Galena에서 Indium → InGaP, Ender Air → Radon · D · T.
+   GTCEu jar: rarest_metal_mixture_separation LCR VA[IV] 400t (7 + HCl 4000 → Ir Residue 5 + Acidic Os 2000 + H₂ 3000),
+   iridium_metal_residue_separation Centrifuge MV 200t (5 → IrCl 4), iridium_chloride_separation CR LV 100t (IrCl 4 + H₂ 3000 → Ir 1 + HCl 3000),
+   acidic_osmium_solution_separation Distillation MV 400t (2000 → OsO₄ 5 + HCl 1000), osmium_tetroxide_separation CR LV 200t (5 + H₂ 8000 → Os 1),
+   indium_concentrate Mixer 60t, indium_concentrate_separation_4x CR 200t, indium_gallium_phosphide Mixer 200t,
+   liquid_ender_air VF VA[IV] 80t (4000 → 4000), distill_liquid_ender_air VA[IV] 2000t (200,000 → Rn 1000 · D 50,000 · T 10,000 …),
+   팩 ender_air_mix · nether_air_mix Mixer VHA[HV] 1200t (→ 24,000), easy_endstone LCR 2400t (Glowstone 16 + Lava 32,000 → End Stone 32). */
+const RAREST_H = 47;                     // EV 정제(VE 4대)의 PGS 분리에서 나오는 Rarest Metal Mixture / 시간
+const RADON_H = 2000;                    // Quantum Star 1250 + Quantum Eye 250 + Qbit 여유 (mB / 시간). LuV Fusion의 D · T는 LuV 페이지
+const INGAP_H = 12;                      // HPIC 웨이퍼 2 / 장 + Qbit 1 / 장
+function ivRefine() {
+  const sep = RAREST_H / 7, lea = RADON_H / 1000 * 200000, ea = lea, na = ea / 24000 * 32000;
+  return [
+    ['LR', 'LCR · Rarest 분리', 'IV', 7680, true, 'LCR-R', [['rarest_metal_mixture_separation', sep, 400]]],
+    ['CI', 'Centrifuge · Ir Residue', 'MV', 120, false, 'Cent-Ir', [['iridium_metal_residue_separation', sep, 200]]],
+    ['RI', 'Chemical Reactor · Iridium', 'LV', 30, false, 'CR-Ir', [['iridium_chloride_separation', sep, 100]]],
+    ['DO', 'Distillation Tower · Osmium', 'MV', 120, true, 'DT-Os', [['acidic_osmium_solution_separation', sep, 400]]],
+    ['RO', 'Chemical Reactor · Osmium', 'LV', 30, false, 'CR-Os', [['osmium_tetroxide_separation', sep, 200]]],
+    ['EI', 'EBF · Iridium (RTM + EV 해치 2)', 'IV', 7680, true, 'EBF-Ir', [['blast · iridium 4500K', sep, 1100]]],
+    ['MI', 'Mixer · Indium Concentrate', 'LV', 30, false, 'Mix-In', [['indium_concentrate', INGAP_H / 3 * 4, 60]]],
+    ['CN', 'Chemical Reactor · Indium', 'MV', 120, false, 'CR-In', [['indium_concentrate_separation_4x', INGAP_H / 3, 200]]],
+    ['MG', 'Mixer · InGaP', 'LV', 30, false, 'Mix-GaP', [['indium_gallium_phosphide', INGAP_H / 3, 200]]],
+    ['LE', 'LCR · End Stone', 'LV', 20, true, 'LCR-E', [['easy_endstone (팩)', ea / 24000 * 3 / 32, 2400]]],
+    ['MN', 'Mixer · Nether Air', 'HV', 256, false, 'Mix-NA', [['nether_air_mix (팩)', na / 24000, 1200]]],
+    ['ME', 'Mixer · Ender Air', 'HV', 256, false, 'Mix-EA', [['ender_air_mix (팩)', ea / 24000, 1200]]],
+    ['VL', 'Vacuum Freezer · Liquid Ender Air', 'IV', 7680, true, 'VF', [['liquid_ender_air', lea / 4000, 80], ['Hot Iridium', sep, 250]]],
+    ['DL', 'Distillation Tower · Liquid Ender Air', 'IV', 7680, true, 'DT-LEA', [['distill_liquid_ender_air', lea / 200000, 2000]]],
+  ].map(([id, m, t, eut, hatch2, label, jobs]) => { const u = jobs.reduce((a, [, r, d]) => a + r * d, 0) / 72000; return { id, m, t, eut, hatch2, label, jobs, u, n: Math.max(1, Math.ceil(u / 0.95 - 1e-9)) }; });
+}
+const PWM_R = () => ivRefine().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+const machTable = M => `<div class="tscroll"><table><thead><tr><th>기계</th><th>계통</th><th>작업</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+  <tbody>${M.map(g => `<tr><td><b>${esc(g.m)}</b>${g.hatch2 ? ' <small style="color:var(--muted)">해치 2</small>' : ''}</td><td>${g.t}</td><td>${g.jobs.map(([a, r, d]) => `${esc(a)} ${fmt(r, 2)}회 × ${d}t`).join('<br>')}</td><td class="n">${fmt(g.u * 100, 0)}%</td><td class="n"><b>${g.n}</b></td></tr>`).join('')}</tbody></table></div>`;
+function buildIvRefine() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  // 주 네트워크: P2P(남서) → z = 11 간선 · x = 0 · z = 5 간선
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
+  lk.me([[0, 0, 5], [0, 0, 14]]); lk.me([[1, 0, 11], [15, 0, 11]]); lk.me([[1, 0, 5], [7, 0, 5]]);
+  // 북쪽: Ender Air → Liquid → 증류 + 기체 서브넷
+  multi(1, 1, 3, 3, 3, '--s7', 'LCR-E', 'LCR · easy_endstone|Glowstone 16 + Lava 32,000 → End Stone 32 (20 EU/t). 출력 → 레이저로 Macerator');
+  lk.part(2, 0, 3, 's', 'pp', 'End Stone 패턴 (Glowstone 16 + Lava)'); lk.me([[2, 0, 4], [2, 0, 4]]);
+  unit(5, 0, 2, { col: '--s2', label: 'Mix-NA', tip: 'HV Mixer · nether_air_mix|Netherrack dust 3 + Air 32,000 → Nether Air 24,000' });
+  unit(6, 0, 2, { col: '--s2', label: 'Mix-EA', tip: 'HV Mixer · ender_air_mix|End Stone dust 3 + Nether Air 32,000 → Ender Air 24,000' });
+  [5, 6].forEach(x => { lk.me([[x, 0, 3], [x, 0, 4]]); lk.part(x, 0, 2, 's', 'stock', x === 5 ? 'Air · Netherrack dust를 재고에서 바로' : 'Nether Air · End Stone dust를 재고에서 바로'); });
+  lk.node(5, 1, 2, 'Nether Air', ['유체 OUT → Mix-EA']); lk.node(6, 1, 2, 'Ender Air', ['유체 OUT → VF 입력 해치']); lk.laser([5, 1, 2], [6, 1, 2]);
+  multi(8, 1, 3, 3, 3, '--s7', 'VF', 'Vacuum Freezer · EV 해치 2 (IV)|liquid_ender_air 80t + Hot Iridium 냉각. 남쪽 ME Output Hatch → 기체 서브넷이 아니라 LEA 탱크로 레이저');
+  lk.laser([6, 1, 2], [9, 3, 2]); lk.node(9, 3, 2, 'VF', ['↓ Ender Air IN', '↓ Hot Iridium IN', 'Liquid Ender Air OUT → DT']);
+  multi(12, 1, 3, 3, 10, '--s7', 'DT-LEA', 'Distillation Tower · EV 해치 2 (IV) · 3×3 · 10층|distill_liquid_ender_air 200,000mB · 2000t → 출력 8종 + Ender Pearl. 층마다 ME Output Hatch → 기체 서브넷');
+  lk.laser([9, 3, 2], [13, 1, 1]); lk.node(13, 1, 1, 'DT 입력', ['↓ Liquid Ender Air IN']);
+  for (let y = 1; y <= 8; y++) lk.part(12, y, 2, 'w', 'meout', `증류탑 ${y}층`);
+  lk.sub([[11, 1, 2], [11, 8, 2]]); lk.sub([[11, 0, 2], [11, 0, 4]]); lk.sub([[8, 0, 4], [15, 0, 4]]);
+  ['D', 'T', 'He', 'Rn', 'Xe', 'Kr', 'NO₂'].forEach((g, i) => { unit(8 + i, 0, 5, { col: '--muted', label: g, tip: `Super Tank · ${g}|기체 서브넷 저장소 (필터 1종)` }); lk.part(8 + i, 0, 5, 'n', 'sbus', `${g} 탱크`); });
+  lk.blk(15, 0, 5, 'iface', '기체 서브넷 경계 — Radon · Xenon은 주 네트워크가 가져가고, D · T는 LuV Fusion으로 P2P', 'IF');
+  lk.part(15, 0, 6, 'n', 'sbus', '주 네트워크 → 기체 서브넷 (우선순위 낮게)'); lk.me([[15, 0, 7], [15, 0, 10]]);
+  // 가운데: Rarest → Iridium · Osmium
+  multi(1, 7, 3, 3, 3, '--s7', 'LCR-R', 'LCR · EV 해치 2 (IV)|rarest_metal_mixture_separation 400t. ME Stocking Input Hatch로 HCl을 재고에서 바로');
+  lk.part(2, 0, 9, 's', 'pp', 'Rarest 7 패턴'); lk.part(3, 0, 8, 'e', 'stock', 'HCl 4000 (Stocking Input Hatch)'); lk.me([[2, 0, 10], [2, 0, 10]]);
+  lk.node(2, 3, 8, 'LCR-R 출력', ['Ir Residue OUT → Cent-Ir', 'Acidic Os OUT → DT-Os', 'H₂ OUT → CR 두 대']);
+  unit(5, 0, 8, { col: '--s1', label: 'Cent-Ir', tip: 'MV Centrifuge · iridium_metal_residue_separation|5 → Iridium Chloride 4 + Platinum Sludge Residue' });
+  unit(6, 0, 8, { col: '--s3', label: 'CR-Ir', tip: 'LV CR · iridium_chloride_separation|IrCl 4 + H₂ 3000 → Iridium dust 1 + HCl 3000 (HCl은 주 네트워크로 되돌아감)' });
+  multi(8, 7, 3, 3, 4, '--s1', 'DT-Os', 'Distillation Tower · MV 해치 2 · 3×3 · 4층|acidic_osmium_solution_separation 400t → OsO₄ 5 + HCl 1000 + Water 1000');
+  unit(12, 0, 8, { col: '--s3', label: 'CR-Os', tip: 'LV CR · osmium_tetroxide_separation|OsO₄ 5 + H₂ 8000 → Osmium dust 1' });
+  lk.laser([2, 3, 8], [5, 1, 8]); lk.laser([5, 1, 8], [6, 1, 8]); lk.laser([2, 3, 8], [9, 4, 8]); lk.laser([9, 4, 8], [12, 1, 8]);
+  [[5, 8], [6, 8], [12, 8]].forEach(([x, z]) => lk.node(x, 1, z, `${x === 5 ? 'Cent-Ir' : x === 6 ? 'CR-Ir' : 'CR-Os'}`, ['↓ IN (레이저)', 'OUT → 주 네트워크 Interface']));
+  lk.node(9, 4, 8, 'DT-Os', ['↓ Acidic Os IN', 'OsO₄ OUT → CR-Os']);
+  [6, 12].forEach(x => { lk.me([[x, 0, 10], [x, 0, 10]]); lk.part(x, 0, 9, 's', 'iface', '결과 dust 자동 배출'); });
+  multi(13, 12, 3, 3, 4, '--s8', 'EBF-Ir', 'EBF · RTM 코일 + EV 해치 2 (4,800K)|Iridium 4500K · VA[IV] 1100t → Hot → VF');
+  lk.part(13, 0, 12, 'w', 'pp', 'Iridium dust 패턴'); lk.me([[12, 0, 12], [12, 0, 12]]); lk.laser([14, 4, 13], [9, 3, 2]); lk.node(14, 4, 13, 'EBF-Ir 출력', ['Hot Iridium OUT → VF']);
+  // 남쪽: Indium · InGaP
+  unit(2, 0, 13, { col: '--s3', label: 'Mix-In', tip: 'Mixer · indium_concentrate|Sphalerite + Galena + H₂SO₄ 4000 → Indium Concentrate 1000' });
+  unit(3, 0, 13, { col: '--s1', label: 'CR-In', tip: 'CR · indium_concentrate_separation_4x|Concentrate 4000 + Aluminium 16 → Indium' });
+  unit(4, 0, 13, { col: '--s3', label: 'Mix-GaP', tip: 'Mixer · indium_gallium_phosphide|Indium + Gallium + Phosphorus → InGaP 3' });
+  [2, 3, 4].forEach(x => { lk.me([[x, 0, 12], [x, 0, 12]]); lk.part(x, 0, 13, 'n', 'pp', ['Indium Concentrate', 'Indium', 'InGaP'][x - 2] + ' 패턴 — 결과는 같은 면으로 배출'); });
+  ['Ir', 'Os', 'In', 'GaP'].forEach((k, i) => { unit(6 + i, 0, 14, { col: '--good', label: k, tip: `${k} 창고|주 네트워크 Storage Bus` }); lk.part(6 + i, 0, 14, 'n', 'sbus', `${k} 창고`); lk.me([[6 + i, 0, 12], [6 + i, 0, 13]]); });
+  lk.blk(10, 0, 13, 'req', `Iridium 64 · Osmium 32 · InGaP 32 · Radon ${RADON_H}mB 재고 유지`, 'Req'); lk.me([[10, 0, 12], [10, 0, 12]]);
+  unit(14, 0, 15, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer (승압)|IV 단일 블록 없음 — 해치 쪽 전력용' });
+  unit(15, 0, 15, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
+  return built;
+}
+const IVR_NETS = [
+  { n: '주 네트워크', kind: '주', what: 'Iridium · Osmium · InGaP 결과물, HCl · H₂ · Sulfuric · Aluminium · Glowstone · Lava · Air', edge: 'P2P → x = 0 · z = 5 · z = 11 간선', seen: '—' },
+  { n: '기체 서브넷', kind: '서브넷', what: 'Liquid Ender Air 증류 출력 8종 — D · T · He · Rn · Xe · Kr · NO₂', edge: '증류탑 층마다 ME Output Hatch → 탱크 7개 Storage Bus', seen: 'Interface(IF) Storage Bus. 우선순위를 낮춰 다른 기체가 새지 않게. D · T는 LuV 페이지 Fusion으로 ME P2P' },
+  { n: 'LaserIO', kind: '레이저', what: 'Ender Air → VF → 증류탑, Rarest 분리 출력 → 원심 · 증류 · CR, Hot Iridium → VF', edge: '단계 사이 1:1', seen: '—' },
+  { n: 'Stocking Input', kind: 'GT ME 해치 (IV)', what: 'HCl · Air · Nether Air를 재고에서 바로 입력', edge: 'LCR-R 동쪽 면, Mixer 남쪽 면', seen: '재고에서 꺼내지 않고 보기만 해서 Pattern이 필요 없음 — IV Sensor(Quantum Star) 뒤에 교체' },
+];
+function viewIvRefine3d() {
+  return `
+  <h2>3 · 자원 처리</h2>${subnav()}
+  <p class="lead">IV 정제를 한 청크에 넣은 배치입니다. 북쪽이 Ender Air → Liquid Ender Air → 증류(Radon · D · T), 가운데가 Rarest Metal → Iridium · Osmium, 남쪽이 Indium · InGaP입니다. <b>IV 단일 블록은 하나도 없습니다</b> — IV 레시피(Rarest 분리 · Liquid Ender Air · 증류 · Iridium blast)는 전부 EV 해치 2개 멀티블럭입니다.</p>
+  ${layBlock('IV 정제 청크 3D 배치도', [['--s7', 'EV 해치 2개 멀티블럭 (IV)'], ['--s8', 'EBF'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s3', 'LV 기계'], ['--muted', '기체 탱크'], ['--good', '결과 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_R(), 5))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(IVR_NETS)}</div>
+  <div class="grid2">
+    <div class="card"><h3>기계 대수</h3>${machTable(ivRefine())}</div>
+    <div class="card"><h3>수치 기준</h3><ul class="pts">
+      <li>Rarest Metal Mixture ${RAREST_H} / 시간 (EV 정제 VE 4대의 PGS 분리 부산물) → Iridium · Osmium 각 ${fmt(RAREST_H / 7, 1)} / 시간.</li>
+      <li>Radon ${fmt(RADON_H, 0)}mB / 시간 = Liquid Ender Air ${fmt(RADON_H / 1000 * 200000 / 1000, 0)}B. Quantum Star(1250) · Quantum Eye(250) · Qbit 웨이퍼(50)용. <b>LuV Fusion의 D · T는 이 줄을 수십 배로 늘립니다</b> — LuV 페이지.</li>
+      <li>InGaP ${INGAP_H} / 시간 — HPIC 웨이퍼 1장에 2, Qbit 웨이퍼 1장에 1.</li>
+      <li>Mixer · CR · 원심분리의 전압 일부는 ${EMI}. Stocking Input Hatch는 IV Sensor(Quantum Star) 뒤라, 그 전에는 Pattern Provider로 대신.</li>
+    </ul></div>
+  </div>`;
+}
+function viewIvRefinePower() {
+  return `
+  <h2>3 · 자원 처리</h2>${subnav()}
+  <p class="lead">정제 청크에 <b>IV 64A</b>를 배정합니다. IV 레시피는 전부 EV 해치 2개 멀티블럭이라 IV 계통은 해치 간선뿐입니다.</p>
+  ${pwCard(PWM_R(), 5)}`;
+}
+
+/* ---------- 5 패시브 · LuV 준비 (금속 · 초전도 · 피복 화학) ----------
+   LuV 부품: Plate = Rhodium-Plated Palladium, Cable = Niobium-Titanium (jar GTCraftingComponents), 초전도 = Twinite (팩 superconductors.js).
+   Mixer (jar MixerRecipes): RPP Pd 3 + Rh 1 → 4 (IV 400t), NbTi Nb 1 + Ti 1 → 2 (IV 200t), HSS-S HSS-G 6 + Ir 2 + Os 2 → 9 (IV 500t),
+   HSS-E HSS-G 6 + Co + Mn + Si → 9 (450t), Ruridit Ru 2 + Ir 1 → 3 (350t). blast: RPP 4500K VA[IV] 1200t, NbTi 4500K VA[HV] 1500t,
+   HSS-S 5000K VA[EV] 1500t, HSS-E 5000K VA[EV] 1400t, Ruridit 4500K VA[EV] 1600t, Twinite 5300K VA[LuV] 1600t.
+   피복: LuV 케이블부터 PVC foil + PPS foil (WireRecipeHandler). polyphenylene_sulfide_from_oxygen: Na₂S 3 + Dichlorobenzene 1000 + O₂ 8000 → PPS 1500 (240t). */
+const LUV_H = { rpp: 16, nbti: 32, hsss: 8, hsse: 8, rur: 6, twin: 16, pps: 1500 };
+function luvPrep() {
+  const H = LUV_H;
+  return [
+    ['MX', 'Mixer (IV)', 'IV', 7680, false, 'Mix-IV', [['RPP', H.rpp / 4, 400], ['NbTi', H.nbti / 2, 200], ['HSS-S', H.hsss / 9, 500], ['HSS-E', H.hsse / 9, 450], ['Ruridit', H.rur / 3, 350]]],
+    ['MT', 'Mixer (LV)', 'LV', 30, false, 'Mix-LV', [['Twinite dust (EMI 시간)', H.twin / 6, 400]]],
+    ['ER', 'EBF · RTM 코일 + EV 해치 2', 'IV', 7680, true, 'EBF-R', [['RPP 4500K', H.rpp, 1200], ['NbTi 4500K', H.nbti, 1500], ['Ruridit 4500K', H.rur, 1600]]],
+    ['EH', 'EBF · HSS-G 코일 + IV 해치 2', 'LuV', 30720, true, 'EBF-H', [['HSS-S 5000K', H.hsss, 1500], ['HSS-E 5000K', H.hsse, 1400], ['Twinite 5300K (LuV)', H.twin, 1600]]],
+    ['VF', 'Vacuum Freezer · EV 해치 2', 'IV', 7680, true, 'VF', [['Hot ingot 전부', H.rpp + H.nbti + H.hsss + H.hsse + H.rur + H.twin, 250]]],
+    ['DC', 'Chemical Reactor · Dichlorobenzene', 'LV', 30, false, 'DCB', [['dichlorobenzene', H.pps / 1500, 120]]],
+    ['NS', 'Chemical Reactor · Sodium Sulfide', 'LV', 30, false, 'Na2S', [['sodium_sulfide', H.pps / 1500, 60]]],
+    ['PS', 'Chemical Reactor · PPS', 'MV', 120, false, 'PPS', [['polyphenylene_sulfide_from_oxygen', H.pps / 1500, 240]]],
+  ].map(([id, m, t, eut, hatch2, label, jobs]) => { const u = jobs.reduce((a, [, r, d]) => a + r * d, 0) / 72000; return { id, m, t, eut, hatch2, label, jobs, u, n: Math.max(1, Math.ceil(u / 0.95 - 1e-9)) }; });
+}
+const PWM_L = () => luvPrep().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+function viewLuvMetal() {
+  const H = LUV_H, M = luvPrep().filter(g => !['DC', 'NS', 'PS'].includes(g.id));
+  const rows = [['Rhodium-Plated Palladium', H.rpp, 'LuV Hull · 부품 plate (jar PLATE[LuV])'], ['Niobium-Titanium', H.nbti, 'LuV 케이블 (jar CABLE[LuV])'], ['HSS-S', H.hsss, 'LuV 부품 · Assembly Line'], ['HSS-E', H.hsse, 'LuV 부품'], ['Ruridit', H.rur, 'LuV 부품 (Iridium 제한)'], ['Twinite', H.twin, 'LuV 초전도 케이블 (Mechanics)']];
+  return `
+  <h2>5 · 패시브 (LuV 준비)</h2>${subnav()}
+  <p class="lead">LuV 진입 재료를 상시 생산합니다. 해치 2개 기준 판정: <b>NbTi(VA[HV]) · Ruridit(VA[EV])</b>는 RTM + HV 해치 2개로도, <b>RPP(VA[IV])</b>는 RTM + EV 해치 2개, <b>HSS-S · HSS-E(5000K · EV)</b>는 HSS-G 코일 + HV 해치 2개(5,600K), <b>Twinite(5300K · VA[LuV])</b>만 HSS-G 코일 + IV 해치 2개입니다. 그래서 EBF 두 대 중 하나만 IV 해치를 기다립니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>시간당 목표</h3>${hbar(rows.map(([a, v, d]) => ({ label: a, sub: d, value: v, color: 'var(--s7)', text: fmt(v, 0) + ' ingot' })), { cols: ['재료', '/ 시간'], noAxis: true })}</div>
+    <div class="card"><h3>원료 · 병목</h3><ul class="pts">
+      <li><b>Iridium · Osmium</b>: 3 탭 정제 시간당 각 ${fmt(RAREST_H / 7, 1)} — HSS-S ${H.hsss}(Ir · Os 각 ${fmt(H.hsss * 2 / 9, 1)}) + Ruridit ${H.rur}(Ir ${fmt(H.rur / 3, 1)}) + IV 해치 · Emitter.</li>
+      <li><b>Rhodium · Palladium</b>: PGS 분리의 Palladium Raw, Rhodium은 Inert Metal Mixture ${EMI}.</li>
+      <li><b>Niobium</b>: Pyrochlore · Tantalite 부산물(HV Void 체인). <b>Titanium</b>은 EV 정제.</li>
+      <li><b>Twinite</b>: Manganese Phosphide 3 + Amethyst 2 + Lumium 1 (팩). Mixer 시간은 ${EMI}.</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>기계 대수</h3>${machTable(M)}</div>`;
+}
+function viewLuvChem() {
+  const M = luvPrep().filter(g => ['DC', 'NS', 'PS'].includes(g.id));
+  return `
+  <h2>5 · 패시브 (LuV 준비)</h2>${subnav()}
+  <p class="lead"><b>LuV 케이블부터 PPS foil이 붙습니다</b>(GTCEu <code>WireRecipeHandler</code>: 티어 ≥ LuV면 PVC foil + PPS foil + Silicone Rubber 또는 SBR). Silicone Rubber는 EV 페이지 패시브에서 그대로 이어서 쓰고, 여기서는 PPS를 더합니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>PPS ${fmt(LUV_H.pps, 0)}mB / 시간</h3>
+      ${flow({
+        label: 'PPS', h: 260,
+        nodes: [
+          { id: 'bz', x: 10, y: 20, w: 140, t: 'Benzene · Cl', s: '오일 증류 · 전해', k: 'src' },
+          { id: 'dc', x: 190, y: 20, w: 160, t: 'Dichlorobenzene', s: 'CR LV · 120t', k: 'LV', tip: 'dichlorobenzene: Cl 4000 + Benzene 1000 → DCB 1000 + HCl 2000' },
+          { id: 'na', x: 10, y: 140, w: 140, t: 'Sodium · Sulfur', s: 'Salt 전해 · 황', k: 'src' },
+          { id: 'ns', x: 190, y: 140, w: 160, t: 'Sodium Sulfide', s: 'CR LV · 60t', k: 'LV', tip: 'sodium_sulfide: Na 2 + S 1 → 3' },
+          { id: 'ps', x: 410, y: 80, w: 160, t: 'PPS', s: 'CR · 240t · 1500mB', k: 'GOAL', tip: 'polyphenylene_sulfide_from_oxygen: Na₂S 3 + DCB 1000 + O₂ 8000 → PPS 1500 + Salt 4 (Salt는 Sodium으로 되돌림)' },
+        ],
+        edges: [{ a: 'bz', b: 'dc' }, { a: 'na', b: 'ns' }, { a: 'dc', b: 'ps' }, { a: 'ns', b: 'ps' }, { a: 'ps', b: 'na', dash: true, fs: 'b', ts: 'b', k: 50, l: 'Salt 4', lt: 0.5 }],
+      })}</div>
+    <div class="card"><h3>기계 대수</h3>${machTable(M)}
+      <p class="sub" style="margin:10px 0 0">PPS foil 1장 = ingot 1/4(${EMI}). LuV 1x 케이블 1개에 PPS foil 1 + PVC foil 1. PPS CR의 전압은 ${EMI}.</p></div>
+  </div>`;
+}
+function buildLuvPrep() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  lk.blk(0, 0, 8, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
+  lk.me([[0, 0, 5], [15, 0, 5]]); lk.me([[0, 0, 6], [0, 0, 7]]); lk.me([[0, 0, 9], [0, 0, 12]]); lk.me([[1, 0, 12], [10, 0, 12]]);
+  multi(1, 1, 3, 3, 4, '--s7', 'EBF-R', 'EBF · RTM 코일 + EV 해치 2 (IV · 4,800K)|RPP · NbTi · Ruridit. 남쪽 Pattern Buffer 자리 (LuV 전에는 Pattern Provider)');
+  multi(5, 1, 3, 3, 4, '--s8', 'EBF-H', 'EBF · HSS-G 코일 + IV 해치 2 (LuV · 5,800K)|HSS-S · HSS-E · Twinite. IV 해치 전에는 HV 해치 2개(5,600K)로 HSS-S · HSS-E만');
+  multi(9, 1, 3, 3, 3, '--s7', 'VF', 'Vacuum Freezer · EV 해치 2|Hot ingot 전부 (HSS-S는 VA[EV]). 남쪽 ME Output Bus');
+  unit(13, 0, 1, { col: '--s7', label: 'Mix-IV', tip: 'IV Mixer (단일 블록 · IV 게이트 1)|RPP · NbTi · HSS-S · HSS-E · Ruridit dust' });
+  unit(14, 0, 1, { col: '--s3', label: 'Mix-LV', tip: 'LV Mixer|Twinite · Manganese Phosphide dust' });
+  [[2, 3, 'EBF-R 패턴 3종'], [6, 3, 'EBF-H 패턴 3종']].forEach(([x, z, w]) => { lk.me([[x, 0, 4], [x, 0, 4]]); lk.part(x, 0, z, 's', 'pp', `${w} (Blocking) — LuV에서 ME Pattern Buffer로 교체`); });
+  lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(10, 0, 3, 's', 'meout', 'VF 출력 → 주 네트워크');
+  [13, 14].forEach(x => { lk.me([[x, 0, 2], [x, 0, 4]]); lk.part(x, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과는 같은 면으로'); });
+  lk.node(2, 4, 2, 'EBF-R 출력', ['Hot ingot → VF']); lk.node(6, 4, 2, 'EBF-H 출력', ['Hot ingot → VF']); lk.node(10, 3, 2, 'VF 입력', ['↓ Hot ingot']);
+  lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
+  lk.blk(15, 0, 4, 'req', 'RPP 128 · NbTi 256 · HSS-S 64 · HSS-E 64 · Ruridit 32 · Twinite 64 · PPS 16B', 'Req');
+  // 화학 (남쪽)
+  unit(3, 0, 11, { col: '--s3', label: 'DCB', tip: 'LV CR · dichlorobenzene|Cl 4000 + Benzene 1000 → DCB 1000 + HCl 2000' });
+  unit(4, 0, 11, { col: '--s3', label: 'Na2S', tip: 'LV CR · sodium_sulfide|Na 2 + S → 3' });
+  unit(6, 0, 11, { col: '--s1', label: 'PPS', tip: 'CR · polyphenylene_sulfide_from_oxygen|Na₂S 3 + DCB 1000 + O₂ 8000 → PPS 1500 + Salt 4 (전압 EMI 확인)' });
+  [3, 4, 6].forEach(x => lk.part(x, 0, 11, 's', 'pp', ['Dichlorobenzene', 'Sodium Sulfide', 'PPS'][[3, 4, 6].indexOf(x)] + ' 패턴'));
+  lk.node(3, 1, 11, 'DCB', ['유체 OUT → PPS']); lk.node(6, 1, 11, 'PPS', ['↓ DCB IN']); lk.laser([3, 1, 11], [6, 1, 11]);
+  unit(8, 0, 14, { col: '--good', label: 'PPS', tip: 'PPS 탱크|주 네트워크 Storage Bus' }); lk.part(8, 0, 14, 'n', 'sbus', 'PPS 탱크'); lk.me([[8, 0, 13], [8, 0, 13]]);
+  unit(14, 0, 14, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer (승압)|IV Mixer용' });
+  unit(15, 0, 14, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
+  return built;
+}
+const LUVP_NETS = [
+  { n: '주 네트워크', kind: '주', what: '합금 dust · ingot, PPS, 원료(Pd · Rh · Nb · Ti · Ir · Os · Ru · Co · Mn · Si · Benzene · Cl · O₂)', edge: 'P2P → z = 5 · z = 12 간선', seen: '—' },
+  { n: 'LaserIO', kind: '레이저', what: 'Hot ingot EBF → VF, Dichlorobenzene → PPS CR', edge: '1:1', seen: '—' },
+  { n: 'ME Pattern Buffer (LuV)', kind: 'GT ME 해치', what: 'EBF 두 대의 입력 버스 + Pattern Provider를 한 칸으로', edge: 'LuV Emitter · LuV 회로 뒤에 교체', seen: 'Proxy로 EBF 두 대가 같은 패턴 공유 가능' },
+];
+function viewLuvPrep3d() {
+  return `
+  <h2>5 · 패시브 (LuV 준비)</h2>${subnav()}
+  <p class="lead">금속(북쪽)과 PPS(남쪽) 한 청크. EBF 두 대는 <b>EBF-R(EV 해치 2 · 4,800K)</b>과 <b>EBF-H(IV 해치 2 · 5,800K)</b>로 나눠, IV 해치가 없는 동안에도 EBF-R과 HSS-S · HSS-E(EBF-H를 HV 해치 2개로)가 돕니다.</p>
+  ${layBlock('LuV 준비 청크 3D 배치도', [['--s7', 'EV 해치 2개 · IV 기계'], ['--s8', 'EBF (IV 해치)'], ['--s1', 'MV 기계'], ['--s3', 'LV 기계'], ['--good', '결과 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'meout', 'p2p', 'req']) + pwLegend(PWM_L(), 5))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(LUVP_NETS)}</div>`;
+}
+function viewLuvPrepPower() {
+  return `
+  <h2>5 · 패시브 (LuV 준비)</h2>${subnav()}
+  <p class="lead">이 청크에 <b>IV 64A</b>를 배정합니다. EBF-H의 Twinite만 LuV 레시피라 IV 해치 2개 간선이 따로 필요합니다.</p>
+  ${pwCard(PWM_L(), 5)}`;
+}
+
 /* ---------- 5 LuV 준비 ---------- */
 function viewNext() {
   const temps = [
@@ -514,7 +739,7 @@ function viewNext() {
     ['Samarium', 5400, 'HSS-G · IV 해치 2', 5800], ['Naquadah Boule', 5400, 'HSS-G · IV 해치 2', 5800],
   ];
   return `
-  <h2>5 · LuV 준비</h2>
+  <h2>6 · LuV 준비</h2>
   <p class="lead">LuV로 가려면 <b>Assembly Line</b>(LuV 부품 · LuV 해치 · ZPM 회로)과 그 재료 금속(<b>HSS-S · Ruridit · Niobium-Titanium · Samarium</b>)이 필요합니다. LuV 부품 8종은 Assembly Line <b>6,000 EU/t — IV 전압</b>이라 IV에서 미리 만들 수 있습니다.</p>
   <div class="card"><h3>코일과 blast 온도</h3>
     <p class="sub">IV에서 <b>HSS-G 코일</b>(IV Assembler 7,680)을 만들고 IV 해치 2개로 5,800K. 전 티어 표는 <a href="common.html#coil">공용 › 코일 사다리</a>.</p>
@@ -545,14 +770,14 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
+const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, '3d': viewIvRefine3d, power: viewIvRefinePower }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewLuvMetal, chem: viewLuvChem, '3d': viewLuvPrep3d, power: viewLuvPrepPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'iv-web',
   save: () => ({ pbN: S.pbN }),
   load: o => { if ([4, 8, 16].includes(o.pbN)) S.pbN = o.pbN; },
-  layouts: [[viewPassive3d, () => pwWire(buildPbiChunk(), PWM(), 5, 'Conv')]],
+  layouts: [[viewPassive3d, () => pwWire(buildPbiChunk(), PWM(), 5, 'Conv')], [viewIvRefine3d, () => pwWire(buildIvRefine(), PWM_R(), 5, 'Conv')], [viewLuvPrep3d, () => pwWire(buildLuvPrep(), PWM_L(), 5, 'Conv')]],
   afterRender: () => document.querySelectorAll('#pbn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.pb === S.pbN)),
 });
 document.getElementById('pbn').addEventListener('click', e => {
