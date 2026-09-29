@@ -34,6 +34,7 @@
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
+<script src="assets/logi3d.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -81,9 +82,10 @@ const TOPICS = [
   { id: 'overview', name: '로드맵' },
   { id: 'entry', name: '1 · UV 진입 · Abydos' },
   { id: 'circuit', name: '2 · 회로' },
-  { id: 'resource', name: '3 · 반사판 3 융합' },
+  { id: 'resource', name: '3 · 반사판 3 융합', subs: [['route', '반사판 3 · 레시피'], ['elem', '원소 패시브'], ['3d', '원소 로 · 3D']] },
   { id: 'passive', name: '4 · 패시브 (Zirconium)', subs: [['flow', '흐름'], ['3d', '3D 배치'], ['power', '전력 · 64A']] },
-  { id: 'next', name: '5 · UHV 준비' },
+  { id: 'prep', name: '5 · 패시브 (UHV 준비)', subs: [['metal', '금속 · 초전도'], ['3d', '청크 · 3D']] },
+  { id: 'next', name: '6 · UHV 준비' },
 ];
 
 /* ---------- 로드맵 ---------- */
@@ -216,7 +218,7 @@ function viewCircuit() {
 function viewResource() {
   const rows = F3.map(([n, i, o, sec, eut, st]) => ({ n, i, o, sec, eut, st, perH: o * 3600 / sec }));
   return `
-  <h2>3 · 반사판 3 융합</h2>
+  <h2>3 · 반사판 3 융합</h2>${subnav()}
   <p class="lead">팩 융합로는 레시피마다 필요한 <b>반사판 등급</b>과 <b>시동 에너지</b>가 따로입니다(팩 코어 <code>ReflectorFusionReactorMachine</code>: 반사판이 모자라면 레시피 불가, 남으면 그만큼 오버클럭 여유). Tritanium · Americium은 반사판 3 · 시동 200M이라 <b>ZPM의 MK2에 Complex 반사판만 바꿔 끼우면</b> 됩니다.</p>
   <div class="card"><h3>반사판 3 레시피 (팩 <code>fusion_scaling.js</code>)</h3>
     ${hbar(rows.map(r => ({ label: r.n, sub: `${r.i} · 시동 ${r.st}M`, value: r.perH / 144, color: r.st <= 320 ? 'var(--good)' : 'var(--s8)', text: `${fmt(r.perH / 144, 0)} ingot/h · ${fmt(r.eut, 0)} EU/t` })), { cols: ['레시피', 'ingot/시간 (1대)'] })}
@@ -315,7 +317,7 @@ function viewPower() {
   ${pwCard(PWM(), 8, `<li>ZPM Electrolyzer(50,000) 하나만 ZPM이고 나머지는 LuV 이하 — UV 간선에서 두 계통으로 내립니다.</li>`)}`;
 }
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
-Object.assign(PIPE, PW_PIPES);
+Object.assign(PIPE, PW_PIPES, LOGI_PIPES);
 function buildZrChunk() {
   const boxes = [], pipes = [];
   const box = o => (boxes.push(o), o);
@@ -344,10 +346,136 @@ function buildZrChunk() {
   return { boxes, pipes };
 }
 
+/* ---------- 3 자원 처리 · 반사판 3 원소 패시브 ----------
+   팩 fusion_scaling.js: tritanium (반사판 3) Titanium 288 + Duranium 144 → 144 · 30,720 · 21.6초 · 200M
+   americium (3) Lutetium 144 + Chromium 144 → 144 · 49,152 · 14.4초 · 200M
+   neutronium (3) Americium 216 + Naquadria 288 → 144 · 117,964 · 72초 · 600M (MK3 · 640M 한도)
+   원료 Duranium · Lutetium · Naquadria는 ZPM 페이지 원소 로에서. */
+const UVE_H = { tri: 16, am: 16, neu: 8 };
+function uvElem() {
+  const H = UVE_H;
+  return [
+    { n: 'Tritanium', runs: H.tri, sec: 21.6, eut: 30720, mk: 'MK2 + Complex 반사판', in: `Titanium ${H.tri * 2} · Duranium ${H.tri}` },
+    { n: 'Americium', runs: H.am + H.neu * 1.5, sec: 14.4, eut: 49152, mk: 'MK2 + Complex 반사판', in: `Lutetium ${fmt(H.am + H.neu * 1.5, 0)} · Chromium ${fmt(H.am + H.neu * 1.5, 0)} (Neutronium용 ${fmt(H.neu * 1.5, 0)} 포함)` },
+    { n: 'Neutronium', runs: H.neu, sec: 72, eut: 117964, mk: 'MK3 (시동 600M)', in: `Americium ${fmt(H.neu * 1.5, 0)} · Naquadria ${H.neu * 2}` },
+  ];
+}
+const mkU = rows => rows.map(([id, m, t, eut, hatch2, label, jobs]) => { const u = jobs.reduce((a, [, r, d]) => a + r * d, 0) / 72000; return { id, m, t, eut, hatch2, label, jobs, u, n: Math.max(1, Math.ceil(u / 0.95 - 1e-9)) }; });
+function uvElemMachines() {
+  const E = uvElem();
+  return mkU([
+    ['F2', 'Fusion MK2 · Complex 반사판', 'ZPM', 49152, true, 'Fusion2', E.filter(e => e.mk.startsWith('MK2')).map(e => [e.n, e.runs, e.sec * 20])],
+    ['F3', 'Fusion MK3 (UV)', 'UV', 117964, true, 'Fusion3', E.filter(e => e.mk.startsWith('MK3')).map(e => [e.n, e.runs, e.sec * 20])],
+    ['EX', 'Fluid Extractor', 'HV', 480, false, 'Ext', [['dust → 액체', UVE_H.tri * 3 + UVE_H.am * 2 + UVE_H.neu * 3.5, 80]]],
+    ['FS', 'Fluid Solidifier', 'HV', 480, false, 'Solid', [['액체 → ingot', UVE_H.tri + UVE_H.am + UVE_H.neu, 80]]],
+  ]);
+}
+const PWM_UE = () => uvElemMachines().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+const mTu = M => `<div class="tscroll"><table><thead><tr><th>기계</th><th>계통</th><th>작업</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+  <tbody>${M.map(g => `<tr><td><b>${esc(g.m)}</b>${g.hatch2 ? ' <small style="color:var(--muted)">해치 2</small>' : ''}</td><td>${g.t}</td><td>${g.jobs.map(([a, r, d]) => `${esc(a)} ${fmt(r, 2)}회 × ${fmt(d, 0)}t`).join('<br>')}</td><td class="n">${fmt(g.u * 100, 0)}%</td><td class="n"><b>${g.n}</b></td></tr>`).join('')}</tbody></table></div>`;
+function viewUvElem() {
+  const E = uvElem();
+  return `
+  <h2>3 · 반사판 3 융합</h2>${subnav()}
+  <p class="lead">ZPM 페이지의 <b>원소 로(MK2)에 Complex 반사판을 끼우면</b> Tritanium · Americium이 돌고, <b>Neutronium만 시동 600M이라 MK3</b>(UV Fusion)가 필요합니다. 원료 Duranium · Lutetium · Naquadria는 ZPM 원소 로가 계속 만들고 있으니, Requester 목표에 이 세 가지를 더하면 됩니다.</p>
+  <div class="card"><h3>레시피 · 시간당</h3>
+    <div class="tscroll"><table><thead><tr><th>출력</th><th>원료 / 시간</th><th class="n">회</th><th class="n">EU/t</th><th>원자로</th></tr></thead>
+      <tbody>${E.map(e => `<tr><td><b>${e.n}</b></td><td>${esc(e.in)}</td><td class="n">${fmt(e.runs, 0)} × ${e.sec}초</td><td class="n">${fmt(e.eut, 0)}</td><td>${e.mk}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="grid2">
+    <div class="card"><h3>기계 대수</h3>${mTu(uvElemMachines())}</div>
+    <div class="card"><h3>ZPM 원소 로에 더할 목표</h3><ul class="pts">
+      <li>Duranium +${UVE_H.tri}(Tritanium) → Radon · Gallium도 같이 늘어남.</li>
+      <li>Lutetium +${fmt(UVE_H.am + UVE_H.neu * 1.5, 0)} · Naquadria +${UVE_H.neu * 2}(Neutronium) — Naquadria는 LuV Naquadah 정제의 Sulfate가 한도.</li>
+      <li>Titanium은 EV 정제 · Naquadah 분리의 TiF₃ 부산물에서.</li>
+    </ul></div>
+  </div>`;
+}
+function buildUvElem() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  [[0, 0, 15, 2], [0, 13, 15, 2], [0, 2, 2, 11], [13, 2, 2, 11]].forEach(([x, z, w, d]) => box({ x, y: 0, z, w, h: 3, d, col: '--s7', ghost: true, tip: 'Fusion MK3 링 (자리 표시)|UV Fusion · 실제 크기 EMI 확인' }));
+  box({ x: 7, y: 3, z: 0, w: 1, h: 1, d: 1, col: '--s7', label: 'Fusion MK3', tip: 'UV Fusion Reactor|Neutronium (시동 600M) + 반사판 3 레시피 전부. 입력: ME Pattern Buffer' });
+  lk.part(7, 0, 1, 's', 'pbuf', 'Neutronium · Tritanium · Americium 패턴'); lk.part(8, 0, 1, 's', 'meout', '출력 → 주 네트워크');
+  lk.blk(3, 0, 12, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
+  lk.me([[4, 0, 12], [12, 0, 12]]); lk.me([[3, 0, 3], [3, 0, 11]]); lk.me([[4, 0, 3], [12, 0, 3]]); lk.me([[7, 0, 2], [8, 0, 2]]);
+  for (let i = 0; i < 2; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'Fluid Extractor|dust → 액체' }); lk.part(5 + i, 0, 5, 'n', 'pp', '녹이기 패턴'); }
+  unit(8, 0, 5, { col: '--s2', label: 'Solid', tip: 'Fluid Solidifier|액체 → ingot' }); lk.part(8, 0, 5, 'n', 'pp', 'ingot 패턴'); lk.me([[5, 0, 4], [8, 0, 4]]);
+  lk.blk(10, 0, 5, 'req', `Tritanium 64 · Americium 64 · Neutronium 32 유지`, 'Req'); lk.me([[10, 0, 4], [10, 0, 4]]);
+  lk.blk(6, 0, 9, 'p2p', 'ZPM 원소 로(Duranium · Lutetium · Naquadria)와 같은 주 네트워크 — 이 P2P로 원료가 들어옴', 'P2P');
+  unit(12, 0, 11, { col: '--s7', label: 'UV Tr', tip: 'zpm_transformer|MK3 간선' }); unit(12, 0, 10, { col: '--s1', label: 'Conv', tip: '컨버터' });
+  return built;
+}
+function viewUvElem3d() {
+  return `
+  <h2>3 · 반사판 3 융합</h2>${subnav()}
+  <p class="lead">MK3 링 안쪽에 녹이기 · 굳히기 설비를 넣은 배치(ZPM 원소 로와 같은 방식). Tritanium · Americium은 ZPM 원소 로(MK2 + Complex)에서 돌려도 되고, MK3가 생기면 여기로 모읍니다.</p>
+  ${layBlock('UV 원소 로 3D 배치도', [['--s7', 'UV (Fusion MK3)'], ['--s2', 'HV 기계']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'pp', 'meout', 'p2p', 'req']) + pwLegend(PWM_UE(), 8))}
+  <div class="card"><h3>전력</h3>${pwCard(PWM_UE(), 8)}</div>`;
+}
+
+/* ---------- 5 패시브 · UHV 준비 ----------
+   UHV 부품: Plate = Neutronium, Cable = Europium (jar GTCraftingComponents), 초전도 = Stellarium (팩: Neutronium 12 · Melodium 4 · SmFeAsO 1, 10799K · VA[UHV] 2400t).
+   UV 초전도 2 = Melodium (팩: U-Triplatinum 2 · Electrum 14 · Amethyst 3 · Darmstadtium 4 · Europium 7, 10000K · VA[UV] 2200t).
+   Tritanium 코일 10,800K: ZPM 해치 2개(UV) = 11,400K → Melodium, UV 해치 2개(UHV) = 11,500K → Stellarium. */
+const UHV_H = { mel: 16, stel: 8 };
+function uhvPrep() {
+  const H = UHV_H;
+  return mkU([
+    ['MX', 'Mixer (UV) · Melodium · Stellarium', 'UV', 491520, false, 'Mix', [['Melodium dust (EMI 시간)', H.mel / 30, 600], ['Stellarium dust (EMI 시간)', H.stel / 17, 600]]],
+    ['EU', 'EBF · Tritanium 코일 + ZPM 해치 2 (UV · 11,400K)', 'UV', 491520, true, 'EBF-U', [['Melodium 10000K (UV)', H.mel, 2200]]],
+    ['EH', 'EBF · Tritanium 코일 + UV 해치 2 (UHV · 11,500K)', 'UHV', 1966080, true, 'EBF-H', [['Stellarium 10799K (UHV)', H.stel, 2400]]],
+    ['VF', 'Vacuum Freezer · LuV 해치 2', 'ZPM', 122880, true, 'VF', [['Hot ingot', H.mel + H.stel, 300]]],
+  ]);
+}
+const PWM_H = () => uhvPrep().map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+function viewUhvMetal() {
+  const H = UHV_H;
+  return `
+  <h2>5 · 패시브 (UHV 준비)</h2>${subnav()}
+  <p class="lead">UHV 진입 재료입니다 — plate <b>Neutronium</b>(3 탭 MK3), 케이블 <b>Europium</b>(LuV · ZPM Fusion), 초전도 <b>Melodium</b>(UV) · <b>Stellarium</b>(UHV). 해치 2개 기준: Melodium(10000K · VA[UV])은 Tritanium 코일 + ZPM 해치 2개, Stellarium(10799K · VA[UHV])은 UV 해치 2개. 케이블 피복은 LuV와 같습니다.</p>
+  <div class="grid2">
+    <div class="card"><h3>시간당 목표</h3>${hbar([['Melodium', H.mel, 'UV 초전도 · Stellarium 원료'], ['Stellarium', H.stel, 'UHV 초전도'], ['Neutronium', UVE_H.neu, 'UHV plate — 3 탭'], ['Europium', 16, 'UHV 케이블 — LuV · ZPM Fusion']].map(([a, v, d]) => ({ label: a, sub: d, value: v, color: 'var(--s7)', text: fmt(v, 0) + ' ingot' })), { cols: ['재료', '/ 시간'], noAxis: true })}</div>
+    <div class="card"><h3>원료</h3><ul class="pts">
+      <li>Melodium 16 ≈ Darmstadtium 2 · Europium 4 · U-Triplatinum 1 · Electrum 7 · Amethyst 2 (팩 비율 4 : 7 : 2 : 14 : 3).</li>
+      <li>Stellarium 8 ≈ Neutronium 6 · Melodium 2 · SmFeAsO 0.5 — <b>Neutronium이 병목</b>(MK3 72초 · 1회 1 ingot).</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>기계 대수</h3>${mTu(uhvPrep())}</div>`;
+}
+function buildUhvPrep() {
+  const built = { boxes: [], pipes: [] };
+  const box = o => (built.boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  lk.blk(0, 0, 8, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[0, 0, 5], [0, 0, 7]]); lk.me([[1, 0, 5], [15, 0, 5]]);
+  multi(1, 1, 3, 3, 4, '--s7', 'EBF-U', 'EBF · Tritanium 코일 + ZPM 해치 2 (UV · 11,400K)|Melodium 2200t');
+  multi(5, 1, 3, 3, 4, '--s8', 'EBF-H', 'EBF · Tritanium 코일 + UV 해치 2 (UHV · 11,500K)|Stellarium 2400t');
+  multi(9, 1, 3, 3, 3, '--s4', 'VF', 'Vacuum Freezer · LuV 해치 2|Hot ingot');
+  unit(13, 0, 1, { col: '--s7', label: 'Mix', tip: 'UV Mixer|Melodium · Stellarium dust' });
+  lk.part(2, 0, 3, 's', 'pbuf', 'Melodium 패턴'); lk.part(6, 0, 3, 's', 'proxy', 'Stellarium — Proxy'); lk.me([[2, 0, 4], [2, 0, 4]]); lk.me([[6, 0, 4], [6, 0, 4]]);
+  lk.part(10, 0, 3, 's', 'meout', 'VF 출력'); lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(13, 0, 1, 's', 'pp', 'Mixer 패턴'); lk.me([[13, 0, 2], [13, 0, 4]]);
+  lk.node(2, 4, 2, 'EBF-U', ['Hot → VF']); lk.node(6, 4, 2, 'EBF-H', ['Hot → VF']); lk.node(10, 3, 2, 'VF', ['↓ Hot']); lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
+  lk.blk(15, 0, 4, 'req', 'Melodium 128 · Stellarium 64 유지', 'Req');
+  unit(14, 0, 7, { col: '--s8', label: 'UHV Tr', tip: 'uv_transformer|EBF-H의 UV 해치 간선' }); unit(15, 0, 7, { col: '--s1', label: 'Conv', tip: '컨버터' });
+  return built;
+}
+function viewUhv3d() {
+  return `
+  <h2>5 · 패시브 (UHV 준비)</h2>${subnav()}
+  <p class="lead">EBF 두 대(Tritanium 코일)와 VF · Mixer. 앞 티어들과 같은 Pattern Buffer + Proxy 구성입니다.</p>
+  ${layBlock('UHV 준비 청크 3D 배치도', [['--s7', 'ZPM 해치 2개 (UV)'], ['--s8', 'UV 해치 2개 (UHV)'], ['--s4', 'LuV 해치 2개']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'proxy', 'pp', 'meout', 'p2p', 'req']) + pwLegend(PWM_H(), 8))}
+  <div class="card"><h3>전력</h3>${pwCard(PWM_H(), 8)}</div>`;
+}
+
 /* ---------- 5 UHV 준비 ---------- */
 function viewNext() {
   return `
-  <h2>5 · UHV 준비</h2>
+  <h2>6 · UHV 준비</h2>
   <p class="lead">범위는 UV까지지만, UV 동안 준비해 둘 UHV의 문턱을 정리했습니다. UHV 기계 대부분이 <b>Assembly Line VHA[UHV](983,040)</b> + 연구입니다.</p>
   <div class="grid2">
     <div class="card"><h3>코일</h3><ul class="pts">
@@ -373,14 +501,14 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
+const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, elem: viewUvElem, '3d': viewUvElem3d }, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, prep: { metal: viewUhvMetal, '3d': viewUhv3d }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'uv-web',
   save: () => ({ zrN: S.zrN }),
   load: o => { if ([15, 30, 60].includes(o.zrN)) S.zrN = o.zrN; },
-  layouts: [[viewPassive3d, () => pwWire(buildZrChunk(), PWM(), 8, 'ZPM Tr')]],
+  layouts: [[viewPassive3d, () => pwWire(buildZrChunk(), PWM(), 8, 'ZPM Tr')], [viewUvElem3d, () => pwWire(buildUvElem(), PWM_UE(), 8, 'Conv')], [viewUhv3d, () => pwWire(buildUhvPrep(), PWM_H(), 8, 'Conv')]],
   afterRender: () => document.querySelectorAll('#zrn button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.zr === S.zrN)),
 });
 document.getElementById('zrn').addEventListener('click', e => {
