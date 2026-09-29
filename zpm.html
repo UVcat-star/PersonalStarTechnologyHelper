@@ -406,10 +406,10 @@ function buildArgonChunk() {
     .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
   // 물류: 연료 서브넷(Carbon · Mg 액체) → Fusion Stocking Input Hatch, 플라즈마 서브넷(Fusion ME Output Hatch → 터빈 Stocking Input Hatch)
   const lk = logiKit({ boxes, pipes });
-  lk.sub([[0, 0, 2], [3, 0, 2]]); lk.part(1, 0, 3, 'n', 'sbus', 'Carbon 액체 (연료 서브넷)'); lk.part(2, 0, 3, 'n', 'sbus', 'Magnesium 액체 (연료 서브넷)');
+  lk.sub([[0, 0, 2], [3, 0, 2]]); boxes.filter(b => ['Carbon', 'Mg'].includes(b.label)).forEach(b => b.ghost = true); lk.drive(1, 0, 3, '연료 서브넷 — 탱크 자리는 셀로', ['Carbon 액체', 'Magnesium 액체'], 'Drive');
   lk.sub([[-1, 0, 2], [-1, 0, 2]]); lk.part(-2, 0, 2, 'e', 'stock', 'Fusion 입력 = 연료 서브넷 재고 (ME Stocking Input Hatch)');
   lk.part(-2, 0, 7, 'e', 'meout', 'Fusion 출력 → 플라즈마 서브넷 (ME Output Hatch)'); lk.sub([[-1, 0, 7], [0, 0, 7]]); lk.sub([[0, 0, 4], [0, 0, 6]]); lk.sub([[1, 0, 4], [15, 0, 4]]);
-  lk.part(1, 0, 6, 'n', 'sbus', 'Argon 플라즈마 버퍼 (플라즈마 서브넷)');
+  boxes.filter(b => b.label === 'Ar-P').forEach(b => b.ghost = true); lk.drive(1, 0, 6, '플라즈마 서브넷 — 버퍼 탱크 자리는 셀로', ['Argon 플라즈마', 'Argon 플라즈마'], 'Drive');
   [0, 1, 2, 3].forEach(i => lk.part(5 + i * 3, 1, 5, 'n', 'stock', `Turbine ${i + 1} 입력 = 플라즈마 서브넷 재고`));
   lk.blk(0, 0, 14, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 14], [3, 0, 14]]); lk.me([[3, 0, 1], [3, 0, 13]]);
   lk.single(1, 0, 1, 'e', 'Carbon dust → 액체 패턴'); lk.single(2, 0, 1, 'e', 'Magnesium dust → 액체 패턴');
@@ -485,7 +485,9 @@ function buildElemChunk() {
   // 가운데 (x 3..12, z 3..12)
   lk.blk(3, 0, 12, 'p2p', '기지 ME 컨트롤러에서 (링 밑으로)', 'P2P');
   lk.me([[4, 0, 12], [12, 0, 12]]); lk.me([[3, 0, 3], [3, 0, 11]]); lk.me([[4, 0, 3], [12, 0, 3]]); lk.me([[7, 0, 2], [8, 0, 2]]);
-  for (let i = 0; i < 3; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'HV Fluid Extractor|dust → 144mB (Gallium · Arsenic · Ruthenium · Gold · La · Si · Nd)' }); lk.single(5 + i, 0, 5, 'n', 'dust → 액체 패턴'); }
+  // Pattern Provider 서브넷: 주 네트워크 Pattern Provider 1개 → Interface → Storage Bus 3개 (채널 1개로 Extractor 3대 병렬 — AE2 가이드 · GTNH)
+  for (let i = 0; i < 3; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'HV Fluid Extractor|dust → 144mB (Gallium · Arsenic · Ruthenium · Gold · La · Si · Nd)' }); lk.part(5 + i, 0, 5, 's', 'sbus', `Ext${i + 1} 입력면 — Extractor 서브넷 Storage Bus`); lk.part(5 + i, 0, 5, 'n', 'iface', `Ext${i + 1} 출력면 → 주 네트워크 Interface`); }
+  lk.sub([[5, 0, 6], [7, 0, 6]]); lk.blk(4, 0, 6, 'iface', 'Extractor 서브넷 Interface — 주 네트워크 Pattern Provider가 여기로 밀면 Storage Bus 3개가 빈 Extractor로 나눔', 'IF'); lk.part(4, 0, 5, 's', 'pp', '녹이기 패턴 전부 (Pattern Provider 1개 · 채널 1개)'); lk.me([[4, 0, 4], [4, 0, 5]]);
   unit(9, 0, 5, { col: '--s2', label: 'Solid', tip: 'HV Fluid Solidifier|144mB → ingot (Ingot Mold)' }); lk.single(9, 0, 5, 'n', 'ingot 패턴');
   lk.me([[5, 0, 4], [9, 0, 4]]);
   multi(5, 8, 3, 3, 4, '--s4', 'EBF-Nq', 'EBF · Trinium 코일 + LuV 해치 2 (ZPM · 9,501K)|naquadria_sulfate_separation 600t. ME Pattern Buffer');
@@ -498,6 +500,7 @@ function buildElemChunk() {
 }
 const ELEM_NETS = [
   { n: '주 네트워크', kind: '주', what: '원소 dust · ingot, 녹인 액체(144mB 단위)는 패턴 사이 잠깐만', edge: 'P2P → 링 안쪽 네 변 간선', seen: '—' },
+  { n: 'Extractor 서브넷', kind: 'Pattern Provider 서브넷', what: 'Extractor 3대의 입력', edge: '주 네트워크 Pattern Provider 1개 → 서브넷 Interface → Storage Bus 3개', seen: '채널 1개로 3대 병렬 — 대수를 늘려도 채널은 그대로 (AE2 가이드 · GTNH)' },
   { n: 'ME Pattern Buffer (Fusion)', kind: 'GT ME 해치 (LuV)', what: 'Fusion 입력 해치 자리에 Pattern Buffer 하나 — 패턴 5종', edge: 'Requester가 재고를 보고 필요한 원소 패턴만 실행', seen: 'Radon은 Duranium 패턴의 재료라 자동 연쇄 (Radon 패턴 → Duranium 패턴)' },
   { n: 'LaserIO', kind: '레이저', what: 'Hot Naquadria EBF → VF', edge: '1:1', seen: '—' },
 ];
@@ -505,7 +508,7 @@ function viewElem3d() {
   return `
   <h2>3 · Fusion MK2 · 자원</h2>${subnav()}
   <p class="lead"><b>링 안쪽 빈 공간에 원료 설비를 넣는</b> 배치입니다(GTNH식). Fusion 입력 해치 자리에 ME Pattern Buffer 하나만 두고 패턴 5종을 넣으면, Requester가 모자란 원소만 골라 돌립니다. 링 크기는 자리 표시라 ${EMI} 미리보기로 맞추세요.</p>
-  ${layBlock('ZPM 원소 로 3D 배치도', [['--s4', 'ZPM (Fusion 링 · LuV 해치 2)'], ['--s8', 'IV 해치 2개'], ['--s2', 'HV 기계']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'pp', 'meout', 'p2p', 'req']) + pwLegend(PWM_E(), 7))}
+  ${layBlock('ZPM 원소 로 3D 배치도', [['--s4', 'ZPM (Fusion 링 · LuV 해치 2)'], ['--s8', 'IV 해치 2개'], ['--s2', 'HV 기계']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'pp', 'sbus', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM_E(), 7))}
   <div class="card"><h3>네트워크 구성</h3>${logiNets(ELEM_NETS)}</div>
   <div class="card"><h3>전력</h3>${pwCard(PWM_E(), 7)}</div>`;
 }

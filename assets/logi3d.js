@@ -12,6 +12,7 @@ const LOGI_PIPES = {
   me: { c: '--ink', n: 'ME 주 네트워크 케이블', w: 0.1 },
   sub: { c: '--ink-2', n: 'ME 서브넷 케이블 (점선)', w: 0.08, dash: [3, 3] },
   laser: { c: '--s8', n: 'LaserIO 레이저', w: 0.05 },
+  fiber: { c: '--s4', n: 'Quartz Fiber (전력만 · 네트워크는 안 이음)', w: 0.04, dash: [2, 4] },
 };
 const LOGI_PART = {
   sbus: { c: '--s7', n: 'AE2 Storage Bus', d: '붙은 탱크 · 인터페이스의 내용을 네트워크에 보여 줌' },
@@ -24,7 +25,14 @@ const LOGI_PART = {
   proxy: { c: '--s5', n: 'GT ME Pattern Buffer Proxy', d: '같은 Pattern Buffer를 다른 멀티블럭에 공유 (LuV부터)' },
   p2p: { c: '--s7', n: 'ME P2P Tunnel', d: '주 네트워크 입구 — 기지 컨트롤러에서 채널을 끌어옴' },
   wc: { c: '--s7', n: 'ME Wireless Connector (ExtendedAE)', d: '케이블 없이 두 지점을 같은 네트워크로' },
-  req: { c: '--s4', n: 'ME Requester', d: '재고 목표를 정해 두면 모자랄 때 자동으로 제작 요청 — 패시브 라인의 스위치' },
+  req: { c: '--s4', n: 'ME Requester', d: '재고 목표를 정해 두면 모자랄 때 자동으로 제작 요청 — 패시브 라인의 스위치. 패턴은 ×16 · ×64로 묶어 요청 횟수를 줄임' },
+  sbif: { c: '--s7', n: 'Storage Bus → Interface (추출 전용)', d: '다른 네트워크 전체를 읽음. 추출 전용으로 두지 않으면 물건이 이웃 네트워크로 샘 (GTNH)' },
+  drive: { c: '--s6', n: 'ME Drive · 셀', d: '탱크 대신 셀 — 아이템 해시가 미리 계산돼 Storage Bus + 탱크보다 가볍다 (GTNH). 셀마다 파티션 1종' },
+  ebus: { c: '--s1', n: 'ME Export Bus', d: '서브넷 재고를 단일 블록 기계 입력면으로 밀어 넣음 (필터 1종)' },
+  temit: { c: '--s8', n: 'ME Threshold Level Emitter (ExtendedAE)', d: '하한 · 상한 두 값의 래치 — 탱크가 차면 끄고 비면 켜는 발전기 · 수집기 제어' },
+  ibuf: { c: '--s1', n: 'ME Ingredient Buffer (ExtendedAE)', d: '36종을 담는 저장 블록 — 여러 입력을 모았다가 한 번에' },
+  ovif: { c: '--s1', n: 'ME Oversize Interface (ExtendedAE)', d: '슬롯당 16배(1024) — 대량 재고를 한 칸에' },
+  void: { c: '--critical', n: 'Overflow Destruction Card', d: '셀 · Storage Bus가 가득 차면 넘치는 것을 버림 — 쓸 곳 없는 부산물' },
 };
 function logiKit(built) {
   const box = o => (built.boxes.push(o), o);
@@ -51,12 +59,16 @@ function logiKit(built) {
       plate(x, y, z, out, 'iface', `${what.split(' 패턴')[0]} 출력면 → Interface (결과가 네트워크로)`);
     },
     laser: (a, b) => built.pipes.push({ type: 'laser', pts: [c(a), c(b)] }),
+    // Quartz Fiber: 주 네트워크 전력만 서브넷으로 (채널 · 저장소는 잇지 않음)
+    fiber: pts => built.pipes.push({ type: 'fiber', pts: pts.map(c) }),
+    // ME Drive (셀 장착 블록). cells = ['Molten Ilmenite', …] 파티션 목록
+    drive: (x, y, z, what, cells, label = 'Drive') => box({ x: x + 0.05, y: y + 0.05, z: z + 0.05, w: 0.9, h: 0.9, d: 0.9, col: '--s6', label, tip: `ME Drive · ${what}|셀 ${cells.length}개 — ${cells.join(' · ')}. ${LOGI_PART.drive.d}` }),
     me: pts => built.pipes.push({ type: 'me', pts: pts.map(c) }),
     sub: pts => built.pipes.push({ type: 'sub', pts: pts.map(c) }),
   };
 }
 function logiLegend(kinds) {
-  return [['me', LOGI_PIPES.me], ['sub', LOGI_PIPES.sub], ['laser', LOGI_PIPES.laser]]
+  return [['me', LOGI_PIPES.me], ['sub', LOGI_PIPES.sub], ['laser', LOGI_PIPES.laser], ['fiber', LOGI_PIPES.fiber]]
     .map(([, p]) => `<span><i style="background:var(${p.c});height:4px;border-radius:2px"></i>${p.n}</span>`).join('')
     + kinds.map(k => `<span><i style="background:var(${LOGI_PART[k].c})"></i>${LOGI_PART[k].n}</span>`).join('');
 }

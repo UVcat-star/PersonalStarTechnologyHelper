@@ -458,12 +458,12 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="PBI 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 · 중간재 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req'])}${pwLegend(PWM(), 5)}</div>
+    <div class="legend">${[['--s7', 'IV 레시피 (LCR · EV 해치 2)'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s1', 'LV · MV 기계'], ['--muted', '원료 · 중간재 탱크'], ['--good', 'PBI 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['drive', 'sbif', 'ebus', 'ovif', 'sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req'])}${pwLegend(PWM(), 5)}</div>
   </div>
   <div class="card"><h3>네트워크 구성</h3>${logiNets([
-    { n: '중간재 서브넷', kind: '서브넷', what: 'Dichlorobenzidine · Diaminobenzidine · Diphenyl Isophtalate · Phthalic Acid · PBI', edge: 'LCR 4대의 ME Output Hatch → 서브넷 탱크, LCR 입력은 ME Stocking Input Hatch', seen: '반대로 <b>서브넷이 주 네트워크를 읽음</b> — 서브넷 Storage Bus가 주 네트워크 Interface(IF)를 봐서, Stocking Hatch가 Ammonia · Phenol · 황산 같은 원료까지 한 번에 봄 (GTNH식)' },
+    { n: '중간재 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'Dichlorobenzidine · Diaminobenzidine · Diphenyl Isophtalate · Phthalic Acid · PBI', edge: 'LCR 4대의 ME Output Hatch → <b>ME Drive(셀 5개)</b>, LCR 입력은 ME Stocking Input Hatch, PBI는 Export Bus로 주 네트워크 Oversize Interface에', seen: '반대로 <b>서브넷이 주 네트워크를 읽음</b> — 서브넷 Storage Bus가 주 네트워크 Interface(IF)를 봐서, Stocking Hatch가 Ammonia · Phenol · 황산 같은 원료까지 한 번에 봄 (GTNH식). 그 Storage Bus는 <b>추출 전용 + 원료만 필터</b> — PBI가 보이면 Export Bus가 고리를 만듦' },
     { n: '주 네트워크', kind: '주', what: '원료 탱크 10개 · PBI 탱크 · 앞단 반응기 패턴', edge: 'P2P → 남쪽 · 동쪽 간선', seen: '—' },
-    { n: 'LaserIO', kind: '레이저', what: 'Chlorobenzene → Nitrochlorobenzene → Dichlorobenzidine → 서브넷, 서브넷 PBI → 주 PBI 탱크', edge: '1:1', seen: '—' },
+    { n: 'LaserIO', kind: '레이저', what: 'Chlorobenzene → Nitrochlorobenzene → Dichlorobenzidine (출력면은 서브넷 Interface)', edge: '1:1', seen: '—' },
   ])}</div>
   <div class="grid2">
     <div class="card"><h3>배치 원칙</h3><ul class="pts">
@@ -516,11 +516,12 @@ function buildPbiChunk() {
   tanks.forEach((t, i) => lk.part(1 + i, 0, 12, 's', 'sbus', `${t} 탱크 (주 네트워크 버퍼)`)); lk.me([[1, 0, 13], [10, 0, 13]]); lk.part(13, 0, 12, 's', 'sbus', 'PBI 탱크'); lk.me([[13, 0, 13], [13, 0, 14]]);
   lk.sub([[1, 0, 4], [13, 0, 4]]);
   [[2, 'Diaminobenzidine'], [4, 'Diphenyl Isophtalate'], [6, 'Polybenzimidazole'], [11, 'Phthalic Acid']].forEach(([x, n]) => { lk.part(x, 0, 3, 's', 'stock', `LCR ${n} — 서브넷 재고(원료 + 중간재)를 입력으로`); lk.part(x, 1, 1, 'n', 'meout', `LCR ${n} 출력 → 중간재 서브넷`); });
-  ['DClBd', 'DAB', 'DPIP', 'Phth'].forEach((t, i) => { unit(8 + i, 0, 5, { col: '--muted', label: t, tip: `Super Tank · ${t}|중간재 서브넷 저장소` }); lk.part(8 + i, 0, 5, 'n', 'sbus', `${t} 탱크 (서브넷)`); });
-  lk.blk(14, 0, 4, 'iface', '주 네트워크 쪽 Interface — 서브넷의 Storage Bus가 이걸 봐서 원료가 서브넷 안에서 보임', 'IF'); lk.part(13, 0, 4, 'e', 'sbus', '중간재 서브넷 → 주 네트워크 Interface (읽기)');
+  lk.drive(9, 0, 5, '중간재 서브넷 저장소', ['Dichlorobenzidine', 'Diaminobenzidine', 'Diphenyl Isophtalate', 'Phthalic Acid', 'PBI'], 'Drive');
+  lk.sub([[7, 0, 5], [7, 0, 5]]); lk.blk(7, 0, 6, 'iface', 'DClBd CR 출력면 → 중간재 서브넷 Interface', 'IF-s');
+  lk.blk(14, 0, 4, 'iface', '주 네트워크 쪽 Interface — 서브넷의 Storage Bus가 이걸 봐서 원료가 서브넷 안에서 보임', 'IF'); lk.part(13, 0, 4, 'e', 'sbif', '중간재 서브넷 → 주 네트워크 IF (추출 전용 · 필터 = 원료만: Ammonia · Phenol · 황산 · Zinc · Naphthalene · H₂). PBI를 필터에서 빼야 Export Bus가 주 네트워크 PBI를 다시 퍼 나르는 고리가 안 생김'); lk.fiber([[14, 0, 5], [14, 0, 4]]);
   [1, 2].forEach(x => lk.single(x, 0, 6, 's', ['Chlorobenzene', 'Nitration Mixture'][x - 1] + ' 패턴 (주 네트워크)')); lk.me([[1, 0, 7], [2, 0, 7]]);
-  lk.node(6, 1, 6, 'DClBd', ['유체 OUT Dichlorobenzidine → 서브넷 탱크']); lk.laser([6, 1, 6], [8, 1, 5]);
-  lk.node(13, 1, 5, 'PBI 내보내기', ['서브넷 PBI → 주 네트워크 PBI 탱크']); lk.laser([10, 1, 5], [13, 1, 11]);
+  lk.part(12, 0, 4, 's', 'ebus', 'PBI → 주 네트워크 Interface (Export Bus · 필터 PBI) — 서브넷은 주 네트워크를 읽기만 하니 결과는 밀어서 보냄');
+  lk.blk(12, 0, 5, 'ovif', '주 네트워크 Oversize Interface — PBI를 받아 주 네트워크로', 'IF-m'); lk.me([[13, 0, 5], [13, 0, 5]]);
   lk.blk(12, 0, 14, 'req', 'PBI 16B 유지 — 모자라면 Chlorobenzene 패턴부터 연쇄', 'Req');
   return { boxes, pipes };
 }
@@ -581,9 +582,10 @@ function buildIvRefine() {
   lk.laser([9, 3, 2], [13, 1, 1]); lk.node(13, 1, 1, 'DT 입력', ['↓ Liquid Ender Air IN']);
   for (let y = 1; y <= 8; y++) lk.part(12, y, 2, 'w', 'meout', `증류탑 ${y}층`);
   lk.sub([[11, 1, 2], [11, 8, 2]]); lk.sub([[11, 0, 2], [11, 0, 4]]); lk.sub([[8, 0, 4], [15, 0, 4]]);
-  ['D', 'T', 'He', 'Rn', 'Xe', 'Kr', 'NO₂'].forEach((g, i) => { unit(8 + i, 0, 5, { col: '--muted', label: g, tip: `Super Tank · ${g}|기체 서브넷 저장소 (필터 1종)` }); lk.part(8 + i, 0, 5, 'n', 'sbus', `${g} 탱크`); });
-  lk.blk(15, 0, 5, 'iface', '기체 서브넷 경계 — Radon · Xenon은 주 네트워크가 가져가고, D · T는 LuV Fusion으로 P2P', 'IF');
-  lk.part(15, 0, 6, 'n', 'sbus', '주 네트워크 → 기체 서브넷 (우선순위 낮게)'); lk.me([[15, 0, 7], [15, 0, 10]]);
+  lk.drive(9, 0, 5, '기체 서브넷 저장소', ['D', 'T', 'He', 'Rn', 'Xe', 'Kr', 'NO₂ (Overflow Destruction Card)'], 'Drive');
+  lk.part(10, 0, 5, 'w', 'void', 'NO₂ 셀 — 증류 1회 122,000mB라 쓸 곳이 없으면 가득 찼을 때 버림 (증류탑이 멈추지 않게)');
+  lk.blk(15, 0, 5, 'iface', '기체 서브넷 경계 — Radon · Xenon은 주 네트워크가 가져가고, D · T는 LuV Fusion으로', 'IF');
+  lk.part(15, 0, 6, 'n', 'sbif', '주 네트워크 → 기체 서브넷 IF (추출 전용 · 우선순위 낮게)'); lk.me([[15, 0, 7], [15, 0, 10]]); lk.fiber([[15, 0, 6], [15, 0, 5]]);
   // 가운데: Rarest → Iridium · Osmium
   multi(1, 7, 3, 3, 3, '--s7', 'LCR-R', 'LCR · EV 해치 2 (IV)|rarest_metal_mixture_separation 400t. ME Stocking Input Hatch로 HCl을 재고에서 바로');
   lk.part(2, 0, 9, 's', 'pp', 'Rarest 7 패턴'); lk.part(3, 0, 8, 'e', 'stock', 'HCl 4000 (Stocking Input Hatch)'); lk.me([[2, 0, 10], [2, 0, 10]]);
@@ -611,7 +613,7 @@ function buildIvRefine() {
 }
 const IVR_NETS = [
   { n: '주 네트워크', kind: '주', what: 'Iridium · Osmium · InGaP 결과물, HCl · H₂ · Sulfuric · Aluminium · Glowstone · Lava · Air', edge: 'P2P → x = 0 · z = 5 · z = 11 간선', seen: '—' },
-  { n: '기체 서브넷', kind: '서브넷', what: 'Liquid Ender Air 증류 출력 8종 — D · T · He · Rn · Xe · Kr · NO₂', edge: '증류탑 층마다 ME Output Hatch → 탱크 7개 Storage Bus', seen: 'Interface(IF) Storage Bus. 우선순위를 낮춰 다른 기체가 새지 않게. D · T는 LuV 페이지 Fusion으로 ME P2P' },
+  { n: '기체 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'Liquid Ender Air 증류 출력 8종 — D · T · He · Rn · Xe · Kr · NO₂', edge: '증류탑 층마다 ME Output Hatch → <b>ME Drive + 유체 셀 7개</b>. NO₂ 셀에 Overflow Destruction Card', seen: 'IF Storage Bus (추출 전용 · 우선순위 낮게). D · T는 LuV 페이지 Fusion으로' },
   { n: 'LaserIO', kind: '레이저', what: 'Ender Air → VF → 증류탑, Rarest 분리 출력 → 원심 · 증류 · CR, Hot Iridium → VF', edge: '단계 사이 1:1', seen: '—' },
   { n: 'Stocking Input', kind: 'GT ME 해치 (IV)', what: 'HCl · Air · Nether Air를 재고에서 바로 입력', edge: 'LCR-R 동쪽 면, Mixer 남쪽 면', seen: '재고에서 꺼내지 않고 보기만 해서 Pattern이 필요 없음 — IV Sensor(Quantum Star) 뒤에 교체' },
 ];
@@ -619,7 +621,7 @@ function viewIvRefine3d() {
   return `
   <h2>3 · 자원 처리</h2>${subnav()}
   <p class="lead">IV 정제를 한 청크에 넣은 배치입니다. 북쪽이 Ender Air → Liquid Ender Air → 증류(Radon · D · T), 가운데가 Rarest Metal → Iridium · Osmium, 남쪽이 Indium · InGaP입니다. <b>IV 단일 블록은 하나도 없습니다</b> — IV 레시피(Rarest 분리 · Liquid Ender Air · 증류 · Iridium blast)는 전부 EV 해치 2개 멀티블럭입니다.</p>
-  ${layBlock('IV 정제 청크 3D 배치도', [['--s7', 'EV 해치 2개 멀티블럭 (IV)'], ['--s8', 'EBF'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s3', 'LV 기계'], ['--muted', '기체 탱크'], ['--good', '결과 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_R(), 5))}
+  ${layBlock('IV 정제 청크 3D 배치도', [['--s7', 'EV 해치 2개 멀티블럭 (IV)'], ['--s8', 'EBF'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s3', 'LV 기계'], ['--muted', '기체 탱크'], ['--good', '결과 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['drive', 'void', 'sbif', 'sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_R(), 5))}
   <div class="card"><h3>네트워크 구성</h3>${logiNets(IVR_NETS)}</div>
   <div class="grid2">
     <div class="card"><h3>기계 대수</h3>${machTable(ivRefine())}</div>

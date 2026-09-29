@@ -1480,7 +1480,7 @@ function buildChem() {
   const lk = logiKit({ boxes, pipes });
   // 화학 서브넷: 공용 탱크 6개의 Storage Bus를 서쪽 x = 0 케이블로 묶고, 남서쪽 IF에서 주 네트워크가 읽기만
   lk.sub([[0, 0, 1], [0, 0, 14]]); lk.blk(0, 0, 15, 'iface', '화학 서브넷 경계 — 산 · 기체가 주 네트워크 저장소를 채우지 않게', 'IF');
-  lk.blk(1, 0, 15, 'p2p', '주 네트워크 입구 — 서쪽 면 Storage Bus가 IF를 봄 (우선순위 낮게)', 'P2P'); lk.part(1, 0, 15, 'w', 'sbus', '주 네트워크 → 화학 서브넷 IF');
+  lk.blk(1, 0, 15, 'p2p', '주 네트워크 입구 — 서쪽 면 Storage Bus가 IF를 봄 (우선순위 낮게)', 'P2P'); lk.part(1, 0, 15, 'w', 'sbif', '주 네트워크 → 화학 서브넷 IF (추출 전용 · 우선순위 낮게)'); lk.fiber([[1, 0, 14], [1, 0, 15]]);
   const fNow = passiveFlows(), fMax = passiveFlows(4, 2), fWorst = passiveFlows(4, 2, { decomp: false });
   // 공용 탱크 (x = 1)
   [['O2', 'Oxygen', 1, '분해 부산물 · 공기 분리 IN', 'PE · PTFE로 OUT'], ['H2SO4', 'Sulfuric Acid', 4, 'LCR · P3 IN', '④ · P1로 OUT'], ['EtOH', 'Ethanol', 7, 'Casket · 농장에서 (레이저)', 'P1로 OUT'],
@@ -1678,11 +1678,11 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="패시브 화학 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${Object.values(LINE).map(l => `<span><i style="background:${l.c}"></i>${l.n}</span>`).join('')}${[['--s2', 'HV 기계 · 트랜스포머'], ['--muted', 'Super Tank'], ['--s8', 'LaserIO Node']].map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join('')}${logiLegend(['sbus', 'iface', 'p2p'])}</div>
+    <div class="legend">${Object.values(LINE).map(l => `<span><i style="background:${l.c}"></i>${l.n}</span>`).join('')}${[['--s2', 'HV 기계 · 트랜스포머'], ['--muted', 'Super Tank'], ['--s8', 'LaserIO Node']].map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join('')}${logiLegend(['sbus', 'sbif', 'iface', 'p2p'])}</div>
     <p class="sub" style="margin:10px 0 0">줄 순서(북 → 남): 황산 LCR · Persulfate(④ ⑤)와 예비 공기 분리 · Polyethylene · PTFE 반응 · Fluorine 분해. 출력 탱크는 동쪽 끝, 전력은 남동쪽 모서리에서 HV는 동쪽 끝을 따라 LCR 줄로.</p>
   </div>
   <div class="card"><h3>네트워크 구성</h3>${logiNets([
-    { n: '화학 서브넷', kind: '서브넷', what: 'O₂ · 황산 · Ethanol · HCl · Cl₂ · H₂ — 세 라인이 주고받는 공용 유체', edge: '공용 탱크 6개 Storage Bus → 서쪽 x = 0 케이블 → IF', seen: 'P2P 쪽 Storage Bus가 IF를 봄 (우선순위 낮게) — 주 네트워크 HCl · 황산 수요가 이 탱크를 비우지 않게 필요하면 읽기 전용' },
+    { n: '화학 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'O₂ · 황산 · Ethanol · HCl · Cl₂ · H₂ — 세 라인이 주고받는 공용 유체', edge: '공용 탱크 6개 Storage Bus → 서쪽 x = 0 케이블 → IF. <b>셀 대신 탱크를 쓰는 이유</b>: LaserIO 노드가 탱크에서 직접 뽑는 구조라 (LaserIO는 AE 셀에서 못 뺌)', seen: 'P2P 쪽 Storage Bus가 IF를 봄 (우선순위 낮게) — 주 네트워크 HCl · 황산 수요가 이 탱크를 비우지 않게 필요하면 읽기 전용' },
     { n: 'LaserIO', kind: '레이저', what: '탱크 ↔ 기계 열 사이 유체 · 아이템 (카드 설명은 노드에 마우스)', edge: '같은 네트워크 노드끼리 최소 신장 트리 · 8칸 넘으면 Connector', seen: '—' },
     { n: '주 네트워크', kind: '주', what: 'Sulfur · Salt 입력(ME IF), Persulfate · PE · PTFE 결과 탱크', edge: 'P2P · ME IF', seen: '—' },
   ])}</div>

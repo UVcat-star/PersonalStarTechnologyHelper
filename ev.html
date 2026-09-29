@@ -591,18 +591,17 @@ function buildEvChunk() {
   for (let y = 1; y <= 7; y++) lk.part(3, y, 2, 'e', 'meout', `증류탑 ${y}층 출력`);
   lk.node(2, 8, 2, '증류탑 입력', ['↓ 유체 IN Molten Ore Mixture (HV 처리 청크에서 레이저)']);
   lk.sub([[4, 1, 2], [4, 7, 2]]); lk.sub([[4, 0, 2], [11, 0, 2]]);
-  MOLTEN.forEach((m, i) => {
-    unit(5 + i, 0, 1, { col: m.feed ? '--s5' : '--muted', label: m.n.slice(0, 4), tip: `Super Tank · Molten ${m.n}|${m.use}. 남쪽 면 Storage Bus(필터 ${m.n}) → Molten 서브넷` });
-    lk.part(5 + i, 0, 1, 's', 'sbus', `Molten ${m.n} 탱크 (필터 1종)`);
-    if (m.feed) lk.node(5 + i, 1, 1, `Molten ${m.n}`, [`유체 OUT → AC-${m.n.slice(0, 3)} 노드`]);
-  });
+  // 탱크 대신 ME Drive + 유체 셀 (GTNH: 셀이 Storage Bus + 탱크보다 가벼움). 셀마다 파티션 1종
+  lk.drive(5, 0, 1, 'Molten 서브넷 저장소', MOLTEN.map(m => `Molten ${m.n}`), 'Drive');
+  MOLTEN.filter(m => !m.feed).forEach((m, i) => unit(7 + i, 0, 1, { col: '--muted', ghost: true, label: m.n.slice(0, 4), tip: `(셀) Molten ${m.n}|${m.use} — Drive 안의 셀이라 블록은 필요 없음. 쌓이면 셀 추가 · 쓸 곳 없으면 Overflow Destruction Card` }));
   lk.blk(4, 0, 3, 'iface', 'Molten 서브넷 경계', 'IF');
-  lk.part(4, 0, 4, 'n', 'sbus', '주 네트워크 → Molten 서브넷 Interface (우선순위 낮게, 잔량 읽기)');
-  // Autoclave (molten 종류마다 1대) → Macerator → Ore Factory: LaserIO
+  lk.part(4, 0, 4, 'n', 'sbif', '주 네트워크 → Molten 서브넷 IF (추출 전용 · 우선순위 낮게)');
+  lk.fiber([[4, 0, 4], [4, 0, 3]]);
+  // Autoclave (molten 종류마다 1대): 서브넷 Export Bus가 유체를 밀어 넣고, Stone Dust · Raw는 LaserIO
   MOLTEN.filter(m => m.feed).forEach((m, i) => {
     unit(5 + i, 0, 3, { col: '--s2', label: 'AC-' + m.n.slice(0, 3), tip: `HV Autoclave · ${m.n}|Molten ${m.n} 500 + Stone Dust → Raw. 유체가 섞이면 멈춰서 종류마다 1대` });
-    lk.node(5 + i, 1, 3, `AC-${m.n.slice(0, 3)}`, ['↓ 유체 IN (탱크 노드에서)', '↓ 아이템 IN Stone Dust', '아이템 OUT Raw → Mac']);
-    lk.laser([5 + i, 1, 1], [5 + i, 1, 3]);
+    lk.part(5 + i, 0, 3, 'n', 'ebus', `Molten ${m.n} → AC-${m.n.slice(0, 3)} (필터 1종)`);
+    lk.node(5 + i, 1, 3, `AC-${m.n.slice(0, 3)}`, ['↓ 아이템 IN Stone Dust', '아이템 OUT Raw → Mac']);
   });
   unit(9, 0, 3, { col: '--s2', label: 'Mac', tip: 'HV Macerator|Raw → Crushed' }); lk.node(9, 1, 3, 'Mac', ['↓ Raw IN', 'Crushed OUT → Ore Factory 입력 버스']);
   unit(10, 0, 3, { col: '--s1', label: 'Wash', tip: 'Ore Washer|Cooperite 세척 → Purified (EMI 확인)' }); lk.node(10, 1, 3, 'Wash', ['↓ Crushed Cooperite IN (필터)', 'Purified OUT → ME']);
@@ -653,20 +652,20 @@ function buildEvChunk() {
 }
 const REFINE_NETS = [
   { n: '주 네트워크', kind: '주 (기지 컨트롤러)', what: 'Ti · W · Pt 결과물, Ore Factory 출력 dust 전부, 원료(Carbon · Cl · HCl · Persulfate · Stone Dust)', edge: 'P2P 입구(남서쪽) → x = 4 간선 · z = 8 · z = 14 가지', seen: '—' },
-  { n: 'Molten 서브넷', kind: '서브넷 (컨트롤러 없음)', what: 'Molten 광석 7종 — 증류탑 출력은 여기로만 들어옴', edge: '증류탑 층마다 ME Output Hatch → 탱크 7개 Storage Bus(각 필터 1종)', seen: 'Interface(IF)에 붙인 주 네트워크 Storage Bus로 잔량만 봄. 우선순위를 낮춰 주 네트워크 유체가 탱크로 새지 않게' },
-  { n: 'LaserIO', kind: '레이저', what: 'Molten 탱크 → Autoclave → Macerator → Ore Factory, TiCl4 → EBF → VF, Tungstic Acid', edge: '한 기계에서 다음 기계로 바로 가는 1:1 흐름', seen: '— (중간재라 볼 필요 없음)' },
+  { n: 'Molten 서브넷', kind: '서브넷 (컨트롤러 없음 · Quartz Fiber 전력)', what: 'Molten 광석 7종 — 증류탑 출력은 여기로만 들어옴', edge: '증류탑 층마다 ME Output Hatch → <b>ME Drive + 유체 셀 7개</b>(파티션 1종씩) → Export Bus로 Autoclave', seen: 'IF에 붙인 주 네트워크 Storage Bus(<b>추출 전용</b> · 우선순위 낮게)로 봄 — 추출 전용이 아니면 주 네트워크 유체가 서브넷으로 샘' },
+  { n: 'LaserIO', kind: '레이저', what: 'Autoclave → Macerator → Ore Factory, TiCl4 → EBF → VF, Tungstic Acid', edge: '한 기계에서 다음 기계로 바로 가는 1:1 흐름', seen: '— (중간재라 볼 필요 없음)' },
 ];
 
 function viewRefine3d() {
   return `
   <h2>3 · 자원 처리</h2>${subnav()}
   <p class="lead">EV 정제를 <b>16×16 청크 하나</b>에 넣고 물류까지 그린 배치입니다. <b>검은 선이 ME 주 네트워크, 회색 점선이 Molten 서브넷, 빨간 가는 선이 LaserIO(굵은 색 선은 전선)</b>입니다. 상자 면에 붙은 작은 판이 Storage Bus · Pattern Provider · ME Output Hatch — 마우스를 올리면 무엇을 하는지 나옵니다.</p>
-  ${layBlock('EV 정제 청크 3D 배치도', [['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '보관 탱크'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM(), 4))}
+  ${layBlock('EV 정제 청크 3D 배치도', [['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '(셀) 보관 molten'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['drive', 'ebus', 'sbif', 'sbus', 'pp', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM(), 4))}
   <div class="card"><h3>네트워크 구성</h3>${logiNets(REFINE_NETS)}</div>
   <div class="grid2">
     <div class="card"><h3>왜 이렇게 나눴나</h3><ul class="pts">
-      <li><b>Molten 서브넷</b>: 증류 1회에 유체 7종 10,000mB가 한꺼번에 나옵니다. 주 네트워크에 바로 올리면 주 저장소가 molten으로 차고, Pitchblende · Molybdenite처럼 당장 안 쓰는 것도 섞입니다. 층마다 ME Output Hatch(EV부터)를 달고 탱크 7개를 필터 Storage Bus로 묶으면 필터 카드 없이 종류별로 갈립니다.</li>
-      <li><b>LaserIO는 1:1 흐름에만</b>: 탱크 → Autoclave(종류마다 1대), Autoclave → Macerator → Ore Factory, TiCl4 → EBF → Vacuum Freezer. 중간재를 ME에 올렸다 내리면 채널만 먹습니다.</li>
+      <li><b>Molten 서브넷</b>: 증류 1회에 유체 7종 10,000mB가 한꺼번에 나옵니다. 주 네트워크에 바로 올리면 주 저장소가 molten으로 차고, Pitchblende · Molybdenite처럼 당장 안 쓰는 것도 섞입니다. 층마다 ME Output Hatch(EV부터)를 달고 서브넷 저장소를 <b>ME Drive + 파티션 유체 셀</b>로 두면 셀이 종류별로 받아 갈립니다(GTNH: 탱크 + Storage Bus보다 셀이 가벼움). 서브넷 전력은 Quartz Fiber로.</li>
+      <li><b>셀에서 기계로는 Export Bus, 그 뒤는 LaserIO</b>: Drive → Autoclave(종류마다 1대)는 서브넷 Export Bus, Autoclave → Macerator → Ore Factory, TiCl4 → EBF → Vacuum Freezer. 중간재를 ME에 올렸다 내리면 채널만 먹습니다.</li>
       <li><b>하류는 Pattern Provider + ME Requester</b>: Rutile · TiCl4 · Titanium · Tungstic Acid · PGS 패턴을 주 네트워크 Pattern Provider에 넣고 Requester가 Ti · W · Pt 재고 목표를 지키게 하면, 원료가 들어오는 만큼 연쇄로 돌고 목표에 닿으면 멈춥니다. EBF는 Blocking Mode.</li>
     </ul></div>
     <div class="card"><h3>게임에서 확인할 것</h3><ul class="pts">
@@ -808,8 +807,8 @@ function buildPrepChunk() {
   unit(7, 0, 11, { col: '--s1', label: 'HCl', tip: 'MV Distillery|Diluted HCl → HCl (회수)' });
   [5, 6, 7].forEach(x => lk.single(x, 0, 11, 's', ['Silicone Rubber 패턴', 'PVC 패턴', 'HCl 회수 패턴'][x - 5]));
   // HCl 서브넷: LCR의 Diluted HCl → 탱크 → Distillery → HCl 탱크 → LCR (닫힌 루프)
-  unit(1, 0, 14, { col: '--muted', label: 'dHCl', tip: 'Super Tank · Diluted HCl|HCl 서브넷' }); unit(2, 0, 14, { col: '--muted', label: 'HCl', tip: 'Super Tank · HCl|HCl 서브넷 — 주 네트워크 HCl과 분리' });
-  lk.part(1, 0, 14, 'e', 'sbus', 'Diluted HCl 탱크'); lk.part(2, 0, 14, 'n', 'sbus', 'HCl 탱크');
+  lk.drive(2, 0, 14, 'HCl 서브넷 저장소 — 주 네트워크 HCl과 분리', ['HCl', 'Diluted HCl'], 'Drive');
+  lk.fiber([[3, 0, 15], [3, 0, 14]]); lk.part(3, 0, 15, 'n', 'sbif', '주 네트워크 → HCl 서브넷 IF (추출 전용)');
   lk.part(2, 0, 11, 's', 'meout', 'LCR ME Output Hatch → HCl 서브넷 (Diluted HCl)');
   lk.sub([[2, 0, 12], [2, 0, 13]]); lk.sub([[3, 0, 13], [7, 0, 13]]); lk.sub([[7, 0, 12], [7, 0, 12]]);
   lk.blk(3, 0, 14, 'iface', 'HCl 서브넷 경계', 'IF');
@@ -821,14 +820,14 @@ function buildPrepChunk() {
 }
 const PREP_NETS = [
   { n: '주 네트워크', kind: '주', what: 'dust · ingot 결과물, Silicone Rubber · PVC, 원료(Steel · Chromium · Molybdenum · Silicon · Methanol · Sulfur)', edge: 'P2P → z = 5(금속) · z = 12(화학) 간선', seen: '—' },
-  { n: 'HCl 서브넷', kind: '서브넷', what: 'HCl · Diluted HCl — PDMS가 HCl 2000을 넣고 Diluted HCl 2000을 내는 닫힌 루프', edge: 'LCR ME Output Hatch → Diluted HCl 탱크 → Distillery → HCl 탱크 → LCR', seen: 'Interface(IF) Storage Bus로 잔량만. 주 네트워크의 다른 HCl 수요(Tungsten 산 처리)와 섞이지 않게' },
+  { n: 'HCl 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'HCl · Diluted HCl — PDMS가 HCl 2000을 넣고 Diluted HCl 2000을 내는 닫힌 루프', edge: 'LCR ME Output Hatch → <b>ME Drive(셀 2개)</b> → Distillery → LCR', seen: 'IF Storage Bus(추출 전용)로 잔량만. 주 네트워크의 다른 HCl 수요(Tungsten 산 처리)와 섞이지 않게' },
   { n: 'LaserIO', kind: '레이저', what: 'Hot ingot: EBF → Vacuum Freezer', edge: 'EBF 출력 버스 위 노드 → VF 입력 노드', seen: '—' },
 ];
 function viewPrep3d() {
   return `
   <h2>4 · 패시브 (IV 준비)</h2>${subnav()}
   <p class="lead">금속(북쪽)과 피복 화학(남쪽)을 한 청크에 넣었습니다. 전부 1대씩이라 청크 절반씩이면 충분합니다. <b>ME Requester</b>가 재고 목표를 지키고, Pattern Provider가 재료를 넣고, Hot ingot만 LaserIO로 Vacuum Freezer에 보냅니다.</p>
-  ${layBlock('EV 패시브 (IV 준비) 청크 3D 배치도', [['--s8', 'EBF (Nichrome)'], ['--s7', 'EBF (RTM) · LCR'], ['--s5', 'EV 기계'], ['--s1', 'MV · HV 기계'], ['--s3', 'LV 기계'], ['--muted', '서브넷 탱크'], ['--good', '결과 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM_P(), 4))}
+  ${layBlock('EV 패시브 (IV 준비) 청크 3D 배치도', [['--s8', 'EBF (Nichrome)'], ['--s7', 'EBF (RTM) · LCR'], ['--s5', 'EV 기계'], ['--s1', 'MV · HV 기계'], ['--s3', 'LV 기계'], ['--muted', '서브넷 탱크'], ['--good', '결과 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['drive', 'sbif', 'sbus', 'pp', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM_P(), 4))}
   <div class="card"><h3>네트워크 구성</h3>${logiNets(PREP_NETS)}</div>
   <div class="card"><h3>배치 원칙</h3><ul class="pts">
     <li><b>EBF-R은 처음부터 EV 해치 2개로</b>: HSS-G(EV 레시피)도 IV 전압에서 1단계 OC로 돌고, Shellite(IV)까지 한 대로 됩니다. EV 해치가 생기기 전에는 HV 해치 2개로 HSS-G만.</li>

@@ -398,11 +398,11 @@ function viewPassive3d() {
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
     <div><canvas id="lay3d" role="img" aria-label="Nether Star 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['sbus', 'pp', 'iface', 'pbuf', 'p2p', 'req'])}${pwLegend(PWM(), 6)}</div>
+    <div class="legend">${[['--s7', 'IV 기계'], ['--s5', 'EV 기계'], ['--s8', 'Destabiliser (멀티블럭)'], ['--muted', '가루 · 유체 탱크'], ['--good', 'Nether Star · Naquadah']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${logiLegend(['drive', 'ebus', 'sbif', 'sbus', 'pp', 'iface', 'pbuf', 'p2p', 'req'])}${pwLegend(PWM(), 6)}</div>
   </div>
   <div class="card"><h3>네트워크 구성</h3>${logiNets([
-    { n: '가루 유체 서브넷', kind: '서브넷', what: 'Blaze · Blizz · Blitz · Basalz 액체 — Autoclave 한 번에 720씩', edge: 'Extractor → 탱크 4개 Storage Bus → IF, Autoclave 노드가 탱크에서 뺌', seen: 'IF Storage Bus (읽기)' },
-    { n: 'PCB Coolant 서브넷', kind: '서브넷', what: 'PCB Coolant · Hot PCB Coolant 고리 (Destabiliser 8000 넣고 9600 돌려받음)', edge: '탱크 두 개 · Mixer · Vacuum Freezer(pcb_cooling · 512 EU/t)', seen: '— (닫힌 고리)' },
+    { n: '가루 유체 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'Blaze · Blizz · Blitz · Basalz 액체 — Autoclave 한 번에 720씩', edge: 'Extractor 출력면 → 서브넷 Interface → <b>ME Drive(셀 4)</b> → Export Bus로 Autoclave', seen: 'IF Storage Bus (추출 전용)' },
+    { n: 'PCB Coolant 서브넷', kind: '서브넷', what: 'PCB Coolant · Hot PCB Coolant 고리 (Destabiliser 8000 넣고 9600 돌려받음)', edge: '<b>ME Drive(셀 2)</b> · Mixer · Vacuum Freezer(pcb_cooling · 512 EU/t)', seen: '— (닫힌 고리)' },
     { n: '주 네트워크', kind: '주', what: 'Nether Star · Shard · Raw Naquadah, Cobalt · Platinum · Rhodium dust', edge: 'P2P → 남쪽 · 동쪽 · z = 8 간선', seen: '—' },
     { n: 'LaserIO', kind: '레이저', what: 'Shard 루프: Hammer → Polarizer → Autoclave → Press → Implosion', edge: '1:1', seen: '—' },
   ])}</div>
@@ -467,15 +467,16 @@ function buildStarChunk() {
     .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
   // 물류: 가루 유체 서브넷(탱크 4개) + PCB Coolant 서브넷, 나머지는 주 네트워크 Pattern Provider · Buffer
   const lk = logiKit({ boxes, pipes });
-  lk.sub([[1, 0, 0], [12, 0, 0]]); ELEM.forEach((e, i) => lk.part(2 + i * 3, 0, 1, 'n', 'sbus', `${e.p} 가루 유체 탱크 (서브넷)`));
-  lk.blk(13, 0, 0, 'iface', '가루 유체 서브넷 경계 — Extractor가 채우고 Autoclave 노드가 뺌', 'IF');
-  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [12, 0, 15]]); lk.me([[14, 0, 1], [14, 0, 15]]); lk.part(14, 0, 0, 'w', 'sbus', '주 네트워크 → 가루 유체 서브넷 IF (읽기)');
+  lk.sub([[1, 0, 0], [12, 0, 0]]); lk.drive(0, 0, 0, '가루 유체 서브넷 저장소 — 위 탱크 자리는 셀로 대체', ELEM.map(e => `${e.p} 액체`), 'Drive');
+  ELEM.forEach((e, i) => { const t = boxes.find(b => b.label === e.p && b.z === 1); if (t) t.ghost = true; lk.sub([[2 + i * 3, 0, 1], [2 + i * 3, 0, 1]]); lk.part(2 + i * 3, 0, 2, 'n', 'ebus', `${e.p} 액체 720 → Autoclave (Export Bus)`); });
+  lk.blk(13, 0, 0, 'iface', '가루 유체 서브넷 경계 — Extractor 출력면이 서브넷 쪽 Interface로', 'IF');
+  lk.blk(0, 0, 15, 'p2p', '기지 ME 컨트롤러에서', 'P2P'); lk.me([[1, 0, 15], [12, 0, 15]]); lk.me([[14, 0, 1], [14, 0, 15]]); lk.part(14, 0, 0, 'w', 'sbif', '주 네트워크 → 가루 유체 서브넷 IF (추출 전용)'); lk.fiber([[14, 0, 1], [14, 0, 0]]);
   lk.me([[2, 0, 8], [13, 0, 8]]); lk.me([[5, 0, 6], [5, 0, 7]]); lk.me([[12, 0, 6], [12, 0, 7]]); lk.me([[11, 0, 6], [11, 0, 7]]); lk.me([[5, 0, 9], [5, 0, 11]]);
   ELEM.forEach((e, i) => lk.single(3 + i * 3, 0, 1, 's', `${e.p} 가루 → 유체 패턴`));
   lk.single(5, 0, 5, 's', 'Impure Nether Star 패턴 (Infused 4종 — Autoclave 노드가 Press 입력으로 모음)');
   lk.part(8, 0, 7, 's', 'pp', 'Nether Star 패턴 (Impure + 폭약)'); lk.single(12, 0, 5, 's', 'Blizz · Blitz · Basalz 가루 패턴'); lk.part(11, 0, 5, 's', 'sbus', 'Nether Star 버퍼');
   lk.part(4, 0, 11, 'e', 'pbuf', 'Dimensional Destabiliser 입력 — Shard 1 + PCB Coolant 8000 (Pattern Buffer)');
-  lk.sub([[6, 0, 13], [8, 0, 13]]); lk.part(6, 0, 11, 's', 'sbus', 'PCB Coolant (냉각 서브넷)'); lk.part(7, 0, 11, 's', 'sbus', 'Hot PCB Coolant (냉각 서브넷)');
+  lk.sub([[6, 0, 13], [8, 0, 13]]); lk.drive(8, 0, 12, 'PCB Coolant 서브넷 — 탱크 두 개 자리는 셀로', ['PCB Coolant', 'Hot PCB Coolant'], 'Drive'); boxes.filter(b => b.label === 'PCB' || b.label === 'HotPCB').forEach(b => b.ghost = true);
   lk.blk(13, 0, 8, 'req', 'Nether Star 4 · Energized Shard 16 유지 — 남는 Shard만 Destabiliser로', 'Req');
   return { boxes, pipes };
 }
@@ -628,15 +629,16 @@ function buildNaqChunk() {
   lk.part(11, 1, 2, 'e', 'meout', 'Impure Enriched · Impure Naquadria → 용액 서브넷'); lk.part(11, 0, 2, 'e', 'meout', 'TiF₃ → 주 네트워크 (ME Output Bus)');
   // 용액 서브넷 (동쪽 열)
   lk.sub([[12, 1, 2], [12, 1, 4]]); lk.sub([[12, 0, 4], [15, 0, 4]]);
-  ['ImpE', 'ImpQ', 'AcE', 'AcQ'].forEach((k, i) => { unit(12 + i, 0, 3, { col: '--muted', label: k, tip: `Super Tank · ${['Impure Enriched', 'Impure Naquadria', 'Acidic Enriched', 'Acidic Naquadria'][i]} 용액|용액 서브넷` }); lk.part(12 + i, 0, 3, 's', 'sbus', `${k} 탱크`); });
-  lk.blk(15, 0, 5, 'iface', '용액 서브넷 경계 — 단일 블록 원심 · Mixer는 여기서 LaserIO로 받음', 'IF');
+  lk.drive(13, 0, 3, '용액 서브넷 저장소', ['Impure Enriched', 'Impure Naquadria', 'Acidic Enriched', 'Acidic Naquadria', 'Solution · Waste', '아이템 셀: Trinium Sulfide · Indium Phosphide · SbF₃ · Sulfate'], 'Drive');
+  lk.blk(15, 0, 5, 'iface', '용액 서브넷 경계', 'IF'); lk.part(15, 0, 6, 'n', 'sbif', '주 네트워크 → 용액 서브넷 IF (추출 전용 · 우선순위 낮게)'); lk.fiber([[15, 0, 6], [15, 0, 5]]);
+  lk.sub([[11, 0, 4], [11, 0, 4]]); lk.sub([[11, 1, 4], [11, 1, 6]]); lk.sub([[11, 0, 7], [15, 0, 7]]); lk.sub([[15, 0, 8], [15, 0, 9]]);
   // 가운데: 원심 · Mixer · 증류 (용액 사이클)
   [['Cent-EV', '--s5', 'EV Centrifuge · impure_*_solution_separation 400t|→ Trinium Sulfide · Indium Phosphide · SbF₃ + Solution'], ['Mix-HV', '--s2', 'HV Mixer · *_solution_separation 100t|Solution 1000 + 황산 2000 → Acidic 3000'], ['Cent-HV', '--s2', 'HV Centrifuge · acidic_*_separation 100t|→ Sulfate 6 + Waste 2000 + F 500']]
-    .forEach(([l, c, t], i) => { unit(12 + i, 0, 8, { col: c, label: l, tip: t }); lk.node(12 + i, 1, 8, l, ['↓ 용액 IN (IF에서)', 'OUT → 다음 단계 · 고체는 주 네트워크']); lk.part(12 + i, 0, 8, 's', 'iface', `${l} 고체 출력 자동 배출`); });
-  lk.laser([15, 1, 5], [12, 1, 8]); lk.laser([12, 1, 8], [13, 1, 8]); lk.laser([13, 1, 8], [14, 1, 8]); lk.laser([14, 1, 8], [15, 1, 5]);
-  lk.me([[12, 0, 9], [14, 0, 9]]); lk.me([[13, 0, 10], [13, 0, 12]]);
+    .forEach(([l, c, t], i) => { unit(12 + i, 0, 8, { col: c, label: l, tip: t }); lk.part(12 + i, 0, 8, 'n', 'ebus', `${l} 입력 — 용액 서브넷 Export Bus (필터: 그 단계 용액 + 황산)`); lk.part(12 + i, 0, 8, 's', 'iface', `${l} 출력면 → 용액 서브넷 Interface (다음 단계 용액 · 고체는 아이템 셀)`); });
+  lk.sub([[12, 0, 9], [14, 0, 9]]); lk.part(13, 0, 9, 's', 'ebus', '고체 부산물 → 주 네트워크 (Export Bus · 필터 Trinium Sulfide · Indium Phosphide · SbF₃ · Sulfate)');
+  lk.blk(13, 0, 10, 'ovif', '주 네트워크 Oversize Interface — 서브넷 고체를 받음', 'IF-m'); lk.me([[13, 0, 11], [13, 0, 12]]);
   multi(8, 8, 3, 3, 4, '--s2', 'DT-W', 'Distillation Tower · HV 해치 2|*_waste_separation 300t → Solution 250 · 황산 500 되돌림 + Barium · Gallium Sulfide');
-  lk.laser([14, 1, 8], [9, 4, 9]); lk.node(9, 4, 9, 'DT-W', ['↓ Waste IN', 'Solution OUT → IF']); lk.part(9, 0, 10, 's', 'meout', '부산물 → 주 네트워크');
+  lk.part(10, 1, 9, 'e', 'stock', 'Waste — 용액 서브넷 재고 (Stocking Input Hatch)'); lk.part(9, 0, 10, 's', 'meout', 'Solution · 황산 · 부산물 → 용액 서브넷 (ME Output Hatch)');
   // 남: EBF 셋 + VF + Fluoroantimonic
   multi(1, 9, 3, 3, 4, '--s7', 'EBF-Enr', 'EBF · Naquadah 코일 + EV 해치 2 (IV · 7,500K)|enriched_naquadah_sulfate 500t · Enriched Sulfate 6 + H₂ 2000');
   multi(5, 9, 3, 3, 4, '--s8', 'EBF-Tr', 'EBF · Naquadah 코일 + IV 해치 2 (LuV · 7,600K)|trinium_sulfide_separation 750t · TrS 2 + Zinc');
@@ -657,15 +659,15 @@ function buildNaqChunk() {
 }
 const NAQ_NETS = [
   { n: '주 네트워크', kind: '주', what: 'Naquadah dust · Enriched · Trinium · Titanium, 부산물(Ba · S · Ga · In), Fluoroantimonic · Zinc · H₂ · 황산', edge: 'P2P → x = 0 · z = 6 · z = 13 간선', seen: '—' },
-  { n: '용액 서브넷', kind: '서브넷', what: 'Impure · Acidic 용액 4종 — 분리 한 번에 4,000mB씩 나와 사이클을 돎', edge: 'LCR-N ME Output Hatch → 탱크 4개 → IF → 원심 · Mixer · 원심 · 증류 (레이저) → IF', seen: 'IF Storage Bus로 잔량만. 용액은 네 단계를 돌며 한 기계가 다음 기계의 입력이라 주 네트워크 채널을 쓰지 않게' },
-  { n: 'LaserIO', kind: '레이저', what: 'Raw → Mac → Ore Plant, 용액 사이클, Hot ingot → VF', edge: '1:1', seen: '—' },
+  { n: '용액 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'Impure · Acidic 용액 4종 + Waste · Solution, 중간 고체', edge: 'LCR-N ME Output Hatch → <b>ME Drive(유체 셀 5 + 아이템 셀 1)</b> → 단일 블록은 Export Bus로 넣고 출력면 Interface로 받음, 증류탑은 Stocking Input Hatch', seen: 'IF Storage Bus(추출 전용). 고체 부산물만 Export Bus로 주 네트워크 Oversize Interface에' },
+  { n: 'LaserIO', kind: '레이저', what: 'Raw → Mac → Ore Plant, Hot ingot → VF', edge: '1:1', seen: '—' },
   { n: 'Stocking · Pattern Buffer', kind: 'GT ME 해치', what: 'Ore Plant의 Persulfate(Stocking), LCR-N · EBF의 패턴(LuV부터 Pattern Buffer)', edge: 'IV · LuV 게이트 뒤 교체', seen: '—' },
 ];
 function viewNaq3d() {
   return `
   <h2>3 · Naquadah · Fusion</h2>${subnav()}
   <p class="lead">Naquadah 정제 청크입니다. 북쪽이 Raw → Ore Plant → 분리 LCR, 동쪽이 <b>용액 서브넷</b>(Impure · Acidic 용액 4종)과 그 사이클을 도는 원심 · Mixer, 남쪽이 EBF 셋과 Fluoroantimonic 재생입니다.</p>
-  ${layBlock('Naquadah 청크 3D 배치도', [['--s8', 'IV 해치 2개 (LuV)'], ['--s7', 'EV 해치 2개 (IV) · Ore Plant'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s3', 'LV 기계'], ['--muted', '용액 탱크'], ['--good', '결과 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_N(), 6))}
+  ${layBlock('Naquadah 청크 3D 배치도', [['--s8', 'IV 해치 2개 (LuV)'], ['--s7', 'EV 해치 2개 (IV) · Ore Plant'], ['--s5', 'EV 기계'], ['--s2', 'HV 기계'], ['--s3', 'LV 기계'], ['--muted', '용액 탱크'], ['--good', '결과 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['drive', 'sbif', 'ebus', 'ovif', 'pp', 'iface', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_N(), 6))}
   <div class="card"><h3>네트워크 구성</h3>${logiNets(NAQ_NETS)}</div>`;
 }
 function buildFuelChunk() {
@@ -683,33 +685,33 @@ function buildFuelChunk() {
   for (let i = 0; i < M.ME; i++) unit(7 + i, 0, 3, { col: '--s2', label: 'EA' + (i + 1), tip: 'HV Mixer · ender_air_mix|End Stone dust 3 + Nether Air 32,000 → Ender Air 24,000' });
   // 공기 서브넷: Air · Nether Air · Ender Air (유량이 커서 주 네트워크와 분리)
   lk.sub([[1, 0, 2], [12, 0, 2]]); lk.sub([[6, 0, 2], [6, 0, 6]]); lk.sub([[7, 0, 4], [12, 0, 4]]);
-  for (let i = 0; i < M.MN; i++) lk.single(7 + i, 0, 1, 'n', 'Nether Air 패턴 — Air는 공기 서브넷 Interface에서, dust는 주 네트워크에서');
-  for (let i = 0; i < M.ME; i++) lk.single(7 + i, 0, 3, 's', 'Ender Air 패턴');
-  ['Air', 'NAir', 'EAir'].forEach((k, i) => { unit(13 + i, 0, 2, { col: '--muted', label: k, tip: `Super Tank · ${k}|공기 서브넷 저장소` }); lk.part(13 + i, 0, 2, 'w', 'sbus', `${k} 탱크`); });
-  lk.sub([[12, 0, 1], [15, 0, 1]]);
+  for (let i = 0; i < M.MN; i++) { lk.part(7 + i, 0, 1, 's', 'ebus', 'Air → Mixer (공기 서브넷 Export Bus). Netherrack dust는 Mac 레이저'); lk.part(7 + i, 0, 1, 'n', 'iface', 'Mixer 출력면 → 공기 서브넷 Interface (Nether Air)'); }
+  for (let i = 0; i < M.ME; i++) { lk.part(7 + i, 0, 3, 'n', 'ebus', 'Nether Air → Mixer (공기 서브넷 Export Bus). End Stone dust는 Mac 레이저'); lk.part(7 + i, 0, 3, 's', 'iface', 'Mixer 출력면 → 공기 서브넷 Interface (Ender Air)'); }
+  lk.drive(13, 0, 2, '공기 서브넷 저장소', ['Air', 'Nether Air', 'Ender Air'], 'Drive'); lk.sub([[12, 0, 1], [15, 0, 1]]);
+  lk.blk(0, 0, 2, 'temit', 'Air 셀 기준 래치 — 하한 200B 아래면 켬 · 상한 800B 넘으면 끔 → Gas Collector에 redstone (ExtendedAE)', 'Th'); lk.sub([[0, 0, 1], [0, 0, 1]]);
   multi(7, 7, 3, 3, 3, '--s7', 'VF', 'Vacuum Freezer · EV 해치 2 (IV)|liquid_ender_air 80t · Ender Air는 ME Stocking Input Hatch로 공기 서브넷에서 바로');
   lk.part(7, 0, 8, 'w', 'stock', 'Ender Air (공기 서브넷 재고)'); lk.sub([[6, 0, 8], [6, 0, 8]]);
   multi(11, 7, 3, 3, 10, '--s7', 'DT', 'Distillation Tower · EV 해치 2 (IV) · 10층|distill_liquid_ender_air 2000t. 층마다 ME Output Hatch → 기체 서브넷');
   lk.laser([8, 3, 8], [12, 1, 7]); lk.node(8, 3, 8, 'VF', ['Liquid Ender Air OUT → DT']); lk.node(12, 1, 7, 'DT 입력', ['↓ LEA IN']);
   for (let y = 1; y <= 8; y++) lk.part(13, y, 9, 'e', 'meout', `증류탑 ${y}층`);
   lk.sub([[14, 1, 9], [14, 8, 9]]); lk.sub([[14, 0, 9], [14, 0, 12]]); lk.sub([[8, 0, 12], [15, 0, 12]]);
-  ['D', 'T', 'He', 'Rn', 'Xe', 'Kr', 'NO₂'].forEach((g, i) => { unit(8 + i, 0, 13, { col: g === 'D' || g === 'T' ? '--s5' : '--muted', label: g, tip: `Super Tank · ${g}|기체 서브넷 — D · T는 Fusion으로` }); lk.part(8 + i, 0, 13, 'n', 'sbus', `${g} 탱크`); });
-  lk.blk(15, 0, 13, 'p2p', 'D · T → Fusion MK1 입력 해치 (ME P2P · 기체 서브넷 쪽)', 'P2P→Fu');
+  lk.drive(9, 0, 13, '기체 서브넷 저장소', ['D', 'T', 'He', 'Rn', 'Xe', 'Kr', 'NO₂ (Overflow Destruction Card)'], 'Drive'); lk.part(10, 0, 13, 'w', 'void', 'NO₂ 셀 — 넘치면 버림');
+  lk.blk(15, 0, 13, 'wc', 'D · T → Fusion 원자로 쪽 Wireless Connector (같은 차원 · 1:1) — 원자로 입력 해치는 Stocking Input Hatch로 이 서브넷을 봄', 'WC→Fu');
   lk.blk(1, 0, 13, 'req', 'D · T 각 64B 유지 → 모자라면 Gas Collector부터 연쇄', 'Req');
   unit(3, 0, 14, { col: '--s7', label: 'IV Tr', tip: 'ev_transformer|VF · DT의 EV 해치 간선' }); unit(4, 0, 14, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
   return built;
 }
 const FUEL_NETS = [
-  { n: '공기 서브넷', kind: '서브넷', what: 'Air · Nether Air · Ender Air — 시간당 수백 B라 주 네트워크 저장소를 채우지 않게', edge: 'Gas Collector → 탱크 → Mixer 두 단 → VF (Stocking Input Hatch)', seen: '볼 필요 없음. 탱크 잔량은 Level Emitter로 Gas Collector 켜고 끄기' },
-  { n: '기체 서브넷', kind: '서브넷', what: '증류 출력 8종 — D · T는 Fusion으로, Rn · Xe는 주 네트워크가 가져감', edge: '증류탑 층마다 ME Output Hatch → 탱크 7개 · Fusion 쪽 ME P2P', seen: '탱크 Interface Storage Bus (우선순위 낮게)' },
+  { n: '공기 서브넷', kind: '서브넷 (Quartz Fiber 전력)', what: 'Air · Nether Air · Ender Air — 시간당 수백 B라 주 네트워크 저장소를 채우지 않게', edge: 'Gas Collector → <b>ME Drive(셀 3)</b> → Export Bus로 Mixer 두 단(출력면 Interface로 되돌림) → VF (Stocking Input Hatch)', seen: '볼 필요 없음. <b>Threshold Level Emitter</b>(하한 200B · 상한 800B)로 Gas Collector를 켜고 끔' },
+  { n: '기체 서브넷', kind: '서브넷', what: '증류 출력 8종 — D · T는 Fusion으로, Rn · Xe는 주 네트워크가 가져감', edge: '증류탑 층마다 ME Output Hatch → <b>ME Drive(셀 7 · NO₂는 Overflow Destruction Card)</b> → <b>Wireless Connector</b>로 원자로 쪽과 같은 서브넷', seen: '주 네트워크는 추출 전용 Storage Bus로 Rn · Xe만 (필터)' },
   { n: '주 네트워크', kind: '주', what: 'Lava · Redstone · Glowstone, Radon · Xenon 결과', edge: 'P2P → 남쪽 · 서쪽 간선', seen: '—' },
 ];
 function viewFuel3d() {
   const F = fuelRates();
   return `
   <h2>3 · Naquadah · Fusion</h2>${subnav()}
-  <p class="lead">Fusion 연료 청크입니다(Helium 플라즈마 ${Math.round(FUS.he * 100)}% 기준 — Liquid Ender Air ${fmt(F.lea / 1000, 0)}B / 시간). <b>공기 서브넷</b>이 Air → Nether Air → Ender Air를, <b>기체 서브넷</b>이 증류 출력을 들고, D · T만 ME P2P로 Fusion 원자로에 넘어갑니다.</p>
-  ${layBlock('Fusion 연료 청크 3D 배치도', [['--s7', 'EV 해치 2개 (IV)'], ['--s2', 'HV Mixer'], ['--s3', 'LV 기계'], ['--s5', 'D · T 탱크'], ['--muted', '기체 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_F(), 6))}
+  <p class="lead">Fusion 연료 청크입니다(Helium 플라즈마 ${Math.round(FUS.he * 100)}% 기준 — Liquid Ender Air ${fmt(F.lea / 1000, 0)}B / 시간). <b>공기 서브넷</b>이 Air → Nether Air → Ender Air를, <b>기체 서브넷</b>이 증류 출력을 들고(둘 다 탱크 대신 ME Drive + 셀), D · T는 <b>Wireless Connector</b>로 원자로 쪽 Stocking Input Hatch가 바로 봅니다. Gas Collector는 Air 셀 잔량으로 Threshold Level Emitter가 켜고 끕니다.</p>
+  ${layBlock('Fusion 연료 청크 3D 배치도', [['--s7', 'EV 해치 2개 (IV)'], ['--s2', 'HV Mixer'], ['--s3', 'LV 기계']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['drive', 'void', 'ebus', 'iface', 'temit', 'wc', 'meout', 'stock', 'p2p', 'req']) + pwLegend(PWM_F(), 6))}
   <div class="card"><h3>네트워크 구성</h3>${logiNets(FUEL_NETS)}</div>
   <div class="card"><h3>전력</h3>${pwCard(PWM_F(), 6)}</div>`;
 }

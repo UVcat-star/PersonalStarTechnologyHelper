@@ -36,6 +36,7 @@ const TOPICS = [
   { id: 'coil', name: '코일 사다리' },
   { id: 'hatch', name: '에너지 해치 · 멀티블럭' },
   { id: 'cable', name: '케이블 · 전력 전달' },
+  { id: 'ae2', name: 'AE2 패턴' },
   { id: 'power', name: '발전 · 플라즈마 전환' },
   { id: 'method', name: '조사 방법' },
 ];
@@ -241,7 +242,48 @@ function viewMethod() {
   </ul></div>`;
 }
 
-const VIEWS = { mech: viewMech, coil: viewCoil, hatch: viewHatch, cable: viewCable, power: viewPower, method: viewMethod };
+/* ---------- AE2 패턴 (GTNH에서 가져와 이 팩에 맞춘 것) ----------
+   출처: GTNH 위키 Good Practices With AE · Applied Energistics 2 문서, AE2 1.20.1 공식 가이드(Subnetworks · Storage Bus), 팩 ExtendedAE · MEGA 인게임 가이드.
+   GTNH는 AE2 1.7.10 기반이라 Fluid Discretizer · Dual Interface가 필요했지만, 이 팩의 AE2 15(1.20.1)는 유체가 네트워크 기본 자원이라 빠짐. */
+const AE2P = [
+  ['서브넷 (컨트롤러 없음)', '입출력이 잦은 중간재(광석 처리 · 용액 · 기체)를 따로 둔 작은 네트워크. 채널 8개까지.', '갱신이 서브넷 안에서 끝나고 찾기가 즉시 — 주 네트워크 저장소 · 채널을 안 먹음', 'GTNH', '모든 자원 · 패시브 청크'],
+  ['Storage Bus → Interface (추출 전용)', '한 네트워크의 Storage Bus를 다른 네트워크의 Interface에 붙이면 그 네트워크 전체를 읽음.', '<b>추출 전용으로 두지 않으면 물건이 이웃 네트워크로 샘</b>. 우선순위를 낮춰 주 네트워크 물건이 서브넷에 저장되지 않게', 'GTNH · AE2 가이드', '모든 서브넷 경계(IF)'],
+  ['서브넷이 주 네트워크를 읽기', '방향을 뒤집어 서브넷의 Storage Bus가 주 네트워크 Interface를 봄 → 서브넷의 Stocking Hatch가 원료까지 한 번에 봄.', '멀티블럭 입력 해치 하나로 원료 + 중간재', 'GTNH (Multiblock Recipe Subnetwork)', '<a href="iv.html#passive/3d">IV PBI</a>'],
+  ['탱크 대신 셀 (ME Drive)', '서브넷 저장소를 Super Tank + Storage Bus 대신 ME Drive + 유체 셀(파티션 1종)로.', '셀은 해시가 미리 계산돼 더 가볍다. MEGA 셀 1M~256M · Bulk Cell(한 종류 무한)', 'GTNH · MEGA', 'EV Molten · IV 기체 · LuV 용액 · 공기 · 가루 · ZPM 연료 · 플라즈마'],
+  ['Quartz Fiber로 전력만', '서브넷 Drive · Interface의 전력을 주 네트워크에서 Quartz Fiber로. 네트워크는 이어지지 않음.', '서브넷마다 에너지 셀 · 발전을 두지 않아도 됨', 'AE2 가이드', '모든 서브넷'],
+  ['Pattern Provider 서브넷 (채널 1개로 여러 대)', '주 네트워크 Pattern Provider 1개 → 서브넷 Interface → Storage Bus 여러 개가 같은 기계 여러 대의 입력에.', '기계마다 Pattern Provider를 달면 채널을 대수만큼 씀 — 이건 1개', 'AE2 가이드 · GTNH 병렬화', '<a href="luv.html#resource/fuel3d">LuV Mixer 줄</a>'],
+  ['Stocking Input Bus/Hatch (옮기지 않기)', '재고를 옮기지 않고 입력으로 봄. 멀티블럭 병렬을 먹이기 쉬움.', '"물건을 실제로 옮기는 것은 대규모에서 나쁘다" (GTNH)', 'GTNH · GTCEu', 'IV 이후 멀티블럭 · ZPM 터빈'],
+  ['Pattern Buffer (+ Proxy)', '패턴 + 입력 칸을 멀티블럭 해치 하나로. Proxy로 다른 멀티블럭이 같은 버퍼 공유.', 'GTNH Crafting Input Buffer에 해당 — 입력이 섞이지 않음', 'GTNH · GTCEu', 'LuV 이후 EBF · Fusion'],
+  ['단일 블록: 입력 면 ≠ 출력 면', 'Pattern Provider는 출력면이 아닌 면, 출력면은 Interface로.', 'GT 기계는 출력면으로 입력을 받지 않음', '이 사이트 (사용자 확인)', '모든 단일 블록'],
+  ['Requester · 레벨 유지 튜닝', 'ME Requester(= GTNH Level Maintainer) 목표량과 1회 요청량을 크게, 패턴은 ×16 · ×64로.', '작은 요청이 잦으면 계산 스파이크 (GTNH)', 'GTNH', '모든 청크의 Req'],
+  ['Threshold Level Emitter (ExtendedAE)', '하한 · 상한 래치로 수집기 · 발전기를 켜고 끔.', '탱크가 넘치지도 비지도 않게 — 단순 Level Emitter는 경계에서 깜빡임', 'ExtendedAE', '<a href="luv.html#resource/fuel3d">LuV 공기 서브넷</a>'],
+  ['Overflow Destruction Card', '쓸 곳 없는 부산물 셀 · Storage Bus에 — 가득 차면 버림.', '부산물이 가득 차서 멀티블럭이 멈추는 것을 막음', 'AE2 1.20', 'NO₂ (Liquid Ender Air 증류)'],
+  ['Wireless Connector (ExtendedAE)', '같은 차원 · 제한 거리에서 두 지점을 1:1로 같은 네트워크로. 여러 개는 Wireless Hub.', 'GTNH: Quantum 링보다 가벼움', 'GTNH · ExtendedAE', 'LuV D · T → Fusion'],
+  ['Tag Storage Bus (ExtendedAE)', '태그 · 논리식으로 거름 (예: forge:raw_materials/*).', 'GTNH Oredict 카드 역할 — 광석 · crushed 묶음 분리', 'ExtendedAE', '광석 입구'],
+];
+function viewAe2() {
+  return `
+  <h2>AE2 패턴</h2>
+  <p class="lead">GTNH에서 쓰는 AE2 구성을 이 팩(AE2 15 · ExtendedAE · MEGA Cells · ME Requester · GTCEu ME 해치)에 맞게 옮긴 목록입니다. 각 티어 페이지의 3D 청크가 이 패턴을 씁니다. GTNH는 1.7.10이라 Fluid Discretizer · Dual Interface가 필요했지만 AE2 15는 유체가 기본 자원이라 그 단계가 없습니다.</p>
+  <div class="card"><div class="tscroll"><table><thead><tr><th>패턴</th><th>구성</th><th>왜</th><th>출처</th><th>적용한 곳</th></tr></thead>
+    <tbody>${AE2P.map(([a, b, c, d, e]) => `<tr><td><b>${a}</b></td><td>${b}</td><td>${c}</td><td>${d}</td><td>${e}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="grid2">
+    <div class="card"><h3>티어별로 쓸 수 있는 GT ME 부품</h3><ul class="pts">
+      <li><b>HV</b>: AE2 부품 + LaserIO만 (GT ME 해치 재료가 EV bus/hatch)</li>
+      <li><b>EV</b>: ME Input/Output Bus · Hatch</li>
+      <li><b>IV</b>: ME Stocking Input Bus · Hatch (IV Sensor = Quantum Star 뒤)</li>
+      <li><b>LuV</b>: ME Pattern Buffer · Proxy</li>
+    </ul></div>
+    <div class="card"><h3>출처</h3><ul class="pts">
+      <li><a href="https://wiki.gtnewhorizons.com/wiki/Good_Practices_With_AE">GTNH — Good Practices With AE</a></li>
+      <li><a href="https://wiki.gtnewhorizons.com/wiki/Applied_Energistics_2">GTNH — Applied Energistics 2</a></li>
+      <li><a href="https://guide.appliedenergistics.org/1.20.1/ae2-mechanics/subnetworks">AE2 1.20.1 가이드 — Subnetworks</a> · <a href="https://guide.appliedenergistics.org/1.20.1/items-blocks-machines/storage_bus">Storage Bus</a></li>
+      <li>ExtendedAE 인게임 가이드(jar) · <a href="https://modrinth.com/mod/mega">MEGA Cells</a></li>
+    </ul></div>
+  </div>`;
+}
+
+const VIEWS = { mech: viewMech, coil: viewCoil, hatch: viewHatch, cable: viewCable, ae2: viewAe2, power: viewPower, method: viewMethod };
 startPage({ key: 'common-web' });
 </script>
 </body>

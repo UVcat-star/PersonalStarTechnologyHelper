@@ -482,7 +482,8 @@ function buildUvElem() {
   lk.part(7, 0, 1, 's', 'pbuf', 'Neutronium · Tritanium · Americium 패턴'); lk.part(8, 0, 1, 's', 'meout', '출력 → 주 네트워크');
   lk.blk(3, 0, 12, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
   lk.me([[4, 0, 12], [12, 0, 12]]); lk.me([[3, 0, 3], [3, 0, 11]]); lk.me([[4, 0, 3], [12, 0, 3]]); lk.me([[7, 0, 2], [8, 0, 2]]);
-  for (let i = 0; i < 2; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'Fluid Extractor|dust → 액체' }); lk.single(5 + i, 0, 5, 'n', '녹이기 패턴'); }
+  for (let i = 0; i < 2; i++) { unit(5 + i, 0, 5, { col: '--s2', label: 'Ext' + (i + 1), tip: 'Fluid Extractor|dust → 액체' }); lk.part(5 + i, 0, 5, 's', 'sbus', `Ext${i + 1} 입력면 — Extractor 서브넷 Storage Bus`); lk.part(5 + i, 0, 5, 'n', 'iface', `Ext${i + 1} 출력면 → 주 네트워크 Interface`); }
+  lk.sub([[5, 0, 6], [6, 0, 6]]); lk.blk(4, 0, 6, 'iface', 'Extractor 서브넷 Interface — Pattern Provider 1개로 2대 병렬', 'IF'); lk.part(4, 0, 5, 's', 'pp', '녹이기 패턴 (Pattern Provider 1개 · 채널 1개)'); lk.me([[4, 0, 4], [4, 0, 5]]);
   unit(8, 0, 5, { col: '--s2', label: 'Solid', tip: 'Fluid Solidifier|액체 → ingot' }); lk.single(8, 0, 5, 'n', 'ingot 패턴'); lk.me([[5, 0, 4], [8, 0, 4]]);
   lk.blk(10, 0, 5, 'req', `Tritanium 64 · Americium 64 · Neutronium 32 유지`, 'Req'); lk.me([[10, 0, 4], [10, 0, 4]]);
   lk.blk(6, 0, 9, 'p2p', 'ZPM 원소 로(Duranium · Lutetium · Naquadria)와 같은 주 네트워크 — 이 P2P로 원료가 들어옴', 'P2P');
@@ -493,7 +494,7 @@ function viewUvElem3d() {
   return `
   <h2>3 · 반사판 3 융합</h2>${subnav()}
   <p class="lead">MK3 링 안쪽에 녹이기 · 굳히기 설비를 넣은 배치(ZPM 원소 로와 같은 방식). Tritanium · Americium은 ZPM 원소 로(MK2 + Complex)에서 돌려도 되고, MK3가 생기면 여기로 모읍니다.</p>
-  ${layBlock('UV 원소 로 3D 배치도', [['--s7', 'UV (Fusion MK3)'], ['--s2', 'HV 기계']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'pp', 'meout', 'p2p', 'req']) + pwLegend(PWM_UE(), 8))}
+  ${layBlock('UV 원소 로 3D 배치도', [['--s7', 'UV (Fusion MK3)'], ['--s2', 'HV 기계']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['pbuf', 'pp', 'sbus', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM_UE(), 8))}
   <div class="card"><h3>전력</h3>${pwCard(PWM_UE(), 8)}</div>`;
 }
 
