@@ -300,7 +300,7 @@ function viewGate() {
       node('il', 2, 'r5', 'Ilmenite · Bauxite', 'Autoclave → Ore Factory EV', 'EV', 'Molten Ilmenite 1000 · Bauxite 1500 / 증류 1회 → Raw → Ore Factory EV 티어(Persulfate · 1,920 EU/t, HV 해치 2개)'),
       node('nc', 3, 'r6', `Nichrome Coil ×${NI_COILS}`, `HV Assembler · ${fmt(heat('Nichrome', 4), 0)}K`, 'HV', `Nichrome 코일 + HV 해치 2개 = ${heat('Nichrome', 4)}K → Tungsten 3600K · Tungstensteel 3000K (EV 페이지)`),
       node('ti', 2, 'r6', 'Titanium ingot', 'TiCl4 → EBF 2141K (HV) → VF', 'HV', 'rutile_from_ilmenite_fix 1700K · titanium_tetrachloride(HV CR) · titanium_from_tetrachloride 2141K VA[HV] 800t → Kanthal EBF + MV 해치 2개(2,800K)면 충분. 막는 것은 원료(증류)와 Vacuum Freezer뿐'),
-      { id: 'ev', x: X[0], y: Y.r7, w: X[3] + W - X[0], t: 'EV 진입', s: 'Titanium → EV Hull · EV 기계 · EV Cutter → cut_pic(EV · 클린룸) → EV 에너지 해치', k: 'GOAL', tip: 'EV Hull = Titanium plate 8 + Aluminium 케이블 2. EV 에너지 해치의 PIC는 cut_pic(VA[EV] · 클린룸)이라 EV Cutter(Titanium)가 먼저. 이어서 ev.html' },
+      { id: 'ev', x: X[0], y: Y.r7, w: X[3] + W - X[0], t: 'EV 진입', s: 'Titanium → EV Hull · EV 기계 · EV Cutter → cut_pic(EV · 클린룸) → EV 에너지 해치', k: 'GOAL', tip: 'EV Hull = Titanium plate 8 + Aluminium 케이블 2. EV 에너지 해치의 PIC는 cut_pic(VA[EV] · 클린룸)이라 EV Cutter(Titanium)가 먼저. 이어서 ev.html#gate' },
     ],
     edges: [
       { a: 'cr', b: 'ws', fs: 'b', ts: 't', fo: -123 },
@@ -347,7 +347,7 @@ function viewGate() {
         <tr><td><b style="color:var(--critical)">게이트 2 · HV 해치 ×2</b></td><td>energy_hatch_hv ${hatch}개 (HV Assembler)</td><td>LPIC</td><td>EV 레시피: Nichrome blast · Molten Ore Mixture 증류 · Ore Factory EV 티어</td></tr>
         <tr><td><b style="color:var(--critical)">게이트 3 · Vacuum Freezer</b></td><td>컨트롤러(EV 회로 2) · Frostproof Casing · <b>MV 해치 2개면 충분</b></td><td>Workstation</td><td>Hot Nichrome · Hot Titanium 냉각 (VA[HV])</td></tr>
         <tr><td><b>3 · Nichrome · Titanium</b></td><td>Nichrome ${NI_INGOT} → 코일 ${NI_COILS} / 증류 → Autoclave → Ore Factory EV → Rutile → TiCl4 → EBF → VF</td><td>게이트 2 · 3 (+ Distillation Tower의 EV 회로 4)</td><td>Nichrome EBF ${fmt(heat('Nichrome', 4), 0)}K · Titanium</td></tr>
-        <tr><td><b style="color:var(--good)">EV 진입</b></td><td>EV Hull(Titanium plate 8) · EV 기계 · EV Cutter → <code>cut_pic</code>(EV · 클린룸) → EV 해치</td><td>Titanium</td><td><a href="ev.html">EV 페이지</a></td></tr>
+        <tr><td><b style="color:var(--good)">EV 진입</b></td><td>EV Hull(Titanium plate 8) · EV 기계 · EV Cutter → <code>cut_pic</code>(EV · 클린룸) → EV 해치</td><td>Titanium</td><td><a href="ev.html#gate">EV 게이트 순서도</a></td></tr>
       </tbody></table></div>
   </div>
   <div class="card">
@@ -364,7 +364,7 @@ function viewGate() {
       <ul class="pts">
         <li><b>HV Cutter</b> — <code>cut_lpic</code>(480 · 클린룸). LV 14 · MV 8대뿐이라 HV 해치 경로의 숨은 게이트입니다.</li>
         <li><b>HV Autoclave</b> — <code>raw_ilmenite</code> · <code>raw_bauxite</code>(480). LV 1 · MV 6대뿐.</li>
-        <li><b>HV Circuit Assembler</b> — Mainframe(IV 회로 · 480)용. EV 진입에는 필요 없음.</li>
+        <li><b>HV Circuit Assembler</b> — Micro Mainframe(IV 회로 · 480 · 클린룸). 퀘스트 IV Universal Circuit이 여기서 끝나고, EV Circuit Assembler 작업대에 IV 회로 2개가 들어갑니다(<a href="ev.html#gate">EV 게이트</a>).</li>
       </ul>
     </div>
     <div class="card">
