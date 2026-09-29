@@ -42,6 +42,7 @@ const S = { pbN: 8, topic: 'overview', sub: {}, layGhost: true, layPipes: true, 
 Object.assign(TIER, {
   EV: { c: 'var(--s5)', name: 'EV 기계' }, IV: { c: 'var(--s7)', name: 'IV 기계 · IV 레시피' },
   LuV: { c: 'var(--s8)', name: 'LuV' }, GOAL: { c: 'var(--good)', name: '목표' },
+  OK: { c: 'var(--s3)', name: 'EV에서 가져옴' }, CR: { c: 'var(--s6)', name: '클린룸 안 레시피' }, GATE: { c: 'var(--critical)', name: '게이트' },
 });
 
 /* ---------- constants ----------
@@ -86,6 +87,7 @@ const ASMD = [
 /* ---------- topics ---------- */
 const TOPICS = [
   { id: 'overview', name: '로드맵' },
+  { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'entry', name: '1 · IV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
   { id: 'resource', name: '3 · 자원 처리' },
@@ -150,10 +152,135 @@ function viewOverview() {
       <li><b>기계 · 부품</b>: <code>assembly_line_casing</code> · <code>assembly_control_casing</code>, LuV 부품 8종 Assembly Line(6,000), <code>energy_hatch_iv</code>, 팩 <code>iv_rotor_holder</code> · <code>large_me_assembler</code>.</li>
     </ul></div>
     <div class="card"><h3>보는 순서</h3><ul class="pts">
-      <li>EV 페이지의 <b>RTM 코일 + EV 해치 2개</b> EBF(4,800K)가 먼저 — HSS-G(4,200K) · Niobium-Titanium · Vanadium-Gallium(4,500K)이 여기서 녹습니다.</li>
+      <li>EV 페이지의 <b>RTM 코일 + HV 해치 2개</b> EBF(4,700K)가 먼저 — HSS-G(4,200K) · Niobium-Titanium · Vanadium-Gallium(4,500K)이 여기서 녹습니다. EV 해치 2개(4,800K)는 Iridium · YBCO 같은 IV blast용.</li>
       <li>LCR에 EV 해치 2개면 <b>IV 화학(HPIC 웨이퍼 · PBI · Rarest Metal)</b>이 IV 전력 없이 됩니다. 진짜 IV 전력은 Circuit Assembler · Cutter · Assembler 몇 대분.</li>
       <li>발전은 <a href="common.html#power">공용 › 발전</a>: IV 진입 즈음 Extreme Combustion. 보석 발전은 <a href="gcrops.html#plan">gCrops 다이아몬드</a>로 버틸 수 있지만 대당 출력이 막혀 있습니다.</li>
     </ul></div>
+  </div>`;
+}
+
+/* ---------- 0 게이트 순서도 ----------
+   EV 게이트 순서도(ev.html#gate) 다음 단계. 멀티블럭은 EV 해치 2개 = IV(7,680)라 IV 화학 · IV blast는 대부분 이미 돈다.
+   IV에서 새로 막는 것: (1) 해치를 합칠 수 없는 단일 블록(Assembler · Circuit Assembler · Cutter · Mixer · Forming Press),
+   (2) LuV(30,720)를 여는 IV 해치 2개, (3) IV Emitter의 Quantum Star(Nether Star + Radon 1250).
+   수치는 GTCEu jar(재료 blast · ComponentRecipes · GTCraftingComponents · CircuitRecipes · AssemblerRecipeLoader)와 팩 KubeJS에서 확인. */
+const IV_COIL = { RTM: 4500, 'HSS-G': 5400 };
+const ivHeat = (coil, tier) => IV_COIL[coil] + 100 * (tier - 2);   // MV=2 … EV=4, IV=5, LuV=6
+const IV_HATCH = 4;                                                // LuV 레시피용 EBF 2 + Assembly Line 2
+// [레시피, id, blast K, EU/t, 돌리는 곳, 판정]
+const IV_GATE_RECIPES = [
+  ['Niobium-Titanium', 'blast · niobium_titanium', 4500, 480, 'RTM EBF + MV 해치 2 이상 (4,600K)', 'now'],
+  ['Vanadium-Gallium · Ruridit · HSS-G', 'blast', 4500, 1920, 'RTM EBF + HV 해치 2 (4,700K)', 'now'],
+  ['Iridium · YBCO · Rhodium-Plated Palladium', 'blast', 4500, 7680, 'RTM EBF + EV 해치 2 (4,800K)', 'now'],
+  ['Rarest Metal 분리 (Iridium · Osmium)', 'rarest_metal_mixture_separation', 0, 7680, 'LCR + EV 해치 2', 'now'],
+  ['HPIC 웨이퍼', 'hpic_wafer', 0, 7680, 'LCR + EV 해치 2 · 클린룸 (멀티블럭 클린룸 인식은 EMI 확인)', 'now'],
+  ['Liquid Ender Air · Radon', 'liquid_ender_air · distill_liquid_ender_air', 0, 7680, 'Vacuum Freezer · Distillation Tower + EV 해치 2', 'now'],
+  ['Blizz · Blitz · Basalz 가루', 'blizz_dust 등 (팩)', 0, 7680, 'LCR + EV 해치 2 · Cobalt · Platinum · Rhodium dust', 'now'],
+  ['Graphene', 'graphene', 0, 480, 'Mixer HV · Graphite + Silicon + Carbon 4', 'now'],
+  ['HSS-S · HSS-E', 'blast · hsss / hsse', 5000, 1920, 'HSS-G EBF + HV 해치 2 (5,600K) — 코일이 게이트', 'ivs'],
+  ['NbTi · HSS-S · HSS-E dust', 'mixer', 0, 7680, 'IV Mixer (GCYM Large Mixer + EV 해치 2도 IV)', 'ivs'],
+  ['HSS-G 코일', 'hssg_coil_block (팩)', 0, 7680, 'IV Assembler', 'ivs'],
+  ['IV Voltage Coil · IV 에너지 해치', 'voltage_coil_iv · energy_hatch_iv', 0, 7680, 'IV Assembler', 'ivs'],
+  ['HPIC 절단', 'cut_hpic', 0, 7680, 'IV Cutter · 클린룸 (GCYM Large Cutter + EV 해치 2도 IV)', 'ivs'],
+  ['Impure Nether Star', 'impure_nether_star (팩)', 0, 7680, 'IV Forming Press → Implosion(EV) → Nether Star', 'ivs'],
+  ['Quantum Star (IV Emitter 보석)', 'quantum_star', 0, 480, 'HV Autoclave · Nether Star + Radon 1250 · 1920t', 'star'],
+  ['Quantum 회로', 'quantum_processor_ev 등', 0, 2400, 'IV Circuit Assembler · 클린룸', 'star'],
+  ['Osmium blast', 'blast · osmium', 4500, 30720, 'EBF + IV 해치 2 (LuV)', 'ivh'],
+];
+const IV_VERDICT = {
+  now: ['지금 됨 (EV 해치 2)', 'var(--good)'],
+  ivs: ['IV 단일 블록 필요', 'var(--s7)'],
+  star: ['Nether Star 뒤', 'var(--s4)'],
+  ivh: ['IV 해치 2개 필요', 'var(--critical)'],
+};
+function viewGate() {
+  const X = [15, 262, 509, 756], W = 229;
+  const Y = { r0: 26, r1: 118, r1b: 190, r2: 284, r3: 378, r4: 472, r5: 566, r6: 638, r7: 732 };
+  const hpic = IV_HATCH * 2;
+  const band = [[18, 'EV에서 가져옴 (ev.html 게이트 순서도 끝)'], [110, '게이트 없음 — 멀티블럭은 EV 해치 2개 = IV 7,680 · 단일 블록은 EV 2,048'], [276, '게이트 1 · IV 단일 블록 (Emitter 없는 것부터)'],
+    [370, 'IV 단일 블록 레시피'], [464, '게이트 2 · IV 에너지 해치 · 게이트 3 · Nether Star'], [558, 'IV 해치 2개 = LuV 30,720 · IV Circuit Assembler'], [724, 'LuV 진입']];
+  const node = (id, lane, row, t, s, k, tip, w) => ({ id, x: X[lane], y: Y[row], w: w || W, t, s, k, tip });
+  const chart = flow({
+    label: 'IV 게이트 순서도', h: 800,
+    nodes: [
+      node('a0', 0, 'r0', 'EV 단일 블록 5종', 'Assembler · Cutter · CA · CR · Bath', 'OK', 'EV 게이트 1 · 3. EV Circuit Assembler로 Nano 회로(IV · LuV)'),
+      node('b0', 1, 'r0', 'EV 해치 ×4', '2개 = IV 7,680 (멀티블럭)', 'OK', 'EV 게이트 2. LCR · EBF · Vacuum Freezer · Distillation Tower가 IV 레시피를 돌림'),
+      node('c0', 2, 'r0', 'Radon · Nano Mainframe', 'Liquid Ender Air · LuV 회로', 'OK', 'distill_liquid_ender_air → Radon 1000 / 200,000mB. nano_mainframe_luv (EV CA 1,920)'),
+      node('d0', 3, 'r0', 'RTM EBF', `HV 해치 2 ${fmt(ivHeat('RTM', 4), 0)}K · EV 2 ${fmt(ivHeat('RTM', 5), 0)}K`, 'OK', 'EV 페이지 5 탭. HSS-G · Vanadium-Gallium · NbTi · Iridium · YBCO 전부 이 EBF에서'),
+      node('a1', 0, 'r1', 'EV 트랜스포머 · IV Hull', 'Al 4 + Tungsten 1 · TSS plate 8', 'EV', 'ev 트랜스포머 1A: EV Hull + Aluminium 케이블 4 + Tungsten 케이블 1 (회로 없음). IV Hull = Tungstensteel plate 8 Casing + Tungsten 케이블 2'),
+      node('b1', 1, 'r1', 'HPIC 웨이퍼', 'LCR + EV 해치 2 · 클린룸', 'IV', 'hpic_wafer: PIC Wafer + InGaP dust 2 + Vanadium-Gallium 288 (VA[IV] · 1200t · 클린룸). LCR을 클린룸 안에 두는 방식이 인정되는지는 EMI 확인 — 안 되면 IV Chemical Reactor'),
+      node('c1', 2, 'r1', 'Nether Star 원료', 'Blizz · Blitz · Basalz · Blaze', 'IV', '팩 nether_stars.js: Cobalt · Platinum · Rhodium dust → 가루 ×16 (CR 7,680 = LCR + EV 해치 2) → Mixer로 Charge → Autoclave(VHA[EV]) 8 Charge + 액체 720 → 원소 파편 4종. Blaze 가루 출처는 EMI 확인'),
+      node('d1', 3, 'r1', 'HSS-G · VG · NbTi · Ruridit', 'RTM EBF (HV 해치 2)', 'EV', `모두 4,200~4,500K. NbTi는 VA[HV], 나머지 VA[EV] → RTM + HV 해치 2개(${ivHeat('RTM', 4)}K). dust는 Mixer (NbTi · HSS-S는 IV Mixer)`),
+      node('a1b', 0, 'r1b', 'IV 부품', 'Motor · Piston · Robot Arm · Conveyor', 'EV', 'electric_motor_iv: Tungsten 2x cable · Graphene 2x wire · Tungstensteel rod · Neodymium magnetic rod. piston_iv: Tungstensteel plate · Tungsten 케이블. robot_arm_iv: Tungstensteel rod · Motor 2 · Piston · IV 회로'),
+      node('b1b', 1, 'r1b', 'Iridium · Osmium', 'Rarest 분리 LCR + EV 해치 2', 'IV', 'rarest_metal_mixture_separation (7,680) → Iridium Metal Residue · Acidic Osmium. Iridium blast 4500K VA[IV] = RTM + EV 해치 2개. IV Voltage Coil(fine 16) · IV Emitter(rod 4) 원료'),
+      node('c1b', 2, 'r1b', 'Graphene', 'Mixer HV · Graphite + Si + C 4', 'EV', 'graphene: Graphite 1 + Silicon 1 + Carbon 4 → Graphene 1 (VA[HV] · 100t). IV Motor의 2x wire'),
+      node('d1b', 3, 'r1b', 'Tungstensteel · Tungsten', 'Nichrome/RTM EBF · 패시브', 'EV', 'IV Hull · IV 부품 · IV 케이블. EV 페이지 패시브에서 이어짐'),
+      node('asm', 0, 'r2', 'IV Assembler', 'Robot Arm 2 · Conveyor 2', 'GATE', 'Assembler 멀티블럭은 해치 2개로 형성되지 않음 → 단일 블록'),
+      node('cut', 1, 'r2', 'IV Cutter', '클린룸 · Large Cutter + EV 2 대안', 'GATE', 'cut_hpic VA[IV] · 클린룸. GCYM Large Cutter + EV 해치 2개도 IV'),
+      node('fp', 2, 'r2', 'IV Forming Press', 'impure_nether_star · 7,680', 'GATE', 'forming_press impure_nether_star: 원소 파편 4종 → Impure Nether Star (VA[IV] · 300t, Star Casting Mold). 이어서 Implosion(EV) → Nether Star'),
+      node('mix', 3, 'r2', 'IV Mixer', 'NbTi · HSS-S · HSS-E · RPP', 'GATE', 'Mixer 7,680 합금. GCYM Large Mixer + EV 해치 2개로 대신할 수 있지만 컨트롤러가 IV 부품'),
+      node('vc', 0, 'r3', `IV Voltage Coil ×${IV_HATCH}`, 'Nd 자석 rod + Iridium fine 16', 'IV', 'voltage_coil_iv (VA[IV] · 200t)'),
+      node('hp', 1, 'r3', `HPIC ×${hpic}`, 'cut_hpic · 7,680 · 900t', 'CR', 'HPIC Wafer 1장 → HPIC 2 (VA[IV] · 클린룸)'),
+      node('ns', 2, 'r3', 'Nether Star', 'Implosion(EV) · 파편 루프', 'IV', 'Nether Star → Forge Hammer 파편 5 → Polarizer(EV) → Autoclave(IV)로 원소 파편 — 한 개가 생기면 루프가 돎 (LuV 페이지 패시브)'),
+      node('hss', 3, 'r3', 'HSS-G 코일', 'IV Assembler · 7,680', 'IV', 'hssg_coil_block: HSS-G 2x wire 8 · Tungsten Carbide foil 8 · Borosilicate foil 16 · Tungsten 144 (팩 coils.js)'),
+      { id: 'hat', x: X[0], y: Y.r4, w: X[1] + W - X[0], t: `IV 에너지 해치 ×${IV_HATCH}`, s: 'energy_hatch_iv · IV Hull · Tungsten 케이블 2 · HPIC 2 · Voltage Coil · NaK 3000', k: 'GATE', tip: 'energy_hatch_iv (IV Assembler · VA[IV] · 200t). 2개 = LuV 30,720 1A' },
+      node('qs', 2, 'r4', 'Quantum Star', 'Nether Star + Radon 1250 · HV Autoclave', 'GATE', 'quantum_star: Autoclave VA[HV] · 1920t. IV Emitter · IV Sensor의 보석 칸(jar SENSOR_EMITTER_GEM: IV · LuV · ZPM = Quantum Star)'),
+      node('hsx', 3, 'r4', 'HSS-S · HSS-E', `HSS-G EBF + HV 해치 2 = ${fmt(ivHeat('HSS-G', 4), 0)}K`, 'EV', `5000K · VA[EV]. RTM + EV 해치 2개(${ivHeat('RTM', 5)}K)로는 모자라서 HSS-G 코일이 게이트`),
+      node('luvr', 0, 'r5', 'LuV 레시피 (멀티블럭)', `HSS-G EBF + IV 해치 2 = ${fmt(IV_COIL['HSS-G'] + 400, 0)}K`, 'LuV', `Osmium blast (4500K · VA[LuV]) 등. HSS-G ${IV_COIL['HSS-G']}K + 100K × (LuV − MV) = ${IV_COIL['HSS-G'] + 400}K`),
+      node('al', 1, 'r5', 'Assembly Line', 'LuV 부품 6,000 · IV 해치', 'LuV', 'assembly_line_casing · assembly_control_casing (IV Assembler). LuV 부품은 IV 해치 1개, LuV 에너지 해치는 IV 해치 2개 (EMI 확인)'),
+      node('ica', 2, 'r5', 'IV Circuit Assembler', '클린룸 · LuV 회로 2 · Emitter', 'GATE', 'Circuit Assembler 작업대: Robot Arm · 한 단계 위(LuV) 회로 2(Nano Mainframe) · IV Emitter(Iridium rod 4 · Tungsten 케이블 · IV 회로 2 · Quantum Star)'),
+      node('met', 3, 'r5', 'LuV 준비 합금 패시브', 'NbTi · HSS-S · Ruridit · RPP', 'EV', 'LuV 부품 · LuV Hull · 초전도체(NbTi) — 5 탭'),
+      node('qc', 2, 'r6', 'Quantum 회로', 'EV · IV · LuV 회로 (2,400)', 'CR', 'quantum_processor_ev · assembly_iv · computer_luv. Qbit CPU = qbit_cpu_wafer_radon (EV CR)'),
+      { id: 'luv', x: X[0], y: Y.r7, w: X[3] + W - X[0], t: 'LuV 진입', s: 'Assembly Line → LuV 부품 · LuV Hull → LuV 에너지 해치 · LuV 트랜스포머', k: 'GOAL', tip: 'luv.html' },
+    ],
+    edges: [
+      { a: 'a1b', b: 'asm' }, { a: 'a1b', b: 'cut', fs: 'b', ts: 't', k: 18 }, { a: 'a1b', b: 'fp', fs: 'b', ts: 't', k: 22 },
+      { a: 'asm', b: 'vc' }, { a: 'cut', b: 'hp' }, { a: 'fp', b: 'ns' }, { a: 'mix', b: 'hss', dash: true },
+      { a: 'vc', b: 'hat', fs: 'b', ts: 't', to: -123 }, { a: 'hp', b: 'hat', fs: 'b', ts: 't', to: 123 },
+      { a: 'ns', b: 'qs' }, { a: 'hss', b: 'hsx' }, { a: 'qs', b: 'ica' }, { a: 'ica', b: 'qc' }, { a: 'hsx', b: 'met' },
+      { a: 'hat', b: 'luvr', fs: 'b', ts: 't', fo: -123 }, { a: 'hat', b: 'al', fs: 'b', ts: 't', fo: 123 },
+      { a: 'al', b: 'luv', fs: 'b', ts: 't', to: -123 },
+    ],
+  }).replace(/(<svg[^>]*>)/, '$1' + band.map(([y, l]) => `<line x1="10" y1="${y + 2}" x2="990" y2="${y + 2}" stroke="var(--axis)" stroke-dasharray="4 5"/><text x="12" y="${y - 2}" class="elabel" style="font-weight:600">${esc(l)}</text>`).join(''));   // 띠를 먼저 그려 화살표가 위에 오게
+  const verdict = v => `<span class="chip"><i style="background:${IV_VERDICT[v][1]}"></i>${IV_VERDICT[v][0]}</span>`;
+  return `
+  <h2>0 · 게이트 순서도</h2>
+  <p class="lead"><a href="ev.html#gate">EV 게이트 순서도</a>의 다음 단계입니다. EV 해치 2개를 단 멀티블럭은 이미 IV(7,680)라 <b>Iridium · Rarest Metal · HPIC 웨이퍼 · Liquid Ender Air · IV blast</b>는 IV 전력 없이 됩니다.
+  IV에서 새로 막는 것은 셋입니다: <b>IV 단일 블록</b>(Assembler · Cutter · Mixer · Forming Press), <b>LuV를 여는 IV 해치 2개</b>, 그리고 IV Emitter에 들어가는 <b>Quantum Star(Nether Star)</b>.</p>
+  ${callout('crit', '!', `<b>IV Circuit Assembler는 Nether Star 뒤입니다.</b> IV Emitter의 보석 칸이 <code>quantum_star</code>(Nether Star + Radon 1250)이고, 팩의 첫 Nether Star는 원소 파편 4종 → <b>IV Forming Press</b> → Implosion으로 만듭니다. 그래서 Quantum 회로는 IV Assembler · Forming Press가 선 뒤에 옵니다. 그 전의 IV · LuV 회로는 EV Circuit Assembler의 Nano 회로로 충당합니다.`)}
+  ${callout('info', 'i', `<b>해치 2개로 이미 되는 합금:</b> NbTi(4500K · VA[HV])는 RTM + MV 해치 2개로도, Vanadium-Gallium · Ruridit · HSS-G(VA[EV])는 RTM + HV 해치 2개(${fmt(ivHeat('RTM', 4), 0)}K)로 녹습니다. 이 페이지의 이전 표가 "RTM + EV 해치 2"로 적었던 것을 바로잡았습니다. HSS-S · HSS-E(5000K · VA[EV])만 HSS-G 코일(IV Assembler)을 기다립니다.`)}
+  <div class="tiles">
+    ${tile('게이트 1', 'IV 단일 블록', '', 'Assembler · Cutter · Mixer · Forming Press')}
+    ${tile('IV 에너지 해치', IV_HATCH, '개', `HPIC ${hpic} = 웨이퍼 ${IV_HATCH}장 · Voltage Coil ${IV_HATCH}`)}
+    ${tile('Iridium', fmt(IV_HATCH * 2 + 2, 0), 'ingot', `Voltage Coil ${IV_HATCH}개(각 fine 16 = 2) + IV Emitter 1(rod 4 = 2)`)}
+    ${tile('게이트 3', 'Nether Star', '', 'Quantum Star → IV Emitter')}
+  </div>
+  <div class="card">
+    <h3>순서도</h3>
+    <p class="sub">위에서 아래로 진행합니다. 빨간 띠가 게이트, 초록 띠가 EV에서 가져온 것입니다. 같은 줄의 준비물은 게이트를 기다리지 않고 지금 만들어 두면 됩니다. 노드에 마우스를 올리면 레시피 ID와 수치가 나옵니다.</p>
+    ${chart}
+    ${tierLegend(['OK', 'EV', 'IV', 'CR', 'GATE', 'LuV', 'GOAL'])}
+  </div>
+  <div class="card">
+    <h3>단계별 할 일 · 막는 것 · 풀리는 것</h3>
+    <div class="tscroll"><table>
+      <thead><tr><th>단계</th><th>할 일</th><th>막는 것</th><th>풀리는 것</th></tr></thead>
+      <tbody>
+        <tr><td><b>0 · EV에서 가져옴</b></td><td>EV 단일 블록 5종 · EV 해치 4 · Radon · Nano 회로 · RTM EBF</td><td>—</td><td>IV 레시피 전부 (멀티블럭)</td></tr>
+        <tr><td><b>1 · 게이트 없음</b></td><td>EV 트랜스포머 · IV Hull · IV 부품 · HPIC 웨이퍼 · Iridium · Osmium · Graphene · Nether Star 원료(Blizz · Blitz · Basalz) · HSS-G · VG · NbTi · Ruridit</td><td>없음 (Tungstensteel · Iridium 양)</td><td>게이트 1 · 2 재료</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 1 · IV 단일 블록</b></td><td>IV Assembler · IV Cutter · IV Forming Press · IV Mixer</td><td>Tungstensteel · Graphene(Motor)</td><td>IV Voltage Coil · HPIC · Nether Star · HSS-G 코일 · IV 합금 dust</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 2 · IV 해치</b></td><td>energy_hatch_iv ${IV_HATCH}개</td><td>HPIC · Iridium</td><td>멀티블럭 LuV 레시피 · Assembly Line</td></tr>
+        <tr><td><b style="color:var(--critical)">게이트 3 · Nether Star</b></td><td>Quantum Star → IV Emitter → IV Circuit Assembler</td><td>Forming Press · Radon 1250</td><td>Quantum 회로 (EV · IV · LuV)</td></tr>
+        <tr><td><b>3 · 코일 · 합금</b></td><td>HSS-G 코일 → HSS-S · HSS-E → LuV 합금 패시브</td><td>IV Assembler</td><td>LuV 부품 · 초전도체</td></tr>
+        <tr><td><b style="color:var(--good)">LuV 진입</b></td><td>Assembly Line · LuV 부품 · LuV 해치</td><td>IV 해치 2 · LuV 회로</td><td><a href="luv.html">LuV 페이지</a></td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="card">
+    <h3>해치 2개 기준 레시피 판정</h3>
+    <p class="sub">EBF 실효 온도 = 코일 + 100K × (멀티블럭 티어 − MV). RTM(4,500K)은 HV 해치 2개 ${fmt(ivHeat('RTM', 4), 0)}K · EV 해치 2개 ${fmt(ivHeat('RTM', 5), 0)}K, HSS-G(5,400K)는 HV 2개 ${fmt(ivHeat('HSS-G', 4), 0)}K · IV 2개 ${fmt(IV_COIL['HSS-G'] + 400, 0)}K.</p>
+    <div class="tscroll"><table>
+      <thead><tr><th>레시피</th><th>ID</th><th class="n">온도</th><th class="n">EU/t</th><th>돌리는 곳</th><th>판정</th></tr></thead>
+      <tbody>${IV_GATE_RECIPES.map(([nm, id, k, eut, where, v]) => `<tr><td>${esc(nm)}</td><td><code>${esc(id)}</code></td><td class="n">${k ? fmt(k, 0) + 'K' : '—'}</td><td class="n">${fmt(eut, 0)}</td><td>${esc(where)}</td><td>${verdict(v)}</td></tr>`).join('')}</tbody></table></div>
   </div>`;
 }
 
@@ -177,7 +304,7 @@ function viewEntry() {
       nodes: [
         { id: 'pic', x: 20, y: 30, w: 160, t: 'PIC 웨이퍼', s: 'EV 페이지 E3 (Phosphorus)', k: 'EV' },
         { id: 'ingap', x: 20, y: 170, w: 160, t: 'InGaP dust 2', s: 'Indium · Gallium · Phosphorus', k: 'src' },
-        { id: 'vg', x: 220, y: 170, w: 160, t: 'Vanadium-Gallium 288', s: 'Mixer EV · EBF 4,500K', k: 'EV', tip: 'mixer:vanadium_gallium Vanadium 3 + Gallium 1 → 4 · blast 4500K = RTM + EV 해치 2' },
+        { id: 'vg', x: 220, y: 170, w: 160, t: 'Vanadium-Gallium 288', s: 'Mixer EV · EBF 4,500K', k: 'EV', tip: 'mixer:vanadium_gallium Vanadium 3 + Gallium 1 → 4 · blast 4500K · VA[EV] = RTM + HV 해치 2개(4,700K)' },
         { id: 'hw', x: 250, y: 30, w: 170, t: 'HPIC 웨이퍼', s: 'LCR(EV 해치 2) · 클린룸 · 1200t', k: 'IV', tip: 'chemical:hpic_wafer 7680 EU/t · LCR은 chemical 레시피도 돌림' },
         { id: 'hp', x: 470, y: 30, w: 170, t: 'HPIC ×2', s: 'IV Cutter · 클린룸 · 900t', k: 'IV', tip: 'cut_hpic 7680 EU/t — Large Cutter + EV 해치 2도 가능' },
         { id: 'vc', x: 470, y: 170, w: 170, t: 'IV Voltage Coil', s: 'IV Assembler', k: 'IV' },
@@ -201,7 +328,7 @@ function viewEntry() {
     <div class="card"><h3>해치 배분</h3><div class="tscroll"><table>
       <thead><tr><th>용도</th><th class="n">IV 해치</th><th>대안</th></tr></thead><tbody>
         <tr><td>LCR (HPIC 웨이퍼 · PBI · Rarest)</td><td class="n">0</td><td>EV 해치 2개</td></tr>
-        <tr><td>EBF (HSS-G · NbTi · HSS-S)</td><td class="n">0 → 2</td><td>RTM + EV 2(4,800K)로 HSS-G까지, HSS-S(5,000K)는 HSS-G 코일 + IV 해치 2(5,800K)</td></tr>
+        <tr><td>EBF (HSS-G · NbTi · HSS-S)</td><td class="n">0 → 2</td><td>RTM + HV 2(4,700K)로 HSS-G · VG · NbTi까지, HSS-S · HSS-E(5,000K · EV)는 HSS-G 코일 + HV 2(5,600K). IV 해치 2(LuV)는 Osmium 등 LuV blast용</td></tr>
         <tr><td>Assembly Line</td><td class="n">2</td><td>LuV 부품(6,000)은 IV 1개로, LuV 해치(30,720)는 IV 2개 ${EMI}</td></tr>
         <tr><td>Super EBF · Super EOF</td><td class="n">1씩</td><td>해치 1개 멀티블럭</td></tr>
       </tbody></table></div></div>
@@ -418,7 +545,7 @@ function viewNext() {
     </tbody></table></div></div>`;
 }
 
-const VIEWS = { overview: viewOverview, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
+const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
