@@ -545,7 +545,7 @@ const PIPE = {
   hv: { c: '--s2', n: 'HV 케이블', w: 0.16 }, mv: { c: '--s1', n: 'MV 케이블', w: 0.16 },
   in: { c: '--s4', n: 'VE 청크에서 오는 레이저', w: 0.07 },
 };
-Object.assign(PIPE, PW_PIPES, { sub: LOGI_PIPES.sub, laser: LOGI_PIPES.laser });
+Object.assign(PIPE, PW_PIPES, { me: LOGI_PIPES.me, sub: LOGI_PIPES.sub, laser: LOGI_PIPES.laser });
 const ROWS = { A: 1, B: 1, C: 1, D: 4, E: 7, F: 10, G: 13 };
 const CARDS = {
   A: ['유체 IN f1', '아이템 OUT i1', '유체 OUT f2'], B: ['아이템 IN i1', '아이템 OUT i2 (필터 Rare Metallic Residue 허용)', '아이템 OUT i3 (같은 필터 거부)'],
