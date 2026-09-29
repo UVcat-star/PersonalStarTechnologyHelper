@@ -34,6 +34,7 @@
 <script src="assets/charts.js"></script>
 <script src="assets/layout3d.js"></script>
 <script src="assets/power.js"></script>
+<script src="assets/logi3d.js"></script>
 <script src="assets/page.js"></script>
 <script>
 
@@ -81,8 +82,8 @@ const TOPICS = [
   { id: 'gate', name: '0 · 게이트 순서도' },
   { id: 'entry', name: '1 · EV 진입 · 해치' },
   { id: 'circuit', name: '2 · 회로' },
-  { id: 'resource', name: '3 · 자원 처리' },
-  { id: 'passive', name: '4 · 패시브', subs: [['flow', '수지 · 대수'], ['3d', '정제 청크 · 3D'], ['power', '전력 · 64A']] },
+  { id: 'resource', name: '3 · 자원 처리', subs: [['route', '처리 경로'], ['flow', '수지 · 대수'], ['3d', '정제 청크 · 3D'], ['power', '전력 · 64A']] },
+  { id: 'passive', name: '4 · 패시브 (IV 준비)', subs: [['metal', '금속 · 초전도'], ['chem', '피복 화학'], ['3d', '청크 · 3D'], ['power', '전력 · 64A']] },
   { id: 'next', name: '5 · IV 준비' },
 ];
 
@@ -444,7 +445,7 @@ const EV_ORES = [
 function viewResource() {
   const n = S.veN, r = runsH(n), h = 1;
   return `
-  <h2>3 · 자원 처리</h2>
+  <h2>3 · 자원 처리</h2>${subnav()}
   <p class="lead">EV의 자원은 Void 체인이 HV 동안 모아 둔 <b>Molten Ore Mixture</b>에서 나옵니다. 증류탑으로 7종의 molten 광석이 나오고, Autoclave로 Raw 광석을 만든 뒤 <b>Ore Factory EV 티어</b>(Persulfate 100 · 1,920 EU/t)로 가공합니다. 증류와 EV 티어 Ore Factory는 HV 해치 2개로 이미 돌아가니, EV에서 새로 여는 건 <b>Tungsten 체인</b>과 <b>재활용 Mixer</b>입니다.</p>
   <div class="tiles">
     ${tile('Molten Ore Mixture', fmt(momH(n) / 1000, 0), 'B / 시간', `VE ${n}대 · 증류 ${fmt(r, 1)}회`)}
@@ -525,8 +526,8 @@ function evPower(n) { let avg = 0, peak = 0; EGROUPS.forEach(g => { avg += g.u(n
 function viewPassiveFlow() {
   const n = S.veN, r = runsH(n), P = evPower(n);
   return `
-  <h2>4 · 패시브</h2>${subnav()}
-  <p class="lead">EV의 패시브는 <b>Molten Ore Mixture 정제</b>입니다 — 증류 → Autoclave → Ore Factory(EV 티어) → Titanium · Tungsten · Platinum. HV 페이지의 패시브 화학 청크(황산 · PE · PTFE)는 그대로 돌고, 여기서 HCl · Persulfate를 받아 씁니다.</p>
+  <h2>3 · 자원 처리</h2>${subnav()}
+  <p class="lead">EV의 자원 처리는 <b>Molten Ore Mixture 정제</b>입니다 — 증류 → Autoclave → Ore Factory(EV 티어) → Titanium · Tungsten · Platinum. HV 페이지의 패시브 화학 청크(황산 · PE · PTFE)는 그대로 돌고, 여기서 HCl · Persulfate를 받아 씁니다.</p>
   <div class="tiles">
     ${tile('증류', fmt(r, 1), '회 / 시간', `Molten Ore ${fmt(momH(n) / 1000, 0)}B · 가동률 ${fmt(r * 1200 / 72000 * 100, 0)}%`)}
     ${tile('Titanium', fmt(r * TI_RUN, 0), 'ingot / 시간', `EV Hull ${fmt(r * TI_RUN / 8, 1)}개분`)}
@@ -572,74 +573,288 @@ const PWM = () => { const n = S.veN, L = { DT: ['Distillation'], AC: ['AC-Ilm', 
   return EGROUPS.map(g => ({ id: g.id, name: `${g.m} (${g.id})`, eut: g.eut, u: g.u(n), n: eNeed(g, n), hatch2: ['DT', 'OF', 'R1', 'R2', 'VF'].includes(g.id), labels: L[g.id] })); };
 function viewPower() {
   return `
-  <h2>${TOPICS.find(t => t.id === 'passive').name}</h2>${subnav()}
-  <p class="lead">패시브 청크 하나에 <b>EV 64A</b>를 배정했습니다(HV 페이지 처리 청크의 MV 64A와 같은 방식). 기계마다 레시피가 가장 효율적인 전압을 고르고, 계통별로 전선을 나눕니다. 3D 배치 탭에 계통 색으로 전선이 그려져 있습니다.</p>
+  <h2>3 · 자원 처리</h2>${subnav()}
+  <p class="lead">정제 청크 하나에 <b>EV 64A</b>를 배정했습니다(HV 페이지 처리 청크의 MV 64A와 같은 방식). 기계마다 레시피가 가장 효율적인 전압을 고르고, 계통별로 전선을 나눕니다. 3D 배치 탭에 계통 색으로 전선이 그려져 있습니다.</p>
   ${pwCard(PWM(), 4, `<li>EV 정제 청크는 HV 해치 2개 멀티블럭(증류탑 · Ore Factory · EBF)이 대부분이라 EV 계통은 해치 쪽 간선 하나, 나머지는 HV · MV 가지입니다.</li>`)}`;
 }
 const PIPE = { beam: { c: '--s8', n: '주요 흐름 (LaserIO)', w: 0.05 } };
-Object.assign(PIPE, PW_PIPES);
+Object.assign(PIPE, PW_PIPES, LOGI_PIPES);
 function buildEvChunk() {
-  const boxes = [], pipes = [];
+  const built = { boxes: [], pipes: [] }, boxes = built.boxes;
   const box = o => (boxes.push(o), o);
   const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
-  const node = (x, y, z, what) => box({ x: x + 0.15, y: y + 0.15, z: z + 0.15, w: 0.7, h: 0.7, d: 0.7, col: '--s8', node: true, tip: `LaserIO Node · ${what}|` });
   const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
-  const n = S.veN;
+  const lk = logiKit(built);
   box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
-  multi(1, 1, 3, 3, 8, '--s5', 'Distillation', 'Distillation Tower · 3×3 · 8층|HV 해치 2개(EV) · 출력 7종 = 층마다 출력 해치');
-  MOLTEN.forEach((m, i) => { unit(5 + i, 0, 1, { col: m.feed ? '--s5' : '--muted', label: m.n.slice(0, 4), tip: `Super Tank · Molten ${m.n}|${m.use}` }); node(5 + i, 1, 1, m.n); });
-  MOLTEN.filter(m => m.feed).forEach((m, i) => unit(5 + i, 0, 3, { col: '--s2', label: 'AC-' + m.n.slice(0, 3), tip: `HV Autoclave · ${m.n}|Molten ${m.n} 500 + Stone Dust → Raw` }));
-  unit(9, 0, 3, { col: '--s2', label: 'Mac', tip: 'HV Macerator|Raw → Crushed' });
-  unit(10, 0, 3, { col: '--s1', label: 'Wash', tip: 'Ore Washer|Cooperite 세척 (EMI 확인)' });
-  multi(11, 3, 5, 5, 7, '--s4', 'Ore Factory EV', 'Electric Ore Factory · 5×5 · 높이 7|EV 티어 레시피 · HV 해치 2개 · Persulfate 100');
-  multi(1, 6, 3, 3, 4, '--s8', 'EBF Rutile', 'EBF · Ilmenite → Rutile|rutile_from_ilmenite_fix · 1700K');
-  multi(1, 10, 3, 3, 4, '--s8', 'EBF Ti', 'EBF · Titanium|titanium_from_tetrachloride · 2141K · Kanthal 16');
-  multi(5, 10, 3, 3, 3, '--s1', 'Vac Freezer', 'Vacuum Freezer · 3×3×3|Hot Titanium · Tungsten');
-  unit(5, 0, 7, { col: '--s2', label: 'TiCl4', tip: 'HV CR · titanium_tetrachloride|Rutile + Carbon 2 + Cl 4000' });
-  unit(6, 0, 7, { col: '--s1', label: 'Baux', tip: 'Electrolyzer · Bauxite|15 → Al 6 + Rutile' });
+  // 증류탑 + Molten 서브넷 (탱크 7개가 서브넷의 저장소)
+  multi(1, 1, 3, 3, 8, '--s5', 'Distillation', 'Distillation Tower · 3×3 · 8층|HV 해치 2개(EV) · 출력 7종 = 층마다 ME Output Hatch → Molten 서브넷');
+  for (let y = 1; y <= 7; y++) lk.part(3, y, 2, 'e', 'meout', `증류탑 ${y}층 출력`);
+  lk.node(2, 8, 2, '증류탑 입력', ['↓ 유체 IN Molten Ore Mixture (HV 처리 청크에서 레이저)']);
+  lk.sub([[4, 1, 2], [4, 7, 2]]); lk.sub([[4, 0, 2], [11, 0, 2]]);
+  MOLTEN.forEach((m, i) => {
+    unit(5 + i, 0, 1, { col: m.feed ? '--s5' : '--muted', label: m.n.slice(0, 4), tip: `Super Tank · Molten ${m.n}|${m.use}. 남쪽 면 Storage Bus(필터 ${m.n}) → Molten 서브넷` });
+    lk.part(5 + i, 0, 1, 's', 'sbus', `Molten ${m.n} 탱크 (필터 1종)`);
+    if (m.feed) lk.node(5 + i, 1, 1, `Molten ${m.n}`, [`유체 OUT → AC-${m.n.slice(0, 3)} 노드`]);
+  });
+  lk.blk(4, 0, 3, 'iface', 'Molten 서브넷 경계', 'IF');
+  lk.part(4, 0, 4, 'n', 'sbus', '주 네트워크 → Molten 서브넷 Interface (우선순위 낮게, 잔량 읽기)');
+  // Autoclave (molten 종류마다 1대) → Macerator → Ore Factory: LaserIO
+  MOLTEN.filter(m => m.feed).forEach((m, i) => {
+    unit(5 + i, 0, 3, { col: '--s2', label: 'AC-' + m.n.slice(0, 3), tip: `HV Autoclave · ${m.n}|Molten ${m.n} 500 + Stone Dust → Raw. 유체가 섞이면 멈춰서 종류마다 1대` });
+    lk.node(5 + i, 1, 3, `AC-${m.n.slice(0, 3)}`, ['↓ 유체 IN (탱크 노드에서)', '↓ 아이템 IN Stone Dust', '아이템 OUT Raw → Mac']);
+    lk.laser([5 + i, 1, 1], [5 + i, 1, 3]);
+  });
+  unit(9, 0, 3, { col: '--s2', label: 'Mac', tip: 'HV Macerator|Raw → Crushed' }); lk.node(9, 1, 3, 'Mac', ['↓ Raw IN', 'Crushed OUT → Ore Factory 입력 버스']);
+  unit(10, 0, 3, { col: '--s1', label: 'Wash', tip: 'Ore Washer|Cooperite 세척 → Purified (EMI 확인)' }); lk.node(10, 1, 3, 'Wash', ['↓ Crushed Cooperite IN (필터)', 'Purified OUT → ME']);
+  lk.laser([8, 1, 3], [9, 1, 3]); lk.laser([9, 1, 3], [10, 1, 3]); lk.laser([9, 1, 3], [11, 1, 4]);
+  multi(11, 3, 5, 5, 7, '--s4', 'Ore Factory EV', 'Electric Ore Factory · 5×5 · 높이 7|EV 티어 · HV 해치 2개 · Persulfate 100. 남쪽 ME Output Bus → 주 네트워크');
+  lk.node(11, 1, 4, 'Ore Factory 입력', ['↓ Crushed IN', '↓ Persulfate IN (ME에서 레이저)']);
+  lk.part(12, 0, 7, 's', 'meout', 'Ore Factory 출력 (Ilmenite · Bauxite · Tungstate · 부산물 전부)');
+  // 주 네트워크: P2P 입구 → x = 4 간선 → 가지
+  lk.blk(0, 0, 14, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
+  lk.me([[1, 0, 14], [12, 0, 14]]); lk.me([[4, 0, 4], [4, 0, 14]]); lk.me([[5, 0, 8], [12, 0, 8]]);
+  lk.me([[9, 0, 8], [9, 0, 9]]); lk.me([[10, 0, 8], [10, 0, 9]]); lk.me([[6, 0, 13], [6, 0, 14]]); lk.me([[13, 0, 10], [13, 0, 14]]);
+  // Titanium
+  multi(1, 6, 3, 3, 4, '--s8', 'EBF Rutile', 'EBF · Ilmenite → Rutile|rutile_from_ilmenite_fix · 1700K · Kanthal + MV 해치 2');
+  lk.part(3, 0, 7, 'e', 'pp', 'Rutile 패턴: Ilmenite 10 + Carbon 2 (Blocking Mode)');
+  lk.part(3, 0, 6, 'e', 'meout', 'Rutile · Wrought Iron → 주 네트워크');
+  unit(5, 0, 7, { col: '--s2', label: 'TiCl4', tip: 'HV CR · titanium_tetrachloride|Rutile + Carbon 2 + Cl 4000 → TiCl4 1000 → 레이저로 EBF Ti 입력 해치' });
+  lk.part(5, 0, 7, 'w', 'pp', 'TiCl4 패턴: Rutile 1 + Carbon 2 + Chlorine 4000');
+  lk.node(5, 1, 7, 'TiCl4', ['유체 OUT TiCl4 → EBF Ti']);
+  unit(6, 0, 7, { col: '--s1', label: 'Baux', tip: 'Electrolyzer · Bauxite|15 → Al 6 + Rutile. 출력면을 Interface 쪽으로 자동 배출' });
+  lk.part(6, 0, 7, 's', 'pp', 'Bauxite 15 패턴');
   unit(7, 0, 7, { col: '--s1', label: 'MgCl2', tip: 'Electrolyzer · MgCl2|Mg · Cl 회수 (EMI 확인)' });
-  unit(9, 0, 10, { col: '--s5', label: 'W-Bath', tip: 'EV Chemical Bath|tungstic_acid_from_tungstate · 960' });
-  unit(10, 0, 10, { col: '--s5', label: 'W-Elec', tip: 'EV Electrolyzer|tungstic_acid_electrolysis · 960' });
+  lk.part(7, 0, 7, 's', 'pp', 'MgCl2 패턴');
+  multi(1, 10, 3, 3, 4, '--s8', 'EBF Ti', 'EBF · Titanium|titanium_from_tetrachloride · 2141K · VA[HV] → Kanthal + MV 해치 2 (2,800K)');
+  lk.part(3, 0, 11, 'e', 'pp', 'Titanium 패턴: Magnesium 2 (TiCl4는 레이저로)');
+  lk.node(2, 4, 11, 'EBF Ti', ['↓ 유체 IN TiCl4', '아이템 OUT Hot Titanium → VF', '유체 OUT MgCl2 → 전해']);
+  lk.laser([5, 1, 7], [2, 4, 11]);
+  multi(5, 10, 3, 3, 3, '--s1', 'Vac Freezer', 'Vacuum Freezer · 3×3×3|Hot Titanium · Tungsten (VA[HV]) → MV 해치 2로 충분. 남쪽 ME Output Bus');
+  lk.node(6, 3, 11, 'VF', ['↓ Hot ingot IN (EBF에서)']); lk.laser([2, 4, 11], [6, 3, 11]);
+  lk.part(6, 0, 12, 's', 'meout', 'Titanium · Tungsten ingot → 주 네트워크');
+  // Tungsten
+  unit(9, 0, 10, { col: '--s5', label: 'W-Bath', tip: 'EV Chemical Bath|tungstic_acid_from_tungstate · 960 → Tungstic Acid → 레이저로 W-Elec' });
+  lk.part(9, 0, 10, 'n', 'pp', 'Tungstate 7 + HCl 2000 패턴');
+  unit(10, 0, 10, { col: '--s5', label: 'W-Elec', tip: 'EV Electrolyzer|tungstic_acid_electrolysis · 960 → Tungsten dust. 출력면이 Interface' });
+  lk.part(10, 0, 10, 'n', 'iface', 'W-Elec 자동 배출 → 주 네트워크');
+  lk.node(9, 1, 10, 'W-Bath', ['Tungstic Acid OUT → W-Elec']); lk.laser([9, 1, 10], [10, 1, 10]);
+  // Platinum
   unit(9, 0, 13, { col: '--s1', label: 'AquaR', tip: 'Mixer · Aqua Regia|Nitric 1000 + HCl 2000' });
   unit(10, 0, 13, { col: '--s1', label: 'PGS', tip: 'CR · pgs_from_cooperite|Purified + Nitric 100' });
   unit(11, 0, 13, { col: '--s2', label: 'PGS-C', tip: 'HV Centrifuge · pgs_separation|PGS 6 + Aqua Regia 1200' });
   unit(12, 0, 13, { col: '--s1', label: 'Pt', tip: 'Electrolyzer · raw_platinum_separation|Platinum Raw 3 → Platinum' });
-  ['Ti', 'W', 'Pt'].forEach((k, i) => unit(14, 0, 10 + i, { col: '--good', label: k, tip: `${k} 창고|ME storage bus` }));
+  [9, 10, 11, 12].forEach(x => lk.part(x, 0, 13, 's', 'pp', ['Aqua Regia', 'PGS', 'PGS 분리', 'Platinum'][x - 9] + ' 패턴'));
+  // 창고 · 요청
+  ['Ti', 'W', 'Pt'].forEach((k, i) => { unit(14, 0, 10 + i, { col: '--good', label: k, tip: `${k} 창고 (Drawer)|주 네트워크 Storage Bus` }); lk.part(14, 0, 10 + i, 'w', 'sbus', `${k} 창고`); });
+  lk.blk(13, 0, 9, 'req', 'Ti ingot 512 · Tungsten 256 · Platinum 128 재고 유지 → 모자라면 위 패턴들이 연쇄로 돎', 'Req');
   unit(13, 0, 15, { col: '--s5', label: 'EV Tr', tip: 'hv_transformer (승압)|HV 4A → EV 1A · EV Chemical Bath · Electrolyzer용' });
   unit(14, 0, 15, { col: '--s1', label: 'Conv', tip: '컨버터|전력 — 보석 발전으로 확장 예정' });
-  // 레이저: 노드 대신 주요 흐름을 선으로
-  const c = (x, z) => [x + 0.5, 1.2, z + 0.5];
-  [[[2, 2], [5, 1]], [[5, 1], [11, 1]], [[5, 3], [8, 3]], [[9, 3], [11, 4]], [[13, 7], [5, 7]], [[5, 7], [2, 7]], [[2, 9], [2, 10]], [[4, 11], [5, 11]], [[13, 8], [9, 10]], [[10, 3], [10, 13]]]
-    .forEach(([a, b]) => pipes.push({ type: 'beam', pts: [c(...a), c(...b)] }));
-  return { boxes, pipes };
+  return built;
 }
+const REFINE_NETS = [
+  { n: '주 네트워크', kind: '주 (기지 컨트롤러)', what: 'Ti · W · Pt 결과물, Ore Factory 출력 dust 전부, 원료(Carbon · Cl · HCl · Persulfate · Stone Dust)', edge: 'P2P 입구(남서쪽) → x = 4 간선 · z = 8 · z = 14 가지', seen: '—' },
+  { n: 'Molten 서브넷', kind: '서브넷 (컨트롤러 없음)', what: 'Molten 광석 7종 — 증류탑 출력은 여기로만 들어옴', edge: '증류탑 층마다 ME Output Hatch → 탱크 7개 Storage Bus(각 필터 1종)', seen: 'Interface(IF)에 붙인 주 네트워크 Storage Bus로 잔량만 봄. 우선순위를 낮춰 주 네트워크 유체가 탱크로 새지 않게' },
+  { n: 'LaserIO', kind: '레이저', what: 'Molten 탱크 → Autoclave → Macerator → Ore Factory, TiCl4 → EBF → VF, Tungstic Acid', edge: '한 기계에서 다음 기계로 바로 가는 1:1 흐름', seen: '— (중간재라 볼 필요 없음)' },
+];
 
-function viewPassive3d() {
+/* 3D 카드 공용 틀: 조작 버튼 + 캔버스 + 범례 */
+function layBlock(aria, legend) {
   const pressed = k => `aria-pressed="${S[k]}"`;
-  return `
-  <h2>4 · 패시브</h2>${subnav()}
-  <p class="lead">EV 정제를 <b>16×16 청크 하나</b>에 넣은 배치입니다. 북쪽 줄이 증류탑과 molten 탱크 7개, 가운데가 Autoclave와 Ore Factory, 남쪽이 Titanium · Tungsten · Platinum 마무리입니다. 멀티블럭 크기는 GTCEu · 팩 패턴 기준(증류탑 8층 · Ore Factory 5×5×7).</p>
-  <div class="card">
+  return `<div class="card">
     <div id="layctl" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px">
       <div class="seg"><button data-act="pipes" ${pressed('layPipes')}>선</button><button data-act="labels" ${pressed('layLabels')}>라벨</button></div>
       <div class="seg"><button data-act="reset">기본 시점</button><button data-act="top">위에서</button><button data-act="in" aria-label="확대">＋</button><button data-act="out" aria-label="축소">－</button></div>
     </div>
-    <div><canvas id="lay3d" role="img" aria-label="EV 정제 청크 3D 배치도" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
-    <div class="legend">${[['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '보관 탱크'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('')}${pwLegend(PWM(), 4)}</div>
-  </div>
+    <div><canvas id="lay3d" role="img" aria-label="${aria}" style="display:block;width:100%;border-radius:8px;touch-action:none;cursor:grab"></canvas></div>
+    <div class="legend">${legend}</div>
+  </div>`;
+}
+
+function viewRefine3d() {
+  return `
+  <h2>3 · 자원 처리</h2>${subnav()}
+  <p class="lead">EV 정제를 <b>16×16 청크 하나</b>에 넣고 물류까지 그린 배치입니다. <b>검은 선이 ME 주 네트워크, 회색 점선이 Molten 서브넷, 빨간 가는 선이 LaserIO(굵은 색 선은 전선)</b>입니다. 상자 면에 붙은 작은 판이 Storage Bus · Pattern Provider · ME Output Hatch — 마우스를 올리면 무엇을 하는지 나옵니다.</p>
+  ${layBlock('EV 정제 청크 3D 배치도', [['--s5', 'EV 기계 · EV 레시피'], ['--s2', 'HV 기계'], ['--s1', 'MV 기계'], ['--s8', 'EBF'], ['--s4', 'Ore Factory'], ['--muted', '보관 탱크'], ['--good', 'Ti · W · Pt 창고']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM(), 4))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(REFINE_NETS)}</div>
   <div class="grid2">
-    <div class="card"><h3>배치 원칙</h3><ul class="pts">
-      <li><b>증류탑 옆에 molten 탱크 7개를 한 줄로.</b> 쓰는 4종(Ilmenite · Bauxite · Tungstate · Cooperite)만 Autoclave로 내리고 나머지는 보관.</li>
-      <li><b>Autoclave는 molten 종류마다 1대.</b> 한 대에 여러 유체가 들어가면 막힙니다.</li>
-      <li><b>EBF 2대(Rutile · Titanium)와 Vacuum Freezer를 서쪽에.</b> Titanium EBF는 Kanthal 코일, 나중에 Tungsten용 Nichrome EBF를 옆에 추가.</li>
-      <li><b>EV 단일 블록은 Tungsten 두 대뿐</b> — 트랜스포머 하나로. 나머지는 HV · MV와 HV 해치 2개 멀티블럭입니다.</li>
+    <div class="card"><h3>왜 이렇게 나눴나</h3><ul class="pts">
+      <li><b>Molten 서브넷</b>: 증류 1회에 유체 7종 10,000mB가 한꺼번에 나옵니다. 주 네트워크에 바로 올리면 주 저장소가 molten으로 차고, Pitchblende · Molybdenite처럼 당장 안 쓰는 것도 섞입니다. 층마다 ME Output Hatch(EV부터)를 달고 탱크 7개를 필터 Storage Bus로 묶으면 필터 카드 없이 종류별로 갈립니다.</li>
+      <li><b>LaserIO는 1:1 흐름에만</b>: 탱크 → Autoclave(종류마다 1대), Autoclave → Macerator → Ore Factory, TiCl4 → EBF → Vacuum Freezer. 중간재를 ME에 올렸다 내리면 채널만 먹습니다.</li>
+      <li><b>하류는 Pattern Provider + ME Requester</b>: Rutile · TiCl4 · Titanium · Tungstic Acid · PGS 패턴을 주 네트워크 Pattern Provider에 넣고 Requester가 Ti · W · Pt 재고 목표를 지키게 하면, 원료가 들어오는 만큼 연쇄로 돌고 목표에 닿으면 멈춥니다. EBF는 Blocking Mode.</li>
     </ul></div>
-    <div class="card"><h3>연결</h3><ul class="pts">
-      <li>HCl · Persulfate · Nitric 원료는 HV 패시브 화학 청크(ME)에서.</li>
-      <li>Molten Ore Mixture는 처리 청크(HV 페이지 2 탭)의 Molten 탱크 → 이 청크 증류탑.</li>
-      <li>Ti · W · Pt는 ME로 → EV Hull · Voltage Coil · SMD Diode · IV 준비.</li>
+    <div class="card"><h3>게임에서 확인할 것</h3><ul class="pts">
+      <li>단일 블록 기계가 결과물을 Pattern Provider 면으로 자동 배출하면 네트워크로 돌아가는지 (AE2 15 · ${EMI})</li>
+      <li>증류탑 출력 해치 층 순서와 유체 대응 — 층마다 ME Output Hatch면 순서는 상관없음</li>
+      <li>Ore Washer의 Cooperite 세척 레시피 (${EMI})</li>
     </ul></div>
   </div>`;
+}
+
+/* ---------- 4 패시브 · IV 준비 (금속 · 초전도 · 피복 화학) ----------
+   Tungsten 공급(정제 청크 출력)을 나눠 IV 진입 재료를 상시 생산한다. 수치는 jar MixerRecipes · 재료 blast 정의,
+   팩 superconductors.js, GTCEu WireRecipeHandler(케이블 피복)에서 확인. Vacuum Freezer 시간은 재료 질량 × 3t라 약 300t로 잡음(EMI 확인). */
+const W_SPLIT = { tss: 0.55, w: 0.25, rtm: 0.2 };                 // Tungsten 배분
+const HSSG_OF_TSS = 0.3;                                          // Tungstensteel 중 HSS-G로 가는 몫
+const SC_H = { enderium: 16, shellite: 16 };                      // 초전도 ingot / 시간 목표
+const SIR_H = 4000;                                               // Silicone Rubber mB / 시간 (IV 케이블 1개 = 72mB)
+const VF_T = 300;
+function prepRates(n) {
+  const W = runsH(n) * W_RUN, tss = 2 * W * W_SPLIT.tss, hssg = tss * HSSG_OF_TSS * 9 / 5;
+  return { W, tss, tssNet: tss * (1 - HSSG_OF_TSS), hssg, w: W * W_SPLIT.w, rtm: W * W_SPLIT.rtm * 7 / 2, ...SC_H };
+}
+// [id, 기계, 계통, EU/t, 해치 2, 라벨, 작업 목록 [이름, 회/시간, 틱]]
+function prepMachines(n) {
+  const R = prepRates(n), sir = SIR_H / 1296, pdms = sir * 9 / 3;
+  return [
+    ['MX', 'Mixer (EV)', 'EV', 1920, false, 'Mix-EV', [['Tungstensteel', R.tss / 2, 200], ['RTM Alloy', R.rtm / 7, 300], ['HSS-G', R.hssg / 9, 400]]],
+    ['MM', 'Mixer (MV)', 'MV', 120, false, 'Mix-MV', [['Signalum · Black Bronze', R.shellite * 3 / 4 / 8 + R.shellite / 4 / 4, 400], ['Enderium', R.enderium / 6, 400]]],
+    ['EN', 'EBF · Nichrome 코일', 'EV', 1920, true, 'EBF-N', [['Tungstensteel', R.tss, 1000], ['Tungsten', R.w, 1800], ['RTM Alloy', R.rtm, 1400], ['Enderium', R.enderium, 1200]]],
+    ['ER', 'EBF · RTM 코일', 'IV', 7680, true, 'EBF-R', [['HSS-G (EV)', R.hssg, 1300], ['Shellite (IV · EV 해치 2)', R.shellite, 1400]]],
+    ['VF', 'Vacuum Freezer', 'HV', 480, true, 'VF', [['Hot ingot 전부', R.tss + R.w + R.rtm + R.enderium + R.hssg + R.shellite, VF_T]]],
+    ['PD', 'LCR · PDMS', 'HV', 480, true, 'LCR', [['polydimethylsiloxane_from_silicon', pdms / 3, 480]]],
+    ['SR', 'Chemical Reactor · Silicone Rubber', 'LV', 30, false, 'SiR', [['silicone_rubber', sir, 600]]],
+    ['PV', 'Chemical Reactor · PVC', 'LV', 30, false, 'PVC', [['Polyvinyl Chloride (foil용 · 추정)', SIR_H / 72 / 4 / 1, 160]]],
+    ['DH', 'Distillery · Diluted HCl', 'MV', 120, false, 'HCl', [['Diluted HCl → HCl 회수', pdms / 3 * 2, 100]]],
+  ].map(([id, m, t, eut, hatch2, label, jobs]) => {
+    const u = jobs.reduce((a, [, runs, dur]) => a + runs * dur, 0) / 72000;
+    return { id, m, t, eut, hatch2, label, jobs, u, n: pNeed(u) };
+  });
+}
+const PWM_P = () => prepMachines(S.veN).map(g => ({ id: g.id, name: g.m, eut: g.eut, u: g.u, n: g.n, hatch2: g.hatch2, labels: [g.label] }));
+
+function viewPrepMetal() {
+  const n = S.veN, R = prepRates(n), M = prepMachines(n).filter(g => ['MX', 'MM', 'EN', 'ER', 'VF'].includes(g.id));
+  const rows = [
+    ['Tungstensteel', R.tssNet, 'IV Hull(plate 8) · IV 부품'], ['HSS-G', R.hssg, 'HSS-G 코일(IV Assembler) · IV 부품'],
+    ['Tungsten', R.w, 'IV 케이블(Tungsten) · Tungsten Carbide'], ['RTM Alloy', R.rtm, 'RTM 코일 16개 = 2x wire 128'],
+    ['Enderium', R.enderium, 'EV 초전도 케이블 (Mechanics · 3500K · EV)'], ['Shellite', R.shellite, 'IV 초전도 케이블 (4400K · IV → RTM + EV 해치 2)'],
+  ];
+  return `
+  <h2>4 · 패시브 (IV 준비)</h2>${subnav()}
+  <p class="lead">IV 진입에 드는 금속을 <b>상시 생산</b>으로 돌립니다. 병목은 Tungsten이라, 정제 청크가 내는 Tungsten(VE ${n}대 기준 시간당 ${fmt(R.W, 1)})을 비율로 나눕니다. 모든 blast는 해치 2개 기준으로 판정했습니다 — Nichrome 코일 + HV 해치 2개(3,800K)가 Tungsten · Tungstensteel · RTM · Enderium, RTM 코일 + HV 해치 2개(4,700K)가 HSS-G, <b>Shellite만 IV 전압이라 RTM 코일 + EV 해치 2개</b>입니다.</p>
+  <div class="tiles">
+    ${tile('Tungsten 공급', fmt(R.W, 1), '/ 시간', `배분 TSS ${Math.round(W_SPLIT.tss * 100)}% · W ${Math.round(W_SPLIT.w * 100)}% · RTM ${Math.round(W_SPLIT.rtm * 100)}%`)}
+    ${tile('Tungstensteel', fmt(R.tssNet, 1), '/ 시간', `IV Hull ${fmt(R.tssNet / 8, 1)}개분`)}
+    ${tile('HSS-G', fmt(R.hssg, 1), '/ 시간', `TSS의 ${Math.round(HSSG_OF_TSS * 100)}% → HSS-G`)}
+    ${tile('초전도', `${R.enderium} · ${R.shellite}`, '/ 시간', 'Enderium · Shellite 목표')}
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>시간당 산출</h3>
+      ${hbar(rows.map(([a, v, d]) => ({ label: a, sub: d, value: v, color: 'var(--s5)', text: fmt(v, 1) + ' ingot' })), { cols: ['재료', '/ 시간'], noAxis: true })}</div>
+    <div class="card"><h3>레시피 (jar · 팩)</h3><ul class="pts">
+      <li><code>tungstensteel</code> Mixer EV 200t: Tungsten 1 + Steel 1 → 2 · blast 3000K · VA[EV] 1000t</li>
+      <li><code>rtm_alloy</code> Mixer EV 300t: Ruthenium 4 + Tungsten 2 + Molybdenum 1 → 7 · blast 3000K 1400t</li>
+      <li><code>hssg</code> Mixer EV 400t: Tungstensteel 5 + Chromium 1 + Molybdenum 2 + Vanadium 1 → 9 · blast 4200K 1300t</li>
+      <li>Tungsten blast 3600K 1800t · 전부 Hot ingot → Vacuum Freezer(VA[HV])</li>
+      <li>팩 초전도(<code>superconductors.js</code>): <b>Enderium</b> Lead 3 · Diamond 1 · Ender Pearl 2, 3500K · VA[EV] 1200t / <b>Shellite</b> Black Bronze 1 · Signalum 3, 4400K · VA[IV] 1400t. Mixer 시간은 ${EMI}</li>
+      <li>원료: Ruthenium(PGS → Inert Metal Mixture ${EMI}) · Molybdenum(보관한 Molten Molybdenite) · Chromium(Chromite) · Vanadium(Vanadium Magnetite) · Ender Pearl(Liquid Ender Air 증류 부산물)</li>
+    </ul></div>
+  </div>
+  <div class="card"><h3>기계 대수 (VE ${n}대)</h3>
+    <div class="tscroll"><table><thead><tr><th>기계</th><th>계통</th><th>작업</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+      <tbody>${M.map(g => `<tr><td><b>${esc(g.m)}</b>${g.hatch2 ? ' <small style="color:var(--muted)">해치 2</small>' : ''}</td><td>${g.t}</td><td>${g.jobs.map(([a, r, d]) => `${esc(a)} ${fmt(r, 2)}회 × ${d}t`).join('<br>')}</td><td class="n">${fmt(g.u * 100, 0)}%</td><td class="n"><b>${g.n}</b></td></tr>`).join('')}</tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">전부 1대씩으로 충분합니다 — 이 단계는 기계보다 Tungsten 공급이 병목입니다. Void Extractor를 늘리거나 재활용 Mixer(3 탭)로 쓸 곳 없는 Crushed를 Molten Ore Mixture로 돌리면 전부 같이 늘어납니다.</p>
+  </div>`;
+}
+
+function viewPrepChem() {
+  const n = S.veN, M = prepMachines(n).filter(g => ['PD', 'SR', 'PV', 'DH'].includes(g.id)), sir = SIR_H / 1296;
+  return `
+  <h2>4 · 패시브 (IV 준비)</h2>${subnav()}
+  <p class="lead"><b>IV 케이블부터는 Rubber로 피복할 수 없습니다.</b> GTCEu <code>WireRecipeHandler</code>: Rubber는 EV 이하만, EV 이상은 PVC foil이 붙고, LuV 이상은 PPS foil까지 붙습니다. 그래서 IV 준비 화학은 <b>Silicone Rubber</b>(또는 SBR)와 <b>PVC foil</b>입니다.</p>
+  <div class="card"><h3>케이블 피복 규칙 (jar)</h3>
+    <div class="tscroll"><table><thead><tr><th>케이블 티어</th><th>액체 (케이블 1x 기준)</th><th>foil</th><th>여기서</th></tr></thead><tbody>
+      <tr><td>~HV</td><td>Rubber 144 · Silicone Rubber 72 · SBR 36</td><td>—</td><td>HV 페이지</td></tr>
+      <tr><td>EV (Aluminium)</td><td>Rubber 144 · SiR 72 · SBR 36</td><td>PVC</td><td>HV에서 준비</td></tr>
+      <tr><td><b>IV (Tungsten)</b></td><td><b>SiR 72 · SBR 36</b> (Rubber 불가)</td><td>PVC</td><td><b>이 탭</b></td></tr>
+      <tr><td>LuV~</td><td>SiR 72 · SBR 36</td><td>PVC + <b>PPS</b></td><td>IV 페이지</td></tr>
+    </tbody></table></div>
+    <p class="sub" style="margin:10px 0 0">두께(2x · 4x …)만큼 양이 곱해집니다. SBR이 가장 적게 들지만 Butadiene이 필요하고, 팩이 CR 크래킹을 지워서 출처가 까다롭습니다(${EMI}). 그래서 기본은 Silicone Rubber.</p>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Silicone Rubber ${fmt(SIR_H, 0)}mB / 시간</h3>
+      ${flow({
+        label: 'Silicone Rubber', h: 300,
+        nodes: [
+          { id: 'si', x: 10, y: 20, w: 140, t: 'Silicon', s: `${fmt(sir * 3, 1)} / 시간`, k: 'src' },
+          { id: 'me', x: 10, y: 110, w: 140, t: 'Methanol · HCl', s: `각 ${fmt(sir * 6000 / 1000, 1)}B / 시간`, k: 'src' },
+          { id: 'pd', x: 200, y: 60, w: 160, t: 'PDMS', s: 'LCR · 480t · 3개', k: 'LCR', tip: 'polydimethylsiloxane_from_silicon: Silicon 1 + HCl 2000 + Methanol 2000 → PDMS 3 + Diluted HCl 2000' },
+          { id: 'sr', x: 410, y: 60, w: 160, t: 'Silicone Rubber', s: 'CR LV · 600t · 1296', k: 'GOAL', tip: 'silicone_rubber: PDMS 9 + Sulfur 1 → 1296mB' },
+          { id: 'dh', x: 200, y: 200, w: 160, t: 'Diluted HCl', s: '증류로 HCl 회수', k: 'MV' },
+        ],
+        edges: [{ a: 'si', b: 'pd' }, { a: 'me', b: 'pd' }, { a: 'pd', b: 'sr', l: 'PDMS 9' }, { a: 'pd', b: 'dh', fs: 'b', ts: 't' }, { a: 'dh', b: 'me', dash: true, fs: 'l', ts: 'r' }],
+      })}
+      <p class="sub" style="margin:10px 0 0">Methanol 출처(CO + H₂)는 ${EMI}. PDMS를 원소에서 바로 만드는 <code>polydimethylsiloxane_from_elements</code>도 있습니다.</p></div>
+    <div class="card"><h3>기계 대수</h3>
+      <div class="tscroll"><table><thead><tr><th>기계</th><th>작업</th><th class="n">가동률</th><th class="n">대수</th></tr></thead>
+        <tbody>${M.map(g => `<tr><td><b>${esc(g.m)}</b></td><td>${g.jobs.map(([a, r, d]) => `${esc(a)} ${fmt(r, 2)}회 × ${d}t`).join('<br>')}</td><td class="n">${fmt(g.u * 100, 0)}%</td><td class="n"><b>${g.n}</b></td></tr>`).join('')}</tbody></table></div>
+      <p class="sub" style="margin:10px 0 0">${fmt(SIR_H, 0)}mB면 IV 1x 케이블 약 ${fmt(SIR_H / 72, 0)}개 / 시간. PVC foil은 케이블 1개당 1장(foil 1장 = ingot 1/4 — ${EMI}). PDMS LCR의 전압은 ${EMI}.</p></div>
+  </div>`;
+}
+
+function buildPrepChunk() {
+  const built = { boxes: [], pipes: [] }, boxes = built.boxes;
+  const box = o => (boxes.push(o), o);
+  const unit = (x, y, z, o) => box({ x, y, z, w: 1, h: 1, d: 1, ...o });
+  const multi = (x, z, w, d, h, col, label, tip) => box({ x, y: 0, z, w, h, d, col, label, tip });
+  const lk = logiKit(built);
+  box({ x: 0, y: -0.02, z: 0, w: 16, h: 0.02, d: 16, ghost: true, outline: true, tip: '청크 경계 16 × 16' });
+  // 주 네트워크 간선 z = 5 (금속) · z = 12 (화학), x = 0 세로
+  lk.blk(0, 0, 8, 'p2p', '기지 ME 컨트롤러에서', 'P2P');
+  lk.me([[0, 0, 5], [15, 0, 5]]); lk.me([[0, 0, 6], [0, 0, 7]]); lk.me([[0, 0, 9], [0, 0, 12]]); lk.me([[1, 0, 12], [12, 0, 12]]);
+  // 금속 (북쪽 절반)
+  multi(1, 1, 3, 3, 4, '--s8', 'EBF-N', 'EBF · Nichrome 코일 · HV 해치 2 (EV · 3,800K)|Tungstensteel · Tungsten · RTM · Enderium. 남쪽 Pattern Provider(Blocking)');
+  multi(5, 1, 3, 3, 4, '--s7', 'EBF-R', 'EBF · RTM 코일|HV 해치 2 (4,700K) → HSS-G, EV 해치 2 (IV · 4,800K) → Shellite. 해치는 EV 2개로 두면 둘 다 됨');
+  multi(9, 1, 3, 3, 3, '--s1', 'VF', 'Vacuum Freezer · MV 해치 2 = HV|Hot ingot 전부 (VA[HV]). 남쪽 ME Output Bus');
+  unit(13, 0, 1, { col: '--s5', label: 'Mix-EV', tip: 'EV Mixer|Tungstensteel · RTM · HSS-G dust (1,920)' });
+  unit(14, 0, 1, { col: '--s1', label: 'Mix-MV', tip: 'MV Mixer|Signalum · Black Bronze · Enderium dust' });
+  [[2, 3], [6, 3]].forEach(([x, z], i) => { lk.me([[x, 0, 4], [x, 0, 4]]); lk.part(x, 0, z, 's', 'pp', ['EBF-N 패턴 (dust → Hot ingot)', 'EBF-R 패턴'][i]); });
+  lk.me([[10, 0, 4], [10, 0, 4]]); lk.part(10, 0, 3, 's', 'meout', 'VF 출력 ingot → 주 네트워크');
+  [13, 14].forEach(x => { lk.me([[x, 0, 2], [x, 0, 4]]); lk.part(x, 0, 1, 's', 'pp', 'Mixer 패턴 — 결과 dust는 같은 Pattern Provider 면으로 자동 배출'); });
+  lk.node(2, 4, 2, 'EBF-N 출력', ['Hot ingot OUT → VF 노드']); lk.node(6, 4, 2, 'EBF-R 출력', ['Hot ingot OUT → VF 노드']); lk.node(10, 3, 2, 'VF 입력', ['↓ Hot ingot IN']);
+  lk.laser([2, 4, 2], [10, 3, 2]); lk.laser([6, 4, 2], [10, 3, 2]);
+  lk.blk(15, 0, 4, 'req', 'Tungstensteel 256 · HSS-G 128 · RTM 128 · Tungsten 128 · Enderium 64 · Shellite 64 재고 유지', 'Req');
+  // 화학 (남쪽 절반) — 주 네트워크 + HCl 서브넷
+  multi(1, 9, 3, 3, 3, '--s7', 'LCR', 'Large Chemical Reactor · MV 해치 2|polydimethylsiloxane_from_silicon · 480t. 남쪽 Pattern Provider · ME Output Hatch');
+  lk.me([[2, 0, 11], [2, 0, 11]]); lk.part(2, 0, 11, 'n', 'pp', 'PDMS 패턴: Silicon 1 + HCl 2000 + Methanol 2000');
+  unit(5, 0, 11, { col: '--s3', label: 'SiR', tip: 'LV Chemical Reactor|silicone_rubber: PDMS 9 + Sulfur 1 → 1296mB' });
+  unit(6, 0, 11, { col: '--s3', label: 'PVC', tip: 'LV Chemical Reactor|Vinyl Chloride + Oxygen → PVC (foil은 Bender · Extruder)' });
+  unit(7, 0, 11, { col: '--s1', label: 'HCl', tip: 'MV Distillery|Diluted HCl → HCl (회수)' });
+  [5, 6, 7].forEach(x => lk.part(x, 0, 11, 's', 'pp', ['Silicone Rubber 패턴', 'PVC 패턴', 'HCl 회수 패턴'][x - 5]));
+  // HCl 서브넷: LCR의 Diluted HCl → 탱크 → Distillery → HCl 탱크 → LCR (닫힌 루프)
+  unit(1, 0, 14, { col: '--muted', label: 'dHCl', tip: 'Super Tank · Diluted HCl|HCl 서브넷' }); unit(2, 0, 14, { col: '--muted', label: 'HCl', tip: 'Super Tank · HCl|HCl 서브넷 — 주 네트워크 HCl과 분리' });
+  lk.part(1, 0, 14, 'e', 'sbus', 'Diluted HCl 탱크'); lk.part(2, 0, 14, 'n', 'sbus', 'HCl 탱크');
+  lk.part(2, 0, 11, 's', 'meout', 'LCR ME Output Hatch → HCl 서브넷 (Diluted HCl)');
+  lk.sub([[2, 0, 12], [2, 0, 13]]); lk.sub([[3, 0, 13], [7, 0, 13]]); lk.sub([[7, 0, 12], [7, 0, 12]]);
+  lk.blk(3, 0, 14, 'iface', 'HCl 서브넷 경계', 'IF');
+  unit(5, 0, 14, { col: '--good', label: 'SiR', tip: 'Silicone Rubber 탱크|주 네트워크 Storage Bus' }); lk.part(5, 0, 14, 'n', 'sbus', 'Silicone Rubber 탱크');
+  // 전력
+  unit(14, 0, 14, { col: '--s5', label: 'EV Tr', tip: 'hv_transformer (승압)|EV Mixer용' });
+  unit(15, 0, 14, { col: '--s1', label: 'Conv', tip: '컨버터|전력' });
+  return built;
+}
+const PREP_NETS = [
+  { n: '주 네트워크', kind: '주', what: 'dust · ingot 결과물, Silicone Rubber · PVC, 원료(Steel · Chromium · Molybdenum · Silicon · Methanol · Sulfur)', edge: 'P2P → z = 5(금속) · z = 12(화학) 간선', seen: '—' },
+  { n: 'HCl 서브넷', kind: '서브넷', what: 'HCl · Diluted HCl — PDMS가 HCl 2000을 넣고 Diluted HCl 2000을 내는 닫힌 루프', edge: 'LCR ME Output Hatch → Diluted HCl 탱크 → Distillery → HCl 탱크 → LCR', seen: 'Interface(IF) Storage Bus로 잔량만. 주 네트워크의 다른 HCl 수요(Tungsten 산 처리)와 섞이지 않게' },
+  { n: 'LaserIO', kind: '레이저', what: 'Hot ingot: EBF → Vacuum Freezer', edge: 'EBF 출력 버스 위 노드 → VF 입력 노드', seen: '—' },
+];
+function viewPrep3d() {
+  return `
+  <h2>4 · 패시브 (IV 준비)</h2>${subnav()}
+  <p class="lead">금속(북쪽)과 피복 화학(남쪽)을 한 청크에 넣었습니다. 전부 1대씩이라 청크 절반씩이면 충분합니다. <b>ME Requester</b>가 재고 목표를 지키고, Pattern Provider가 재료를 넣고, Hot ingot만 LaserIO로 Vacuum Freezer에 보냅니다.</p>
+  ${layBlock('EV 패시브 (IV 준비) 청크 3D 배치도', [['--s8', 'EBF (Nichrome)'], ['--s7', 'EBF (RTM) · LCR'], ['--s5', 'EV 기계'], ['--s1', 'MV · HV 기계'], ['--s3', 'LV 기계'], ['--muted', '서브넷 탱크'], ['--good', '결과 탱크']].map(([c, t]) => `<span><i style="background:var(${c})"></i>${t}</span>`).join('') + logiLegend(['sbus', 'pp', 'iface', 'meout', 'p2p', 'req']) + pwLegend(PWM_P(), 4))}
+  <div class="card"><h3>네트워크 구성</h3>${logiNets(PREP_NETS)}</div>
+  <div class="card"><h3>배치 원칙</h3><ul class="pts">
+    <li><b>EBF-R은 처음부터 EV 해치 2개로</b>: HSS-G(EV 레시피)도 IV 전압에서 1단계 OC로 돌고, Shellite(IV)까지 한 대로 됩니다. EV 해치가 생기기 전에는 HV 해치 2개로 HSS-G만.</li>
+    <li><b>Mixer 결과물은 Pattern Provider로 되돌림</b>: 단일 블록 출력면을 Pattern Provider 쪽으로 두면 결과 dust가 바로 네트워크로(${EMI}). 인터페이스를 따로 둘 필요가 없어 자리가 줍니다.</li>
+    <li><b>HCl만 서브넷</b>: PDMS가 HCl을 넣고 같은 양의 Diluted HCl을 내서, 증류로 되돌리면 HCl은 거의 닫힌 루프입니다. 주 네트워크 HCl(Tungsten 산 처리 · PGS)과 섞이면 한쪽이 굶습니다.</li>
+  </ul></div>`;
+}
+function viewPrepPower() {
+  return `
+  <h2>4 · 패시브 (IV 준비)</h2>${subnav()}
+  <p class="lead">이 청크에도 <b>EV 64A</b>를 배정합니다. EBF-R만 IV 레시피(Shellite)라 EV 해치 2개 쪽 간선이 가장 굵습니다.</p>
+  ${pwCard(PWM_P(), 4)}`;
 }
 
 /* ---------- 5 IV 준비 ---------- */
@@ -691,14 +906,14 @@ function viewNext() {
   </div>`;
 }
 
-const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: viewResource, passive: { flow: viewPassiveFlow, '3d': viewPassive3d, power: viewPower }, next: viewNext };
+const VIEWS = { overview: viewOverview, gate: viewGate, entry: viewEntry, circuit: viewCircuit, resource: { route: viewResource, flow: viewPassiveFlow, '3d': viewRefine3d, power: viewPower }, passive: { metal: viewPrepMetal, chem: viewPrepChem, '3d': viewPrep3d, power: viewPrepPower }, next: viewNext };
 
 /* ---------- page wiring ---------- */
 startPage({
   key: 'ev-web',
   save: () => ({ veN: S.veN }),
   load: o => { if ([2, 3, 4].includes(o.veN)) S.veN = o.veN; },
-  layouts: [[viewPassive3d, () => pwWire(buildEvChunk(), PWM(), 4, 'Conv')]],
+  layouts: [[viewRefine3d, () => pwWire(buildEvChunk(), PWM(), 4, 'Conv')], [viewPrep3d, () => pwWire(buildPrepChunk(), PWM_P(), 4, 'Conv')]],
 });
 </script>
 </body>

@@ -68,7 +68,7 @@ function drawLayout() {
       const a = P(...it.s0), q = P(...it.s1);
       const T = PIPE[it.p.type];
       ctx.strokeStyle = colOf(T.c); ctx.lineWidth = T.w ? Math.max(1, sc * T.w) : pw; ctx.lineCap = 'round';
-      if (it.p.long) ctx.setLineDash([5, 4]);
+      if (it.p.long || T.dash) ctx.setLineDash(T.dash || [5, 4]);
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); ctx.setLineDash([]);
       hit.push({ seg: [a, q], tip: `${T.n}|${it.p.long ? '8칸 초과 — Laser Connector로 중계' : T.w ? '케이블 · 레이저' : '배관'}` });
       return;
